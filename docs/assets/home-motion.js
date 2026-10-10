@@ -591,7 +591,7 @@
         gw('<div class="ind"><div class="ans"></div></div>', "g6") +
         "</div>" + composer("DeepSeek V3.2", "CLOUD", '<span class="mode">' + ic("bot") + "Agent</span>") + "</div></div>" +
         '<div class="br"><div class="br-bar"><i></i><i></i><i></i><div class="br-url"><b></b><span class="u"></span></div></div><div class="br-pg">' +
-          '<div class="pg-raw"><h1>Crumb &amp; Co.</h1><p>Bread worth waking up for.</p><h2>Menu</h2><ul><li>Sourdough loaf, 4.50</li><li>Cinnamon roll, 3.20</li><li>Rye with seeds, 5.00</li></ul><h2>Opening hours</h2><p>Tuesday to Sunday, 7:00 to 14:00</p><p><a>Find us</a></p></div>' +
+          '<div class="pg-raw"><div class="h1">Crumb &amp; Co.</div><p>Bread worth waking up for.</p><div class="h2">Menu</div><ul><li>Sourdough loaf, 4.50</li><li>Cinnamon roll, 3.20</li><li>Rye with seeds, 5.00</li></ul><div class="h2">Opening hours</div><p>Tuesday to Sunday, 7:00 to 14:00</p><p><a>Find us</a></p></div>' +
           '<div class="pg"><div class="pg-hero"><b>Crumb &amp; Co.</b><span>Bread worth waking up for.</span><em>See the menu</em></div>' +
             '<div class="pg-menu"><div><i style="background:linear-gradient(135deg,#e8b77a,#b8752f)"></i><b>Sourdough</b><small>4.50</small></div><div><i style="background:linear-gradient(135deg,#f3d3a3,#c98b4c)"></i><b>Cinnamon roll</b><small>3.20</small></div><div><i style="background:linear-gradient(135deg,#a07852,#5d3b22)"></i><b>Seeded rye</b><small>5.00</small></div></div>' +
             '<div class="pg-hours"><span>Tue to Sun</span><span>7:00 to 14:00</span></div></div>' +

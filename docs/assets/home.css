@@ -565,8 +565,8 @@ html.hm .hp-get.in .get-mark-p+.get-mark-p{transition-delay:.53s}
 .br-url b.live{background:#16a34a}
 .br-pg{position:absolute;left:0;right:0;top:30px;bottom:0;overflow:hidden}
 .pg-raw{position:absolute;inset:0;padding:12px 14px;background:#fff;color:#111;font-family:"Times New Roman",Times,serif;font-size:12px;line-height:1.35}
-.pg-raw h1{font-size:21px;margin:0 0 4px;font-weight:700}
-.pg-raw h2{font-size:15px;margin:10px 0 3px;font-weight:700}
+.pg-raw h1,.pg-raw .h1{font-size:21px;margin:0 0 4px;font-weight:700}
+.pg-raw h2,.pg-raw .h2{font-size:15px;margin:10px 0 3px;font-weight:700}
 .pg-raw p,.pg-raw li{margin:0}
 .pg-raw ul{margin:0;padding-left:18px}
 .pg-raw a{color:#1d4ed8;text-decoration:underline}
