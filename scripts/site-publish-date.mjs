@@ -63,6 +63,13 @@ export function urlOf(file) {
 // one, and a new footer link is no reason to tell a crawler the page changed.
 const FOOTER_ONLY = /^\s*(<a href="[^"]*\/(privacy|terms|impressum)\/">(Privacy|Terms|Impressum)<\/a>|<\/?footer>|<div class="footer-row footer-links">|<\/div>|(&middot;\s*)?(<a href="\/(privacy|terms|impressum)\/">(Privacy|Terms|Impressum)<\/a>\s*(&middot;)?\s*)+)\s*$/
 
+// The same holds for the frame every page shares: the Pricing link and the
+// Cloud button in the header, the footer links to the hosted pages, and the
+// breadcrumb block in the head, which repeats the visible trail. A page whose
+// only change is its frame keeps its date, so lastmod stays a statement about
+// the text.
+const FRAME_ONLY = /^\s*(<a class="lu-nav-link" href="\/pricing\/">Pricing<\/a>|<a class="he-cta" href="\/pricing\/".*|<a href="https:\/\/locallyuncensored\.com\/(pricing|cloud|uncensored-ai-chat-online|uncensored-ai-image-generator-online|uncensored-ai-video-generator-online|alternatives|is-locally-uncensored-safe)\/">[^<]*<\/a>|<script type="application\/ld\+json">|<\/script>|\{"@context":"https:\/\/schema\.org","@type":"BreadcrumbList".*)\s*$/
+
 /** Pages under docs/ whose text differs from `base` by more than a footer link. */
 export function changedPages(base, root = ROOT) {
   const diff = execFileSync('git', ['-C', root, 'diff', '-U0', base, '--', 'docs'], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
@@ -71,7 +78,7 @@ export function changedPages(base, root = ROOT) {
   for (const line of diff.split('\n')) {
     if (line.startsWith('+++ b/')) file = line.slice(6)
     else if (line.startsWith('--- ') || line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('@@')) continue
-    else if (file && /\.html$/.test(file) && /^[+-]/.test(line) && line.slice(1).trim() && !FOOTER_ONLY.test(line.slice(1))) pages.add(file)
+    else if (file && /\.html$/.test(file) && /^[+-]/.test(line) && line.slice(1).trim() && !FOOTER_ONLY.test(line.slice(1)) && !FRAME_ONLY.test(line.slice(1))) pages.add(file)
   }
   return [...pages]
 }
