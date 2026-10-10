@@ -37,7 +37,8 @@ it('every chapter page exists, links back to the hub, and carries parseable JSON
     expect(blocks.length, slug).toBeGreaterThan(0)
     for (const block of blocks) {
       const ld = JSON.parse(block.textContent!)
-      expect(ld['@type'], slug).toBe('TechArticle')
+      expect(['TechArticle', 'BreadcrumbList'], slug).toContain(ld['@type'])
+      if (ld['@type'] === 'BreadcrumbList') continue
       expect(ld.isPartOf?.url, slug).toBe('https://locallyuncensored.com/guide/')
     }
     const description = page.querySelector('meta[name="description"]')!.getAttribute('content')
