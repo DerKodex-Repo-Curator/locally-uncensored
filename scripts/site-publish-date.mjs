@@ -67,8 +67,9 @@ const FOOTER_ONLY = /^\s*(<a href="[^"]*\/(privacy|terms|impressum)\/">(Privacy|
 // Cloud button in the header, the footer links to the hosted pages, and the
 // breadcrumb block in the head, which repeats the visible trail. A page whose
 // only change is its frame keeps its date, so lastmod stays a statement about
-// the text.
-const FRAME_ONLY = /^\s*(<a class="lu-nav-link" href="\/pricing\/">Pricing<\/a>|<a class="he-cta" href="\/pricing\/".*|<a href="https:\/\/locallyuncensored\.com\/(pricing|cloud|uncensored-ai-chat-online|uncensored-ai-image-generator-online|uncensored-ai-video-generator-online|alternatives|is-locally-uncensored-safe)\/">[^<]*<\/a>|<script type="application\/ld\+json">|<\/script>|\{"@context":"https:\/\/schema\.org","@type":"BreadcrumbList".*)\s*$/
+// the text. The list of handbook chapters and the one line about LU Cloud at
+// the end of a post belong to the frame as well: every post got the same ones.
+const FRAME_ONLY = /^\s*(<a class="lu-nav-link" href="\/pricing\/">Pricing<\/a>|<a class="he-cta" href="\/pricing\/".*|<a href="https:\/\/locallyuncensored\.com\/(pricing|cloud|uncensored-ai-chat-online|uncensored-ai-image-generator-online|uncensored-ai-video-generator-online|alternatives|is-locally-uncensored-safe)\/">[^<]*<\/a>|<script type="application\/ld\+json">|<\/script>|\{"@context":"https:\/\/schema\.org","@type":"BreadcrumbList".*|<h2>(In the handbook|More comparisons)<\/h2>|<\/?ul>|<li><a href="\/(guide|alternatives|vs|qwen|deepseek|kimi|blog\/how-to-run-flux-locally)[^"]*">[^<]*<\/a>, [^<]*<\/li>|<p style="margin-top:1[48]px;margin-bottom:0[^"]*">(No GPU\? LU Cloud runs in a browser|Keine GPU\? LU Cloud l&auml;uft im Browser).*)\s*$/
 
 /** Pages under docs/ whose text differs from `base` by more than a footer link. */
 export function changedPages(base, root = ROOT) {
