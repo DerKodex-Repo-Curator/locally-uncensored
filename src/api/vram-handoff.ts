@@ -108,7 +108,7 @@ async function comfyRendersOnCpu(): Promise<boolean> {
 
 /**
  * Resolve a casual model name the user/LLM typed (e.g. "FramePack", "wan",
- * "sdxl") to an actually-installed model FILENAME. David 2026-06-04: no end user
+ * "sdxl") to an actually-installed model FILENAME. 2026-06-04: no end user
  * types `FramePackI2V_HY_fp8_e4m3fn.safetensors`. Tries, in order: normalized
  * exact match, requested-is-substring-of-model, model-is-substring, then token
  * overlap. Returns null when nothing matches confidently, so the caller reports
@@ -495,7 +495,7 @@ export function estimateLmsTextVramBytes(id: string): number | undefined {
 }
 
 // ── Built-in engine (llama-server) juggling + KV-slot carry (GH #85) ──
-// I-Am-LongXi: llama.cpp can serialize a slot's KV cache to disk and restore
+// A user: llama.cpp can serialize a slot's KV cache to disk and restore
 // it after a reload. The handoff uses that, so evicting the built-in engine
 // for a render no longer costs a full history re-process on the next turn.
 // The HTTP rides the Rust side (kv_slot_action): the webview cannot reach the
@@ -545,14 +545,14 @@ function sleep(ms: number): Promise<void> {
 // reload-in-finally of call #1 can never overlap the generate of call #2.
 let _inFlight: Promise<unknown> = Promise.resolve()
 
-// ── User-initiated cancel (David 2026-06-16) ────────────────────────────────
+// ── User-initiated cancel (2026-06-16) ────────────────────────────────
 // The agent's AbortController never reached the ComfyUI poll loop, so "Stop"
 // left ComfyUI rendering (a ~500 s SVD video kept burning the GPU after the UI
 // said it stopped). This module-level flag + ComfyUI /interrupt give the
 // in-chat cancel button a REAL abort. Only one generation runs at a time
 // (serialised via _inFlight), so one flag suffices.
 //
-// David 2026-06-16 (bug B): a bare flag checked only BETWEEN getHistory calls
+// 2026-06-16 (bug B): a bare flag checked only BETWEEN getHistory calls
 // wasn't enough — `image_generate` Stop "hung at stopping…". The hang: each
 // poll tick blocks in `await getHistory` (15 s cap) while ComfyUI COLD-LOADS the
 // checkpoint (RealVisXL is a long, non-interruptible load), and /interrupt is a
@@ -1145,7 +1145,7 @@ async function runHandoff(
     emitHandoff('generating', { kind, detail: targetModel })
 
     // Race the WHOLE generation against the cancel signal — not just the poll
-    // loop. David 2026-06-16 (web build): "Stop" sat on "stopping…" forever
+    // loop. 2026-06-16 (web build): "Stop" sat on "stopping…" forever
     // because generateImage was stuck BEFORE the poll loop (fetchCaps /
     // buildDynamicWorkflow — /object_info fetches that can hang through a web
     // proxy), and the cancel flag was only checked inside pollAndExtract /
@@ -1167,7 +1167,7 @@ async function runHandoff(
     // best-effort reload the text model. The reload is non-fatal: if it throws,
     // Ollama will lazy-load on the user's next message anyway.
     emitHandoff('restoring_text', { kind, detail: evictedModel ?? evictedLms?.id ?? undefined })
-    // David 2026-06-16 (bug C — RealVisXL "6 min+"): only force a ComfyUI VRAM
+    // 2026-06-16 (bug C — RealVisXL "6 min+"): only force a ComfyUI VRAM
     // unload when we ACTUALLY evicted a text model (it needs the room to reload)
     // or the user cancelled (stop the burn). When nothing was evicted — the
     // common image case, where the small chat model and the SDXL checkpoint
@@ -1185,7 +1185,7 @@ async function runHandoff(
         // A heavy video model (e.g. wan2.2 5B on a 12 GB GPU) can leave ComfyUI
         // holding a wedged CUDA context that blocks Ollama from re-initializing
         // the text model: loadModel throws "CUDA error: shared object
-        // initialization failed" (David 2026-06-16, E2E). It is NOT an OOM — VRAM
+        // initialization failed" (2026-06-16, E2E). It is NOT an OOM — VRAM
         // is already free — and it survives even an Ollama restart; the only thing
         // that clears it is stopping ComfyUI's process to release its CUDA context.
         // So on that failure class, stop ComfyUI and retry the reload ONCE, so the
@@ -1328,7 +1328,7 @@ async function generateImage(
         height,
         seed,
         batchSize,
-        // Multi-LoRA (konata): accept a single name, an array, or a comma-
+        // Multi-LoRA: accept a single name, an array, or a comma-
         // joined string; same for strengths. buildDynamicWorkflow normalizes
         // and chains them — invalid shapes are simply dropped here.
         ...(typeof a.lora === 'string' && a.lora
@@ -1431,7 +1431,7 @@ async function generateVideo(
       // resolveTunables falls back to the generic KSampler caps default (cfg 8 /
       // 20 steps) over our model default. Wan 2.2 5B over-cooks at cfg 8 — its
       // known-good sampling is cfg ~5 / ~30 steps. Honor an explicit user ask,
-      // else force the Wan default (David 2026-06-11: "Qualität muss stimmen").
+      // else force the Wan default (2026-06-11: "Qualität muss stimmen").
       const avq = args as Record<string, unknown>
       const tunSteps = avq.steps !== undefined ? tun.steps : d.steps
       const tunCfg = (avq.cfg ?? avq.cfg_scale ?? avq.cfgScale) !== undefined ? tun.cfg : d.cfg
@@ -1489,7 +1489,7 @@ async function generateVideo(
       }
       const inputImage = resolved.name
       // SVD-XT genuinely caps ~25 frames. FramePack PACKS long video, so its real
-      // ceiling comes from getModelCapabilities (request-driven — David 2026-06-04:
+      // ceiling comes from getModelCapabilities (request-driven — 2026-06-04:
       // "FramePacks frame cap anheben durch input von uns"). REJECT (not clamp) an
       // explicit over-limit request so the user sees the actual max (decision 2).
       const defFps = type === 'framepack' ? 16 : 8
@@ -1500,7 +1500,7 @@ async function generateVideo(
       const tun = resolveTunables(args, caps, { steps: type === 'framepack' ? 25 : 20, cfg: 3, sampler: 'euler', scheduler: 'normal' })
       if (tun.reject) return `Cannot generate: ${tun.reject}`
       const av = args as Record<string, unknown>
-      // Resolution from the SOURCE aspect ratio (David 2026-06-11: portrait
+      // Resolution from the SOURCE aspect ratio (2026-06-11: portrait
       // stills came back as squished landscape that no longer matched the
       // input). An explicit user width/height still wins; otherwise we pick the
       // model's native bucket and an ImageScale(crop:center) fills it cleanly.
@@ -1727,7 +1727,7 @@ async function pollAndExtract(promptId: string, prompt: string, kindLabel: strin
       if (history?.status?.status_str === 'error') {
         // Pull the richest detail ComfyUI gives us: an execution_error carries
         // node_type + exception_type + exception_message (the plain `message`
-        // field is usually empty for node errors — David 2026-06-11, FramePack).
+        // field is usually empty for node errors — 2026-06-11, FramePack).
         // ComfyHistoryEntry DECLARES `messages` as pairs; getHistory only
         // checked that the entry is an object, so the array-ness is tested
         // here rather than assumed by a `?.find` that would throw on a string.
@@ -1799,7 +1799,7 @@ export function comfyErrorHint(
   gpuArch?: string | null,
 ): string {
   const m = message.toLowerCase()
-  // FramePack wrapper version mismatch (David 2026-06-11, RTX 3060): the
+  // FramePack wrapper version mismatch (2026-06-11, RTX 3060): the
   // installed ComfyUI-FramePackWrapper's LoadFramePackModel produces a
   // HyVideoModel its OWN FramePackSampler can't consume. Upstream custom-node
   // bug — independent of LU's workflow (which now loads without OOM).
@@ -1820,7 +1820,7 @@ export function comfyErrorHint(
       m.includes('tensilelibrary')) {
     return 'Your AMD card was found and used, but the ROCm build of PyTorch in this ComfyUI environment carries no compute kernels for this particular chip, so the first step of the render had nothing to run. Rebuilding the environment installs the same wheels and will not change this. Set Settings → Hardware → ComfyUI GPU to Force CPU to render on the processor instead: much slower, but it completes. Running ComfyUI with HSA_OVERRIDE_GFX_VERSION=10.3.0 is the community workaround for RDNA 2 cards; it is not supported by AMD and LU does not set it for you.'
   }
-  // A12 (artoriuskurokami, Discord 2026-09-02, RX 9070 XT): image generation
+  // A12 (Discord 2026-09-02, RX 9070 XT): image generation
   // dies on `CUDA error: invalid argument / Search for 'hipErrorInvalidValue'`
   // while the same run on the processor completes. The card is RDNA 4, which is
   // new enough that a ROCm PyTorch built before it has no kernels for the
@@ -1840,7 +1840,15 @@ export function comfyErrorHint(
   if (m.includes('out of memory') || m.includes('outofmemory') || _excType === 'torch.OutOfMemoryError') {
     return 'Ran out of GPU memory. Try a shorter clip / lower resolution, set VRAM hand-off to "always" in Settings so the chat model is evicted first, or pick a lighter model.'
   }
-  // Windows "paging file is too small" (os error 1455, bear5real0o0 GH #61):
+  // "CUDA error: unknown error" (cudaErrorUnknown, GH discussion 130): the
+  // driver lost the card mid-call and has no better name for it. It surfaces on
+  // whichever node touched the GPU first (often CLIPTextEncode), so it reads
+  // like a broken model or prompt when neither is at fault. Sits below the
+  // out-of-memory branch on purpose: a real "CUDA out of memory" stays that.
+  if (m.includes('cudaerrorunknown') || m.includes('cuda error: unknown error')) {
+    return 'This error comes from the graphics driver, not from the model or your prompt. It usually clears after restarting ComfyUI or the computer. If it keeps coming back, update the graphics driver.'
+  }
+  // Windows "paging file is too small" (os error 1455, GH #61):
   // ComfyUI couldn't commit enough memory while loading a node (often the text
   // encoder / CLIPLoader) because the OS ran out of RAM + pagefile. This is a
   // Windows virtual-memory setting, not an LU bug — point the user at the fix.
@@ -1974,7 +1982,7 @@ async function fetchCaps(model: string, kind: 'image' | 'video'): Promise<ModelC
  * Resolve a clip's (frames, fps) from the agent's optional `seconds` / `frames`
  * / `fps`, capped to a model's frame limit.
  *
- * David 2026-06-03: chat videos came out ~1 s because the I2V default was a
+ * 2026-06-03: chat videos came out ~1 s because the I2V default was a
  * stubby 14 frames @ 8 fps. Now:
  *  - `seconds` is the preferred control → frames = round(seconds * fps).
  *  - When the requested duration needs more frames than the model can make
@@ -2035,7 +2043,7 @@ async function resolveInputImage(ref: string): Promise<ResolvedInputImage> {
     throw new Error(`could not read input image "${ref}", ComfyUI returned an empty file`)
   }
   // Probe the source dimensions so the I2V path can pick the model's native
-  // aspect ratio (David 2026-06-11: a portrait still forced into 768×448
+  // aspect ratio (2026-06-11: a portrait still forced into 768×448
   // landscape no longer resembled the source). Best-effort — a probe failure
   // just yields 0×0 and the caller falls back to a sane default.
   let width = 0
@@ -2106,7 +2114,7 @@ export function resolveI2VResolution(
     // the builder fills it. Budget by TOTAL PIXELS, not the long edge: a square
     // 1024² still (1.05 M px) sits at the VRAM ceiling on a 12 GB 3060 and can't
     // do 5-7 s, while a 16:9 1024×576 (0.59 M px) runs the whole matrix. ~0.6 M
-    // px keeps every aspect tractable on 12 GB (David 2026-06-11: 5B I2V must be
+    // px keeps every aspect tractable on 12 GB (2026-06-11: 5B I2V must be
     // PRACTICAL + good, not just native-res-but-OOM).
     const BUDGET_PX = 600_000
     let w = srcW
@@ -2449,7 +2457,7 @@ async function restoreParked(): Promise<void> {
   // Left as it is on purpose. It is the deliberate hand-off (a resident chat
   // model squatting the card is what forced heavy CPU offload and the OOMs on
   // the 14B lanes), and `exclusiveVramMode: 'never'` already turns the whole
-  // juggle off. Trading a render's load time against a chat model's is David's
+  // juggle off. Trading a render's load time against a chat model's is the owner's
   // call, not a fixer's.
   _restoreInFlight = true
   try {

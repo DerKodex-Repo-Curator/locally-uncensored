@@ -315,7 +315,7 @@ describe('the encoder search never picks an enhancer', () => {
 describe('the two Model Manager bundles', () => {
   const bundles = getImageBundles().filter((b) => b.tags.includes('Prompt Enhancer'))
   const official = bundles.find((b) => b.name === 'Qwen-Image 2.1 Prompt Enhancer (Official)')
-  const free = bundles.find((b) => b.name === 'Qwen-Image 2.1 Prompt Enhancer (No Refusals)')
+  const free = bundles.find((b) => b.name === 'Qwen-Image 2.1 Prompt Enhancer (No Filter)')
 
   /** file name -> [repo path, SHA-256], as the Hugging Face API states them. */
   const FILES: Record<string, [string, string]> = {
@@ -333,7 +333,7 @@ describe('the two Model Manager bundles', () => {
   it('there are exactly two: the official one and the one without refusals', () => {
     expect(bundles.map((b) => b.name)).toEqual([
       'Qwen-Image 2.1 Prompt Enhancer (Official)',
-      'Qwen-Image 2.1 Prompt Enhancer (No Refusals)',
+      'Qwen-Image 2.1 Prompt Enhancer (No Filter)',
     ])
     expect(official!.uncensored).toBe(false)
     expect(free!.uncensored).toBe(true)

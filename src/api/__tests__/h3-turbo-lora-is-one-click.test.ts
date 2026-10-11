@@ -1,6 +1,6 @@
 /**
  * The MiniMax H3 turbo LoRA is a catalog download (Discord 2026-10-03,
- * boromirofgeo: 3.0.4 said "put the turbo lora in the lora stack and it runs
+ * A user: 3.0.4 said "put the turbo lora in the lora stack and it runs
  * at 8 steps", and he asked how the LoRA gets there).
  *
  * The file is the one the official Comfy-Org templates video_minimax_h3_t2v

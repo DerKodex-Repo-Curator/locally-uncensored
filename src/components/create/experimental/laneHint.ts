@@ -1,7 +1,7 @@
 // The caption under the prompt field for lanes that take no prompt — shared,
 // pure, testable.
 //
-// David 2026-07-26, watching a Motion Control run: the card kept saying "add a
+// 2026-07-26, watching a Motion Control run: the card kept saying "add a
 // character image and a driving dance/pose video above, then hit Create" while
 // both chips were filled and the sampler was already counting steps. The
 // caption was rendered on `!needsPrompt` alone, so it never reacted to anything
@@ -32,6 +32,17 @@ export function noPromptHint(id: CreateIntent, backend: CreateBackend = 'local')
     default:
       return 'No prompt needed. Just hit Create to remove the background.'
   }
+}
+
+/**
+ * What the Create button says while it waits for the image on the Stage. The
+ * Stage shows the drop area, and the button names the same thing, so a
+ * disabled Create is never a riddle. Null while nothing of the kind is
+ * missing: a lane without a source, or a source that is there.
+ */
+export function missingSourceHint(opts: { intent: CreateIntent; needsSource: boolean; hasSource: boolean }): string | null {
+  if (!opts.needsSource || opts.hasSource) return null
+  return opts.intent === 'animate' ? 'Add a start image first.' : 'Add an image first.'
 }
 
 /**

@@ -5,7 +5,7 @@ import { getImageBundles, getVideoBundles } from '../../../api/model-bundles'
 import { bundleGetPlan, catalogFileBytes } from '../../../lib/bundle-state'
 import { formatBytes } from '../../../lib/formatters'
 
-// The box, 03.10.2026: "Qwen-Image 2.1 (No Refusals)" and "Noct Q" read
+// The box, 03.10.2026: "Qwen-Image 2.1 (No Filter)" and "Noct Q" read
 // "Get · 16.1 GB" and "Install 3 files (16.1 GB)". Two of the three files are
 // shared with the official bundle and were there already; the click fetched
 // one file of 8.7 GB. A card announces what the click will fetch.
@@ -26,8 +26,8 @@ function tile(name: string, filesOnDisk?: Set<string>): string {
 const SHARED = new Set(['qwen_image_2.1_int8_convrot.safetensors', 'qwen3vl_8b_int8_convrot.safetensors', 'qwen_image_2.1_vae_bf16.safetensors'])
 
 describe('a bundle card announces what Get will fetch', () => {
-  it('No Refusals with the official bundle installed: one file, the encoder', () => {
-    const html = tile('Qwen-Image 2.1 (No Refusals)', SHARED)
+  it('No Filter with the official bundle installed: one file, the encoder', () => {
+    const html = tile('Qwen-Image 2.1 (No Filter)', SHARED)
     expect(html).toContain('Get · 8.7 GB')
     expect(html).toContain('title="Install 1 file (8.7 GB), 2 already here"')
     expect(html).not.toContain('Get · 16.1 GB')
@@ -40,14 +40,14 @@ describe('a bundle card announces what Get will fetch', () => {
   })
 
   it('with nothing on disk the whole bundle is announced', () => {
-    const html = tile('Qwen-Image 2.1 (No Refusals)')
+    const html = tile('Qwen-Image 2.1 (No Filter)')
     expect(html).toContain('Get · 16.1 GB')
     expect(html).toContain('title="Install 3 files (16.1 GB)"')
     expect(html).not.toContain('already here')
   })
 
   it('the card still names the size of the whole bundle next to the file count', () => {
-    const html = tile('Qwen-Image 2.1 (No Refusals)', SHARED)
+    const html = tile('Qwen-Image 2.1 (No Filter)', SHARED)
     expect(html).toMatch(/16\.1 GB<\/span><span[^>]*>3 files/)
   })
 
@@ -75,7 +75,7 @@ describe('sizes are summed from the files, in bytes', () => {
   })
 
   it('files on disk that ComfyUI does not list: Get names the whole bundle again', () => {
-    const b = bundle('Qwen-Image 2.1 (No Refusals)')
+    const b = bundle('Qwen-Image 2.1 (No Filter)')
     const everything = new Set(b.files.map((f) => f.filename!))
     const plan = bundleGetPlan(b, everything)
     expect(plan.fetchFiles).toBe(3)

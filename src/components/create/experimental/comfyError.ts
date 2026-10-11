@@ -29,7 +29,7 @@ export const REPAIR_ADVICE =
 
 /** Der Satz unter der Ausgabe, aus einer Stelle statt aus zweien.
  *
- *  Ticket 007 (falcon bob, 01.09. bis 02.09.): sein torch starb an einem
+ *  Ticket 007 (a user, 01.09. bis 02.09.): sein torch starb an einem
  *  WinError 1114, und die Oberflaeche haengte trotzdem den allgemeinen Satz
  *  an. Der Einordner des Installers kannte diesen Fehler die ganze Zeit, also
  *  gewinnt sein Hinweis, sobald Rust einen mitliefert. Bleibt keiner uebrig,

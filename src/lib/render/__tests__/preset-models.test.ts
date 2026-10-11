@@ -1,14 +1,14 @@
 // Ein Modell, das in einem Preset-Schritt auswaehlbar ist, muss diesen Schritt
 // auch wirklich rechnen koennen.
 //
-// 19.09.2026, Entscheid von David: der Kunde waehlt im Preset selbst, welches
+// 19.09.2026, Entscheid des Inhabers: der Kunde waehlt im Preset selbst, welches
 // Modell den Schritt faehrt. Damit ist jede Liste hier ein Versprechen. Der
 // Fall unten loest es ein: fuer jedes Mitglied gibt es einen Preis auf beiden
 // Seiten und einen Op, den die Submit-Route annimmt.
 //
 // Desktop port (P2): zwei Web-Faelle sind gestrichen, nicht angepasst.
 // "Der Worker hat fuer jedes Mitglied eine Route" liest
-// services/render-worker/src/providers/wavespeed.ts, eine Serverdatei, die es
+// the render worker, eine Serverdatei, die es
 // im Desktop-Checkout gar nicht gibt (Portplan Abschnitt 2.3: Worker NICHT
 // portiert). "jedes Mitglied hat einen Preis, und der klassische ist der der
 // Route" vergleicht gegen creditCost aus app/api/jobs/route.ts, ebenfalls

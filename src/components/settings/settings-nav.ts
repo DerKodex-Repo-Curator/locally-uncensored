@@ -45,7 +45,7 @@ export function sectionAnchorId(title: string): string {
  * benannt, damit Rail und Inhalt dieselbe Wahrheit lesen.
  */
 export interface SettingsSectionFlags {
-  /** `!isMlxImageHost()` — der GPU-Picker ist auf Apple Silicon durchweg ein No-op. */
+  /** `!isMlxImageHost()`: der GPU-Picker ist auf Apple Silicon durchweg ein No-op; der Mac bekommt an derselben Stelle die Anzeige „Hardware“ ohne Waehler. */
   gpuPicker: boolean
   /** `builtinManaged` — der Expertenblock existiert nur, wenn der openai-Slot die eigene Engine IST. */
   builtinExpert: boolean
@@ -79,7 +79,7 @@ export function sectionsFor(tab: SettingsTab, flags: SettingsSectionFlags): stri
         'Cloud API Keys',
         'Appearance',
         'Generation',
-        ...(flags.gpuPicker ? ['Hardware (GPU picker)'] : []),
+        flags.gpuPicker ? 'Hardware (GPU picker)' : 'Hardware',
         'Import from other chatbots',
         'Chat Backup',
         ...(flags.mediaTimeouts ? ['Image / Video Generation Timeouts'] : []),

@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { safeJSONStorage } from "../lib/storage-quota"
+import { VOICE_WORK_DEFAULTS } from "../lib/voice/work-scope"
+import type { VoiceWorkScope } from "../lib/voice/work-scope"
+import type { AgentWorkspace } from "../types/agent-workspace"
 
 interface VoiceState {
   // Transient state (not persisted)
@@ -16,7 +19,7 @@ interface VoiceState {
   // Whether local neural TTS (Piper) is installed + a voice model is present.
   // Same transient/probe model as sttAvailable.
   ttsAvailable: boolean;
-  /** #77 (ElBiggus): why the last read-aloud fell back to the system voice
+  /** #77: why the last read-aloud fell back to the system voice
    *  although Piper is installed + selected. Transient, shown in Settings —
    *  the silent fallback made this class of failure undiagnosable. */
   ttsFallbackReason: string | null;
@@ -33,10 +36,10 @@ interface VoiceState {
    *  used to say "Speech-to-text off. Enable it in Settings" and named exactly
    *  this dead flag as the cause, while the real cause was a missing
    *  faster-whisper (Gegenprobe 2026-08-30). Whether it gets removed or grown
-   *  into a real switch is open (design question to David). */
+   *  into a real switch is open (design question to the owner). */
   sttEnabled: boolean;
   ttsEnabled: boolean;
-  /** Read each finished response aloud automatically (#77, ElBiggus). Opt-in,
+  /** Read each finished response aloud automatically (#77). Opt-in,
    *  default OFF — TTS on only surfaces the manual per-message Speaker button;
    *  this additionally auto-reads when the turn completes. */
   autoReadAloud: boolean;
@@ -55,6 +58,26 @@ interface VoiceState {
   externalTtsVoice: string;
   /** MiniMax voice for the cloud TTS endpoint (appMode 'cloud'). */
   cloudTtsVoice: string;
+  /** The microphone for dictation and Voice, empty for the system default. */
+  micId: string;
+  /** The name of that microphone, to show it and to find it again while it is unplugged or under a new id. */
+  micLabel: string;
+  /** Voice surface: a session starts with the microphone muted. */
+  loopStartMuted: boolean;
+  /** Voice surface: a short quiet sound says that a session is listening. */
+  loopStartSound: boolean;
+  /** Voice surface: the model may use tools. Off is a conversation only. */
+  loopAgent: boolean;
+  /** Voice surface: where the tools may work. */
+  loopScope: VoiceWorkScope;
+  /** Voice surface: the folder picked there, null for the default folder or the session's own. */
+  loopWorkspace: AgentWorkspace | null;
+  /** Voice surface: the user confirmed once what "Whole computer" means. */
+  loopComputerConfirmed: boolean;
+  /** Voice surface: the model may think before it answers, and the thought is shown. */
+  loopThinking: boolean;
+  /** Voice surface: how long a thought may get, in tokens. */
+  loopThinkingBudget: number;
 
   // Actions
   setRecording: (recording: boolean) => void;
@@ -78,6 +101,16 @@ interface VoiceState {
       externalTtsUrl: string;
       externalTtsVoice: string;
       cloudTtsVoice: string;
+      micId: string;
+      micLabel: string;
+      loopStartMuted: boolean;
+      loopStartSound: boolean;
+      loopAgent: boolean;
+      loopScope: VoiceWorkScope;
+      loopWorkspace: AgentWorkspace | null;
+      loopComputerConfirmed: boolean;
+      loopThinking: boolean;
+      loopThinkingBudget: number;
     }>
   ) => void;
   resetTransient: () => void;
@@ -100,7 +133,7 @@ export const useVoiceStore = create<VoiceState>()(
       ttsFallbackReason: null,
       sttError: null,
 
-      // Persisted settings — voice OFF by default (David 2026-06-07:
+      // Persisted settings — voice OFF by default (2026-06-07:
       // "tts und stt standardmäßig AUS und nicht immer automatisch vorlesen").
       // STT and TTS are opt-in. TTS on surfaces the per-message read-aloud
       // Speaker button; auto-reading is a SEPARATE opt-in (autoReadAloud, default
@@ -116,6 +149,11 @@ export const useVoiceStore = create<VoiceState>()(
       externalTtsUrl: "",
       externalTtsVoice: "",
       cloudTtsVoice: "Wise_Woman",
+      micId: "",
+      micLabel: "",
+      loopStartMuted: false,
+      loopStartSound: true,
+      ...VOICE_WORK_DEFAULTS,
 
       // Actions
       setRecording: (recording) => set({ isRecording: recording }),
@@ -152,6 +190,11 @@ export const useVoiceStore = create<VoiceState>()(
           externalTtsUrl: "",
           externalTtsVoice: "",
           cloudTtsVoice: "Wise_Woman",
+          micId: "",
+      micLabel: "",
+          loopStartMuted: false,
+          loopStartSound: true,
+          ...VOICE_WORK_DEFAULTS,
         }),
     }),
     {
@@ -168,11 +211,21 @@ export const useVoiceStore = create<VoiceState>()(
         // GitHub #58 — persist the engine choice + external endpoint. Without
         // these the store reverts to ttsMode:"piper" with an empty URL on the
         // next launch, so picking "External HTTP" never sticks and the output
-        // stays Piper (hussam-batshon: "after saving it still shows Piper").
+        // stays Piper (a user-batshon: "after saving it still shows Piper").
         ttsMode: state.ttsMode,
         externalTtsUrl: state.externalTtsUrl,
         cloudTtsVoice: state.cloudTtsVoice,
         externalTtsVoice: state.externalTtsVoice,
+        micId: state.micId,
+        micLabel: state.micLabel,
+        loopStartMuted: state.loopStartMuted,
+        loopStartSound: state.loopStartSound,
+        loopAgent: state.loopAgent,
+        loopScope: state.loopScope,
+        loopWorkspace: state.loopWorkspace,
+        loopComputerConfirmed: state.loopComputerConfirmed,
+        loopThinking: state.loopThinking,
+        loopThinkingBudget: state.loopThinkingBudget,
       }),
     }
   )

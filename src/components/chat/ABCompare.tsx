@@ -3,6 +3,8 @@ import { useCompareStore } from '../../stores/compareStore'
 import { useModels } from '../../hooks/useModels'
 import { useABCompare } from '../../hooks/useABCompare'
 import { MarkdownRenderer } from './MarkdownRenderer'
+import { StatusChip } from '../status/StatusChip'
+import { deriveRunStatus } from '../status/run-status'
 import { stripModelNoise } from '../../lib/strip-model-noise'
 import { ArrowLeft, Send, Square, Zap, Clock, Hash } from 'lucide-react'
 import { displayModelName } from '../../api/providers/registry'
@@ -102,7 +104,7 @@ export function ABCompare() {
         {/* Model A column */}
         <div className="flex-1 flex flex-col border-r border-white/5">
           <div className="px-3 py-1.5 border-b border-white/5 flex items-center justify-between">
-            <span className="t-micro font-medium text-red-400">{modelA || 'Select Model A'}</span>
+            <span className="t-micro font-medium text-red-400">{modelA ? displayModelName(modelA) : 'Select Model A'}</span>
             {statsA && (
               <div className="flex items-center gap-2 text-[0.5rem] text-gray-500 lu-hud-num">
                 <span className="flex items-center gap-0.5"><Zap size={8} />{statsA.tokensPerSec.toFixed(1)} t/s</span>
@@ -115,7 +117,9 @@ export function ABCompare() {
             {messagesA.map(msg => (
               <div key={msg.id} className={`text-[0.7rem] ${msg.role === 'user' ? 'text-gray-400 italic' : 'text-gray-200'}`}>
                 {msg.role === 'assistant' ? (
-                  <MarkdownRenderer content={cleanA.get(msg.id) || (isStreamingA ? '...' : '')} />
+                  cleanA.get(msg.id) || !isStreamingA
+                    ? <MarkdownRenderer content={cleanA.get(msg.id) || ''} />
+                    : <div role="status" data-testid="compare-status-a"><StatusChip {...deriveRunStatus({ message: { content: '' } })} /></div>
                 ) : (
                   <p>{msg.content}</p>
                 )}
@@ -127,7 +131,7 @@ export function ABCompare() {
         {/* Model B column */}
         <div className="flex-1 flex flex-col">
           <div className="px-3 py-1.5 border-b border-white/5 flex items-center justify-between">
-            <span className="t-micro font-medium text-blue-400">{modelB || 'Select Model B'}</span>
+            <span className="t-micro font-medium text-blue-400">{modelB ? displayModelName(modelB) : 'Select Model B'}</span>
             {statsB && (
               <div className="flex items-center gap-2 text-[0.5rem] text-gray-500 lu-hud-num">
                 <span className="flex items-center gap-0.5"><Zap size={8} />{statsB.tokensPerSec.toFixed(1)} t/s</span>
@@ -140,7 +144,9 @@ export function ABCompare() {
             {messagesB.map(msg => (
               <div key={msg.id} className={`text-[0.7rem] ${msg.role === 'user' ? 'text-gray-400 italic' : 'text-gray-200'}`}>
                 {msg.role === 'assistant' ? (
-                  <MarkdownRenderer content={cleanB.get(msg.id) || (isStreamingB ? '...' : '')} />
+                  cleanB.get(msg.id) || !isStreamingB
+                    ? <MarkdownRenderer content={cleanB.get(msg.id) || ''} />
+                    : <div role="status" data-testid="compare-status-b"><StatusChip {...deriveRunStatus({ message: { content: '' } })} /></div>
                 ) : (
                   <p>{msg.content}</p>
                 )}

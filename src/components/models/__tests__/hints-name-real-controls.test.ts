@@ -68,9 +68,17 @@ describe('THE FIX: the ComfyUI-is-down hint names the control that exists', () =
     // the user on the tab that has no such control. Since round 9 it carries
     // the last step of the route too, the open ComfyUI section
     // (settings-deeplink-comfyui.test.ts holds that end of it).
+    // The page names the button and where it goes; the face it wears
+    // (skin/classic.tsx on Windows and Linux, skin/mac.tsx on the Mac) draws
+    // it. Both halves are held: the route, and that each face wires the click
+    // to exactly the action it was handed.
     expect(modelManager).toMatch(
-      /onClick=\{\(\) => openSettingsAt\(\{ tab: 'backends', section: 'comfyui' \}\)\}[\s\S]{0,400}Open Settings/,
+      /label: 'Open Settings',\s*onClick: \(\) => openSettingsAt\(\{ tab: 'backends', section: 'comfyui' \}\)/,
     )
+    for (const face of ['classic.tsx', 'mac.tsx']) {
+      const src = read(`src/components/models/skin/${face}`)
+      expect(src, face).toMatch(/onClick=\{action\.onClick\}[\s\S]{0,400}\{action\.label\}/)
+    }
     expect(modelManager).not.toMatch(/Go to Create/)
   })
 })

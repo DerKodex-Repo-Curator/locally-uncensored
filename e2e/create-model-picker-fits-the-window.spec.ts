@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME, type TauriM
 import { routeCloud, seedOnboardingDone, signInViaGate, cloudSwitch } from './support/cloud-mock'
 
 /**
- * GitHub #149 (nexd3v, CachyOS with Hyprland, AppImage): in Create the model
+ * GitHub #149 (CachyOS with Hyprland, AppImage): in Create the model
  * list opened downward and was cut off by the bottom edge of the window, so no
  * model could be picked. A tiling window manager makes short windows normal.
  *

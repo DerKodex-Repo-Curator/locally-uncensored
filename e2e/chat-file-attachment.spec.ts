@@ -4,7 +4,7 @@ import { seedOnboardingDone } from './support/cloud-mock'
 import { openNewChat } from './support/ui'
 
 /**
- * Any file attaches to a chat (applejames, Discord: a ROM for a model that
+ * Any file attaches to a chat (Discord: a ROM for a model that
  * helps with ROM hacking).
  *
  * Before this the paperclip took images only, and everything else was turned

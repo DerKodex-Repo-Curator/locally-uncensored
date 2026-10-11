@@ -64,10 +64,10 @@ describe('row Text encoder', () => {
     render(<ParamGroups />)
     openExpert()
     expect(row()!.textContent).toContain('Qwen3-VL 8B')
-    expect(row()!.textContent).not.toContain('no refusals')
+    expect(row()!.textContent).not.toContain('No Filter')
     fireEvent.click(row()!)
     const list = screen.getByRole('listbox')
-    expect(within(list).getAllByRole('option').map((o) => o.textContent)).toEqual(['Qwen3-VL 8B', 'Qwen3-VL 8B, no refusals'])
+    expect(within(list).getAllByRole('option').map((o) => o.textContent)).toEqual(['Qwen3-VL 8B', 'Qwen3-VL 8B, No Filter'])
   })
 
   it('picking the edition without refusals is stored and shown', () => {
@@ -75,9 +75,9 @@ describe('row Text encoder', () => {
     render(<ParamGroups />)
     openExpert()
     fireEvent.click(row()!)
-    fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: 'Qwen3-VL 8B, no refusals' }))
+    fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: 'Qwen3-VL 8B, No Filter' }))
     expect(useCreateStore.getState().qwenTextEncoder).toBe('unfiltered')
-    expect(row()!.textContent).toContain('Qwen3-VL 8B, no refusals')
+    expect(row()!.textContent).toContain('Qwen3-VL 8B, No Filter')
   })
 
   it('is there for an edit too', () => {

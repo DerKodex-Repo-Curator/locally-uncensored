@@ -9,8 +9,9 @@
  * Run: LU_WEB_REPO=/path/to/web npx vitest run src/lib/__tests__/past-due.test.ts
  */
 import { describe, it, expect } from 'vitest'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { webCheckout } from './web-checkout'
 import {
   PLAN_NAMES,
   PAST_DUE_ACTION,
@@ -72,15 +73,10 @@ describe('the sentence', () => {
 
 const REL_PATH = 'apps/web/lib/billing/past-due.ts'
 const PRICING_PATH = 'apps/web/lib/pricing.ts'
-const WEB = process.env.LU_WEB_REPO?.trim() ? resolve(process.env.LU_WEB_REPO.trim()) : undefined
+const WEB = webCheckout('past-due', [REL_PATH, PRICING_PATH])
 const WEB_FILE = WEB ? resolve(WEB, REL_PATH) : ''
 const PRICING_FILE = WEB ? resolve(WEB, PRICING_PATH) : ''
-const HAS_WEB = WEB_FILE !== '' && existsSync(WEB_FILE) && existsSync(PRICING_FILE)
-if (!HAS_WEB) {
-  process.stderr.write(
-    '[past-due] wording parity skipped: set LU_WEB_REPO to a web checkout that has ' + REL_PATH + ' and ' + PRICING_PATH + '.\n',
-  )
-}
+const HAS_WEB = WEB !== undefined
 
 describe.skipIf(!HAS_WEB)('the wording is the web wording', () => {
   const web = HAS_WEB ? readFileSync(WEB_FILE, 'utf8') : ''

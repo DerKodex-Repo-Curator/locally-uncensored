@@ -50,13 +50,22 @@ const CLOUD_PICKER = codeOnly(read('components', 'models', 'CloudModelPicker.tsx
 const SETTINGS = codeOnly(read('components', 'settings', 'SettingsPage.tsx'))
 const CSS = read('index.css')
 
-/** Der Rumpf einer exportierten Skelett-Komponente. */
+/** Der Rumpf einer Skelett-Komponente, bis zur naechsten Funktion der Datei. */
 function skeleton(name: string): string {
-  const at = SKELETONS.indexOf(`export function ${name}()`)
-  expect(at, `${name} fehlt in ViewSkeletons.tsx`).toBeGreaterThan(0)
-  const next = SKELETONS.indexOf('\nexport function ', at + 1)
-  return SKELETONS.slice(at, next < 0 ? undefined : next)
+  const at = SKELETONS.search(new RegExp(`(?:^|\\n)(?:export )?function ${name}\\(\\)`))
+  expect(at, `${name} fehlt in ViewSkeletons.tsx`).toBeGreaterThanOrEqual(0)
+  const rest = SKELETONS.slice(at + 1)
+  const next = rest.search(/\n(?:export )?function /)
+  return next < 0 ? rest : rest.slice(0, next)
 }
+
+/**
+ * Das Modell-Raster gibt es seit dem 08.10.2026 in zwei Fassungen: die
+ * klassische auf Windows und Linux, die neue auf dem Mac. Jede hat ihre
+ * Kachel und damit ihr Skelett, und `ModelGridSkeleton` waehlt zwischen den
+ * beiden an derselben Stelle wie die Kachel (models/skin/which.ts).
+ */
+const RASTER_SKELETTE = ['ModelGridSkeletonClassic', 'ModelGridSkeletonMac'] as const
 
 describe('an allen vier Stellen steht ein Skelett', () => {
   it('1/4 — das Modell-Raster in Discover', () => {
@@ -106,18 +115,46 @@ describe('der Modellwaehler kann waehrend des Ladens nichts mehr behaupten', () 
 
 describe('die Skelette tragen die Geometrie der Liste, die kommt', () => {
   it('das Raster-Skelett benutzt dieselbe Rasterzeile wie Discover', () => {
-    const grid = 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5'
+    // Zwei Spalten erst ab lg: bei 900 px stand "Start here" zweispaltig
+    // ueber einem einspaltigen Raster, und das Skelett sprang beim Eintreffen
+    // der Liste von zwei Spalten auf eine. Discover kennt nur noch diese eine
+    // Rasterzeile.
+    const grid = 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2.5'
     expect(DISCOVER).toContain(grid)
-    expect(skeleton('ModelGridSkeleton')).toContain(grid)
+    expect(DISCOVER).not.toContain('md:grid-cols-2')
+    for (const name of RASTER_SKELETTE) expect(skeleton(name), name).toContain(grid)
+  })
+
+  it('welches Raster-Skelett steht, entscheidet dieselbe Stelle wie bei der Kachel', () => {
+    const wahl = skeleton('ModelGridSkeleton')
+    expect(wahl).toMatch(/modelSkinName\(\) === 'mac' \? <ModelGridSkeletonMac \/> : <ModelGridSkeletonClassic \/>/)
+    expect(SKELETONS).toContain("import { modelSkinName } from '../models/skin/which'")
+    // Und nirgends sonst in der Datei wird nach der Plattform gefragt.
+    expect(SKELETONS).not.toMatch(/isMacOS|navigator\./)
   })
 
   it('die Kachel-Huelle stimmt mit der echten Kachel ueberein', () => {
-    // Die echte Kachel steht in ModelTiles.tsx: rounded-xl, 1px Rand, p-3.
+    // Die echte Kachel steht in ModelTiles.tsx. Radius und Rand schreibt sie
+    // seit dem Redesign vom Oktober 2026 nicht mehr selbst aus, sie traegt die
+    // Hausflaeche `.lu-tile` (index.css) und p-3.5. Das Skelett muss dieselbe
+    // Flaeche und dasselbe Mass tragen, sonst springt die Kachel beim Laden.
     const tile = read('components', 'models', 'ModelTiles.tsx')
-    expect(tile).toMatch(/relative rounded-xl border p-3/)
-    const s = skeleton('ModelGridSkeleton')
-    expect(s).toContain('rounded-xl border')
-    expect(s).toContain('p-3')
+    expect(tile).toMatch(/lu-tile relative flex h-full flex-col p-3\.5/)
+    const s = skeleton('ModelGridSkeletonMac')
+    expect(s).toContain('lu-tile')
+    expect(s).toContain('p-3.5')
+    expect(s).not.toContain('rounded-xl border')
+  })
+
+  it('die klassische Kachel-Huelle stimmt mit der klassischen Kachel ueberein', () => {
+    // Windows und Linux: das Mass von vor dem Redesign (p-3), die Flaeche
+    // seit dem 10.10.2026 dieselbe wie auf dem Mac (`.lu-tile`).
+    const tile = read('components', 'models', 'skin', 'ClassicTiles.tsx')
+    expect(tile).toMatch(/'lu-tile relative p-3'/)
+    const s = skeleton('ModelGridSkeletonClassic')
+    expect(s).toContain('lu-tile')
+    expect(s).toMatch(/(?<![\w.-])p-3(?![\w.-])/)
+    expect(s).not.toContain('p-3.5')
   })
 
   it('die CivitAI-Zeile stimmt in Polsterung, Radius und Thumbnail-Mass', () => {
@@ -141,7 +178,7 @@ describe('die Skelette tragen die Geometrie der Liste, die kommt', () => {
 
 describe('die Skelette sagen, dass sie Ladezustaende sind', () => {
   const NAMES = [
-    'ModelGridSkeleton',
+    ...RASTER_SKELETTE,
     'CivitaiResultsSkeleton',
     'ModelPickerSkeleton',
     'ImportScanSkeleton',

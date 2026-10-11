@@ -1,6 +1,6 @@
 /**
  * Figur aus Fotos ohne Training und mehrere Bilder pro Lauf (02.10.2026, Web-
- * Paritaet; Vorlage: apps/web/lib/render/__tests__/mehrfach-referenz.test.ts).
+ * Paritaet; Vorlage: the web app).
  * Die Grenze je Modell ist die des Anbieter-Schemas, gedeckelt auf fuenf.
  */
 import { beforeEach, describe, expect, it } from 'vitest'

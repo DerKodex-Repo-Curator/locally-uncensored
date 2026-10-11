@@ -6,7 +6,7 @@ import { MOCK_CHAT_CATALOGUE, mockModelsAnswer } from './support/chat-catalogue'
 /**
  * The model picker in Cloud mode since 3.0.5, in the running app.
  *
- * David, 05.10.2026: grouped by family, a search on top, chips that narrow the
+ * 05.10.2026: grouped by family, a search on top, chips that narrow the
  * list, a keyboard that works from the search field, and per row a tiny
  * question mark that opens the model's credit rates per one million tokens.
  * And the lesson of GitHub #149: the app is zoomed by 1.15, and a menu that
@@ -102,7 +102,7 @@ test('open, search, narrow by a tag, pick with the keyboard', async ({ page }) =
 
   // A tag narrows to the measured models, a second one narrows further.
   const marked = menu(page).locator('[data-chip="marked"]')
-  await expect(marked).toHaveText(`No refusals ${MARKED}`)
+  await expect(marked).toHaveText(`No Filter ${MARKED}`)
   await marked.click()
   await expect(marked).toHaveAttribute('aria-pressed', 'true')
   await expect(rows(page)).toHaveCount(MARKED)

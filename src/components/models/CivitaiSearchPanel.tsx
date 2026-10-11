@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Search, Loader2, ExternalLink, Download, CheckCircle } from 'lucide-react'
-import { searchCivitaiModels, startCivitaiDownload, type CivitAIModelResult } from '../../api/discover'
+import { searchCivitaiModels, startCivitaiDownload, startModelDownloadToPath, type CivitAIModelResult } from '../../api/discover'
 import { openExternal } from '../../api/backend'
 import { useDownloadStore } from '../../stores/downloadStore'
 import { useWorkflowStore } from '../../stores/workflowStore'
@@ -35,16 +35,22 @@ interface Props {
    *  token the user landed on an empty field, no hits and no message, which is
    *  exactly the silent gap the empty state below exists to close. */
   searchSubmitToken?: number
+  /** The Mac's LoRA lane: narrow the search to one base model, by CivitAI's
+   *  own name for it. Absent on Windows and Linux. */
+  baseModel?: string
+  /** The Mac's LoRA lane: the folder a hit is written into, in place of a
+   *  ComfyUI models folder. Absent on Windows and Linux. */
+  destDir?: string
 }
 
-export function CivitaiSearchPanel({ modelType, title, placeholder, search = '', searchSubmitToken = 0 }: Props) {
+export function CivitaiSearchPanel({ modelType, title, placeholder, search = '', searchSubmitToken = 0, baseModel, destDir }: Props) {
   const [results, setResults] = useState<CivitAIModelResult[]>([])
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState(search)
   // Track whether the *latest* CivitAI search has been issued at least once,
   // so an empty-state hint can render between "before-first-search" and
   // "search returned 0 hits". Without this we fall through to the silent gap
-  // diimmortalis described: empty list, no console output, looks like the
+  // A user described: empty list, no console output, looks like the
   // button did nothing.
   const [searched, setSearched] = useState(false)
   // CivitAI mirror host (#53), civitai.red for regions where .com is blocked.
@@ -62,7 +68,9 @@ export function CivitaiSearchPanel({ modelType, title, placeholder, search = '',
     // credential, so there is no second input here.
     const apiKey = useWorkflowStore.getState().civitaiApiKey || undefined
     const host = useWorkflowStore.getState().civitaiHost
-    const hits = await searchCivitaiModels(text, modelType, apiKey, host)
+    const hits = baseModel || destDir
+      ? await searchCivitaiModels(text, modelType, apiKey, host, { baseModel, safetensorsOnly: !!destDir })
+      : await searchCivitaiModels(text, modelType, apiKey, host)
     setResults(hits)
     setSearching(false)
   }
@@ -80,6 +88,14 @@ export function CivitaiSearchPanel({ modelType, title, placeholder, search = '',
 
   const download = async (model: CivitAIModelResult) => {
     if (!model.downloadUrl || !model.filename || !model.subfolder) return
+    if (destDir) {
+      // The folder goes into the record with the file, so Retry and Resume
+      // write to the same place and never look for a ComfyUI.
+      dlStore.getState().setMeta(model.filename, model.downloadUrl, model.subfolder, destDir)
+      await startModelDownloadToPath(model.downloadUrl, destDir, model.filename)
+      dlStore.getState().startPolling()
+      return
+    }
     dlStore.getState().setMeta(model.filename, model.downloadUrl, model.subfolder)
     await startCivitaiDownload(model)
     dlStore.getState().startPolling()

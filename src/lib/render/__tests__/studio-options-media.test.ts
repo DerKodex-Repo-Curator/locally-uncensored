@@ -1,4 +1,4 @@
-// Aus dem Web uebernommen (apps/web/lib/render/__tests__/studio-options-media.test.ts).
+// Aus dem Web uebernommen (the web app).
 // Endpruefung 02.10.2026: was die Optionen eines Studio-Laufs tragen duerfen.
 //
 // 1. Kein Feld, das eine Datei oder Adresse tragen kann und nicht ueber `inputs`
@@ -111,7 +111,7 @@ describe('Video-Edit: halber Satz auf die Eingabe, halber auf die Ausgabe', () =
 
   const credits = (id: string, o: Record<string, unknown>) => studioCredits(id, studioOptions(id, 'x', o, false), EIN)
 
-  it('MiniMax H3 480p: ohne Dauer 1,10 USD, Dauer 3 gleich 0,70, Dauer 15 gleich 1,30', () => {
+  it('MiniMax H3 480p: ohne Dauer 110000 Credits, Dauer 3 gleich 70000, Dauer 15 gleich 130000', () => {
     expect(credits('minimax-h3-video-edit', { resolution: '480p' })).toBe(110000)
     expect(credits('minimax-h3-video-edit', { resolution: '480p', duration: 3 })).toBe(70000)
     expect(credits('minimax-h3-video-edit', { resolution: '480p', duration: 15 })).toBe(130000)

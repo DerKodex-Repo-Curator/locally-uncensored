@@ -27,6 +27,9 @@ export const MUTATING_TOOLS = new Set([
   'run_workflow',
   'delegate_task',
   'screenshot',
+  // Astra computer use: clicks and types anywhere the user approved.
+  'computer_use',
+  'computer_task',
 ])
 
 /** May this tool stay in the catalog during a read-only turn? */

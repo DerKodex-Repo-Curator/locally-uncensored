@@ -1,7 +1,7 @@
-// lapbo, Discord 2026-09-28 ("DELETE BUTTON"): the chat rows without a bin
+// Discord 2026-09-28 ("DELETE BUTTON"): the chat rows without a bin
 // are models another app serves, LM Studio in his screenshot. LM Studio has
 // no delete in its API or in `lms`, and its model list names no file, so LU
-// cannot delete them without guessing which file is meant. David decided on
+// cannot delete them without guessing which file is meant. The owner decided on
 // 2026-10-01: the row says where the model is deleted instead.
 
 import { PROVIDER_PRESETS } from '../api/providers/types'

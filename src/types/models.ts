@@ -30,6 +30,10 @@ export interface CloudModel {
    *  antwortet ohne Ablehnung. Fehlt das Feld, ist nichts gemessen und nichts
    *  versprochen. */
   unfiltered?: 'full' | 'partial'
+  /** Aus dem Server-Katalog (LU Cloud /models `unrestricted`): vom Hersteller
+   *  ohne Ablehnungsschicht herausgegeben, nur von einer festen Gegenstelle
+   *  ausgeliefert. Traegt die zweite Marke der Zeile (lib/unfiltered-mark). */
+  unrestricted?: boolean
 
   name: string
   model: string
@@ -40,6 +44,16 @@ export interface CloudModel {
   contextLength?: number
   supportsTools?: boolean
   supportsVision?: boolean
+  /** From the server catalogue (LU Cloud /models `create_in_chat`): may the
+   *  two Create tools of the chat go to this model? */
+  createInChat?: boolean
+  /** From the server catalogue (LU Cloud /models `limited_capacity`): little
+   *  room for all customers together, the picker notes it. */
+  limitedCapacity?: boolean
+  /** LU Engine rows only: the model's image part lies next to its GGUF. With
+   *  `supportsVision` false this is a model loaded without its part; absent
+   *  or false with a known source, the part can be added (lib/image-part). */
+  imagePartInstalled?: boolean
   thinkMode?: 'toggle' | 'always' | 'never'
   /** The reasoning rungs this model accepts, ascending, and the rung it
    *  defaults to (LU Cloud /models). Absent = no effort control and the old
@@ -130,7 +144,7 @@ export interface PullProgress {
   completed?: number
   // Ollama can stream an `{"error": "..."}` line mid-pull (e.g. HTTP 400 on an
   // incompatible repo). Surfaced so the pull card shows why it failed instead
-  // of falsely completing (adhney).
+  // of falsely completing.
   error?: string
 }
 

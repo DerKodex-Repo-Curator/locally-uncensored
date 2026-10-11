@@ -4,11 +4,11 @@ import { safeJSONStorage } from '../lib/storage-quota'
 import { releaseNoteFor } from '../lib/release-notes'
 
 /**
- * "What is new" popup, once per VERSION (B4, David 2026-08-04).
+ * "What is new" popup, once per VERSION (B4, 2026-08-04).
  *
  * Deliberately NOT hung off `cloudTeasersEnabled`. That flag is the user's own
  * switch for the Cloud features in Local mode, and once off it stays off, not
- * even an update turns it back on (David 2026-07-19). This is the
+ * even an update turns it back on (2026-07-19). This is the
  * opposite by design: once per version, every version. Two layers, two flags.
  */
 interface ReleaseNotesState {

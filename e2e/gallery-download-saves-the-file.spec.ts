@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { seedOnboardingDone } from './support/cloud-mock'
 
 /**
- * Discord 2026-10-01 (theitalianstallion92, Windows): "the download from
+ * Discord 2026-10-01 (Windows): "the download from
  * library doesnt actually work". The gallery strip's Download built a blob and
  * clicked an <a download>, which WebView2 does not save. It now takes the same
  * path as the result view: the bytes from ComfyUI into the native Save dialog.

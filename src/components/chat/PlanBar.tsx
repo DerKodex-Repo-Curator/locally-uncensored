@@ -5,7 +5,7 @@
 // this list through `todo_write` and keeps it current, so progress is one glance
 // instead of a scroll back through twenty tool calls.
 //
-// Two homes, and neither one touches the prompt window. David has asked for
+// Two homes, and neither one touches the prompt window. The owner has asked for
 // that five times now, last on 2026-08-22: the prompt window is the prompt
 // window, nothing about plans may be visible there, on any surface, in any
 // state. So there is no composer variant to reach for:
@@ -14,7 +14,7 @@
 //     controls. Collapsed to the current step by default, because a ten-item
 //     list would push the conversation down.
 //   - 'panel' (Code tab): the BOTTOM section of the Explorer column, full
-//     column width and expanded by default. Bottom because David read the
+//     column width and expanded by default. Bottom because the owner read the
 //     column top down on 2026-08-22 and the files are what he wants first;
 //     the plan is the footer of that column, not its headline.
 // Expanded state is per session, not persisted, because a plan is short-lived.
@@ -118,7 +118,7 @@ export function PlanBar({ variant = 'header' }: Props) {
       className={panel ? 'w-full p-1.5' : 'mx-auto w-full max-w-[var(--lu-measure)] px-3 pt-1'}
       data-testid={panel ? 'plan-panel' : 'plan-header'}
     >
-      {/* Neutral on purpose (David 30.09.2026: "dunkel LU design, nicht
+      {/* Neutral on purpose (30.09.2026: "dunkel LU design, nicht
           abheben"). The plan is a footer of the column, it takes the column's
           own surface and line colour instead of a blue box of its own. */}
       <div className="w-full rounded-md border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02]">

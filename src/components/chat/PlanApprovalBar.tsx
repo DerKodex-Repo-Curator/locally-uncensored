@@ -11,7 +11,7 @@
 //      so "Approve and run (Ask)" is a promise about what happens next.
 //
 // It used to sit above the prompt box. It does not any more: the prompt window
-// is the prompt window and shows nothing about plans (David, 2026-08-22, fifth
+// is the prompt window and shows nothing about plans (2026-08-22, fifth
 // time of asking). The card moved to the plan's home, the bottom of the
 // Explorer column, with the plan itself. Both rules above are untouched by that
 // move; only the wrapper width changed from the composer's 70% to the column.

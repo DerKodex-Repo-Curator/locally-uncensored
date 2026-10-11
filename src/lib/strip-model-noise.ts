@@ -4,7 +4,7 @@
  *
  * This lived inside CodexView until 2.5.9, which meant it protected the Code
  * tab ONLY. Agent mode and plain chat render through MessageBubble and were
- * getting the raw string — so the exact leak David reported twice
+ * getting the raw string — so the exact leak the owner reported twice
  * (`ool_call>` from Qwen3-32B through LU Cloud) was still on screen after the
  * "fix", because the fix was in the other view. Shared module now: one strip,
  * every surface.

@@ -14,6 +14,8 @@ import { useBuiltinEngineStatus } from '../../hooks/useBuiltinEngineStatus'
 import { enginePortLine } from '../../lib/engine-port'
 import { engineOffloadLine } from '../../lib/engine-offload'
 import type { BuiltinEngineTuning } from '../../types/settings'
+import { isMacOS } from '../../api/backend'
+import { engineOffloadWords, gpuLayersHint, gpuLayersLabel, gpuLayersTitle } from '../../lib/mac-pc-words'
 
 type KvType = BuiltinEngineTuning['cacheTypeK']
 
@@ -134,7 +136,7 @@ export function BuiltinEngineSettings() {
           walks away, while this stays true for as long as the process runs. */}
       {engineOffloadLine(status) ? (
         <div className="t-micro text-gray-500" data-testid="builtin-engine-offload">
-          {engineOffloadLine(status)}
+          {engineOffloadWords(engineOffloadLine(status), isMacOS())}
         </div>
       ) : null}
 
@@ -214,9 +216,9 @@ export function BuiltinEngineSettings() {
         />
       </div>
 
-      {/* GPU layers */}
+      {/* GPU layers. A Mac reads its own words (lib/mac-pc-words). */}
       <div className="flex items-center justify-between">
-        <span className="text-[0.7rem] text-gray-700 dark:text-gray-400" title="-1 = offload every layer to the GPU (default). 0 = CPU only. N = offload the first N layers — use when the model + KV cache doesn't fit your VRAM.">GPU layers</span>
+        <span className="text-[0.7rem] text-gray-700 dark:text-gray-400" title={gpuLayersTitle(isMacOS())}>{gpuLayersLabel(isMacOS())}</span>
         <input
           type="number"
           value={tuning.gpuLayers}
@@ -227,7 +229,7 @@ export function BuiltinEngineSettings() {
         />
       </div>
       <div className="text-[0.6rem] text-gray-500 leading-relaxed">
-        -1 = all layers on GPU · 0 = CPU only · N = partial offload for models bigger than your VRAM.
+        {gpuLayersHint(isMacOS())}
       </div>
 
       {/* mlock / mmap */}

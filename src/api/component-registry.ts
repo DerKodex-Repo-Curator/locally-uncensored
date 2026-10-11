@@ -1,6 +1,6 @@
 // ─── Component Registry: What each model type needs to work ───
 //
-// K9 (GH #136, atobo, Krea 2 classification): this table used to be typed
+// K9 (GH #136, Krea 2 classification): this table used to be typed
 // out TWICE, once in comfyui.ts (matchPatterns/downloadFilename/clipType,
 // read by findMatchingVAE/findMatchingCLIP and the workflow builders) and
 // once in discover.ts (patterns/downloadName/downloadUrl/subfolder, read by

@@ -192,6 +192,16 @@ fn example_trainer_path() -> &'static str {
 /// (no directory has to exist yet for a mount-point lookup), before anything
 /// is created, so a rejection on space leaves no empty folder behind.
 fn validate_trainer_root_candidate(p: &str) -> Result<PathBuf, String> {
+    validate_trainer_root_candidate_with(p, crate::commands::download::available_space_for)
+}
+
+/// The check itself, with the free-room lookup handed in. The tests give it a
+/// fixed answer: asked of the real drive, the result depended on how full the
+/// machine running the tests happened to be.
+fn validate_trainer_root_candidate_with(
+    p: &str,
+    free_room: impl Fn(&Path) -> Option<u64>,
+) -> Result<PathBuf, String> {
     if starts_with_tilde(p) {
         return Err(format!(
             "\"{p}\" starts with ~, and this field never expands it: the path is used exactly as typed, so ~ would become a literal folder named ~, not your home folder. Use a full path instead, for example {}.",
@@ -205,7 +215,7 @@ fn validate_trainer_root_candidate(p: &str) -> Result<PathBuf, String> {
             example_trainer_path()
         ));
     }
-    if let Some(free) = crate::commands::download::available_space_for(&path) {
+    if let Some(free) = free_room(&path) {
         if let Some(msg) = disk_room_message(&path, free, TRAINER_SETUP_NEEDS_GIB) {
             return Err(msg);
         }
@@ -429,8 +439,8 @@ fn active_comfy_dir(state: &AppState) -> Option<PathBuf> {
 /// exactly when the train step finally has a step total. Force UTF-8 stdio
 /// on every trainer child instead.
 ///
-/// The same hook carries the second environment fix. GitHub #121 (Z0mbieK,
-/// two GPUs, 2026-08-29) and Discord (sdrairsoft, 2026-09-09): the run died at
+/// The same hook carries the second environment fix. GitHub #121 (a user,
+/// two GPUs, 2026-08-29) and Discord (2026-09-09): the run died at
 /// start with "use_libuv was requested but PyTorch was build without libuv
 /// support". torch 2.4+ asks for libuv when torch.distributed sets up its
 /// store, and the Windows wheels are built without it. USE_LIBUV=0 is the knob
@@ -467,8 +477,8 @@ fn active_comfy_dir(state: &AppState) -> Option<PathBuf> {
 /// `CUDA_VISIBLE_DEVICES` pinned to one card (`pin_trainer_gpu`, resolved by
 /// `resolve_trainer_gpu`) keeps `device_count() > 1` from ever being true, so
 /// the handler is never built and `self.backend` stays `None`. This closes
-/// the door for Z0mbieK (two visible cards, confirmed). It does NOT explain
-/// sdrairsoft: a single visible card never builds the handler in the first
+/// the door for a user (two visible cards, confirmed). It does NOT explain
+/// A user: a single visible card never builds the handler in the first
 /// place, `device_count() == 1` cannot reach this branch, and nobody has
 /// measured `torch.cuda.device_count()` or `nvidia-smi -L` from his machine.
 /// A second, unused NVIDIA card the driver still enumerates would fit
@@ -487,7 +497,7 @@ fn trainer_child_env(cmd: &mut Command) {
 /// as well, so anything newer fails at step 3 (cu121) or step 4 (cu128, where
 /// torch itself installs fine and musubi then refuses the interpreter).
 ///
-/// Ticket 0004 (sockenmonster, 2026-09-05, after the same wall in August):
+/// Ticket 0004 (2026-09-05, after the same wall in August):
 /// LU built the venv from the newest Python on the machine, 3.14.6, because
 /// nothing between "which Python does LU use" and "which Python can the
 /// trainer use" existed. The setup now chooses its own interpreter from this
@@ -566,8 +576,8 @@ pub(crate) enum TorchPlan {
 /// decision is testable on any host.
 ///
 /// The old rule was `torch_index_for_cap(detect_nvidia_compute_cap_major())`
-/// and nothing else, so it only ever asked nvidia-smi. On numbrain's and
-/// lapbo's AMD boxes that probe is silent, silence was read as "no GPU", and
+/// and nothing else, so it only ever asked nvidia-smi. On a user's and
+/// a user's AMD boxes that probe is silent, silence was read as "no GPU", and
 /// the trainer installed the same CUDA wheels a machine with no card at all
 /// gets. Those wheels import fine and see no device, so the environment
 /// passed every check and the run died in step 1 with a raw CUDA traceback.
@@ -721,7 +731,7 @@ pub(crate) struct TrainerGpuChoice {
 /// Nachbesserung after the Opus review of `0e826c22`: that commit pinned
 /// every trainer child to `CUDA_VISIBLE_DEVICES=0` unconditionally, which
 /// (a) is not necessarily the strong card -- CUDA without
-/// `CUDA_DEVICE_ORDER=PCI_BUS_ID` sorts fastest-first, and Z0mbieK's RTX
+/// `CUDA_DEVICE_ORDER=PCI_BUS_ID` sorts fastest-first, and a user's RTX
 /// 3090 Ti and RTX 3050 share compute capability 8.6, so the heuristic
 /// tie-breaks on something neither promised nor measured -- and (b) silently
 /// overrides both LU's own Hardware-tab GPU picker (`gpu.rs::GpuSelection`,
@@ -863,7 +873,7 @@ fn torch_installed(root: &Path) -> bool {
 }
 
 /// The trainer package itself, which "venv + repo + torch" never covered:
-/// sockenmonster's install died after torch and before `pip install -e .`, so
+/// a user's install died after torch and before `pip install -e .`, so
 /// the studio called the environment ready and every run hit
 /// `No module named musubi_tuner`. Installed editable, so the marker is a
 /// dist-info directory or the `__editable__` .pth pip drops next to it. File
@@ -1016,7 +1026,7 @@ pub(crate) fn useful_tail(text: &str) -> String {
 
 /// The dead ends that are neither the network nor the disk, and that the one
 /// generic step sent people to look in the wrong place for. A2 stage one
-/// (aikabatzu, aldrich_ironhart, Z0mbieK, Discord and GH #121, 2026-08-27 and
+/// (Discord and GH #121, 2026-08-27 and
 /// 2026-08-29): "Setting up the trainer environment failed. Check that you are
 /// online" while online, with the firewall off, confirmed by a second user.
 ///
@@ -1035,7 +1045,7 @@ const WHEEL_NEXT_STEP: &str = "The PyTorch that was installed carries no support
 const PERMISSION_NEXT_STEP: &str = "The installer was not allowed to write into the Python folder. Close every open Python, Jupyter or IDE debugger, and if that changes nothing, install Python for your own user instead of for all users, then press Set up trainer in Character Studio.";
 const PEP668_NEXT_STEP: &str = "This Python refuses installs outside a virtual environment and the venv module is missing. Install it from your package manager (python3-venv on Debian and Ubuntu, python-virtualenv on Arch, python3-virtualenv on Fedora), then press Set up trainer in Character Studio.";
 
-/// The message gekiritz actually saw (Discord, 2026-09-16), built fresh at
+/// The message a user actually saw (Discord, 2026-09-16), built fresh at
 /// the point of failure instead of a static sentence. The review found the
 /// gap: `no_trainer_python_message` learned to name path and version, but
 /// this is the DIFFERENT message pip's own `NoMatchingWheel` /
@@ -1044,7 +1054,7 @@ const PEP668_NEXT_STEP: &str = "This Python refuses installs outside a virtual e
 /// actually found. On Windows each interpreter's architecture is added too
 /// (`python_version_and_arch`): a 32-bit or ARM64 Python 3.11 answers the
 /// plain version check exactly like a real one and is why "rebuild the venv"
-/// alone never broke gekiritz's loop -- see `venv_action`.
+/// alone never broke a user's loop -- see `venv_action`.
 fn python_version_next_step() -> String {
     let mut seen: Vec<String> = Vec::new();
     let mut found: Vec<String> = Vec::new();
@@ -1175,7 +1185,7 @@ pub(crate) fn install_failed_message(err: &str) -> String {
 /// `gpu` is the card a run would use ("NVIDIA" / "AMD"), or None when the
 /// machine really has none. Without it a torch that sees no device is
 /// indistinguishable from a legitimate processor only environment, which is
-/// the hole numbrain's and lapbo's AMD boxes fell through.
+/// the hole a user's and a user's AMD boxes fell through.
 fn preflight_verdict(exit_ok: bool, stdout: &str, stderr: &str, gpu: Option<&str>) -> Preflight {
     if !exit_ok || !stdout.contains("TORCH_OK") {
         let tail = stderr
@@ -1722,12 +1732,12 @@ pub(crate) enum VenvAction {
 /// 0004 also WHICH one it is: `python_version` is None for a venv that does
 /// not start and the version for one that does, and a venv built from a
 /// Python outside the trainer's range is exactly as unusable as a dead one.
-/// It ran fine on sockenmonster's machine, its pip just refused musubi.
+/// It ran fine on a user's machine, its pip just refused musubi.
 ///
 /// `arch_ok` is the Opus review's finding on this exact function: a venv
 /// built from a 32-bit or ARM64 Python 3.11/3.12 reports a version
 /// `trainer_supports_python` accepts, so before this it always read `Keep`
-/// -- gekiritz's "3.11-Umgebung loeschen half nicht" (Rebuild only ever fired
+/// -- a user's "3.11-Umgebung loeschen half nicht" (Rebuild only ever fired
 /// on the FIRST build; a Keep venv was never re-examined the same way) is
 /// exactly the gap this closes. `true` on a platform where architecture is
 /// not checked (see `python_version_and_arch`, Windows only) so this stays a
@@ -1761,7 +1771,7 @@ pub(crate) fn venv_create_args(action: VenvAction) -> &'static [&'static str] {
 ///
 /// K4, 2026-09-18: `found` used to be versions alone, so the message named
 /// what version was on the machine but not where LU looked or which install
-/// it was reading. gekiritz's rebuild loop (see `python_version_and_arch`)
+/// it was reading. a user's rebuild loop (see `python_version_and_arch`)
 /// is exactly the case where two Pythons report the same version and only
 /// one of them is real; the path is what lets the customer, or us reading a
 /// Discord paste, tell which is which.
@@ -1812,7 +1822,7 @@ fn trainer_base_python(
             // Python-version message and sends the customer back to the same
             // interpreter. Excluding it here, before the venv is ever built,
             // is what makes the retry pick a different one instead of
-            // looping (gekiritz, Discord 2026-09-16).
+            // looping (Discord 2026-09-16).
             #[cfg(target_os = "windows")]
             match crate::python::python_version_and_arch(&p) {
                 Some((v, true)) => seen.push((p, v)),
@@ -2022,7 +2032,7 @@ pub(crate) fn disk_room_message(root: &Path, free: u64, needed_gib: u64) -> Opti
 
 /// A torch that will not load because a Windows runtime library is missing or
 /// its native libraries fail to initialise: the class the Visual C++ runtime
-/// install fixes (ticket 007, falcon bob, on the ComfyUI side).
+/// install fixes (ticket 007, a user, on the ComfyUI side).
 pub(crate) fn runtime_library_missing(tail: &str) -> bool {
     use crate::commands::install::pip::PipFailureKind as K;
     matches!(
@@ -2239,7 +2249,7 @@ fn provision_trainer_env(
     // Decided first, before a clone, a venv and 2.5 GB of wheels: a machine
     // whose card has no PyTorch build should not have to pay for all of that
     // to find out. The probe is the vendor list, not nvidia-smi alone, which
-    // is what left numbrain and lapbo indistinguishable from a machine with
+    // is what left a user indistinguishable from a machine with
     // no GPU at all.
     // The card NAMES come along now, because the wheel question is no longer
     // "AMD yes or no": on Linux the answer depends on the family, and the name
@@ -2583,8 +2593,8 @@ struct TrainStep<'a> {
 /// same way steps 1, 2 and 4 do.
 ///
 /// It used to be `accelerate launch <script>`, which is what musubi's README
-/// writes, and that is what GitHub #121 (Z0mbieK, two cards) and the Discord
-/// report (sdrairsoft, 2026-09-09) died on:
+/// writes, and that is what GitHub #121 (two cards) and the Discord
+/// report (2026-09-09) died on:
 ///
 ///   RuntimeError: use_libuv was requested but PyTorch was build without
 ///   libuv support
@@ -2759,7 +2769,7 @@ pub fn start_character_training(
         // classes used to pass every disk check and die mid-run as a raw error
         // the UI could not explain, and the only cure we offered was a Set up
         // button that did not render once the environment counted as ready
-        // (bob80817 D#102 with a stale cu121 torch, sockenmonster with an
+        // (a user D#102 with a stale cu121 torch with an
         // install that stopped before the trainer package). The customer
         // should not need install instructions, so the run fixes its own
         // environment and carries on.
@@ -3171,7 +3181,7 @@ mod tests {
     #[test]
     fn an_amd_box_gets_the_rocm_wheels_on_linux_and_an_honest_no_on_windows() {
         use super::{trainer_torch_plan, TorchPlan};
-        // numbrain and lapbo: no NVIDIA card, so the old probe answered None
+        // A user: no NVIDIA card, so the old probe answered None
         // and the plan was the same cu121 a machine with no GPU at all gets.
         match trainer_torch_plan(false, None, true, &[RX_7900], "linux") {
             TorchPlan::Wheels { candidates, note } => {
@@ -3328,7 +3338,7 @@ mod tests {
     #[test]
     fn preflight_names_a_torch_that_cannot_reach_the_amd_card() {
         use super::{preflight_verdict, Preflight};
-        // The CUDA wheels the old plan put on numbrain's box: torch imports,
+        // The CUDA wheels the old plan put on a user's box: torch imports,
         // reports no device, and every check passed. The run then walked into
         // step 1 and died there with the training script's own traceback.
         let out = "TORCH_OK 2.3.1+cu121\nCUDA 0\nMUSUBI_OK\n";
@@ -3346,7 +3356,7 @@ mod tests {
     #[test]
     fn a_rocm_arch_list_is_not_read_as_cuda_kernel_numbers() {
         use super::{preflight_verdict, Preflight};
-        // A ROCm build lists gfx names, not sm names, and numbrain's RX 9070
+        // A ROCm build lists gfx names, not sm names, and a user's RX 9070
         // XT is gfx1201. This is the environment the Linux branch of the plan
         // now creates, so the check has to survive it.
         let rocm = "TORCH_OK 2.9.1+rocm6.4\nCUDA 1\nCAP 12 0\nARCHS gfx1030 gfx1100 gfx1201\nMUSUBI_OK\n";
@@ -3457,7 +3467,7 @@ mod tests {
         assert!(msg.contains("Cloud mode"), "names the way out: {msg}");
     }
 
-    /// Tesla P100, sdrairsoft's card: compute capability 6.0. Runde 2 left
+    /// Tesla P100, a user's card: compute capability 6.0. Runde 2 left
     /// this card unrefused (bitsandbytes' own SM60 floor); Runde 3's review
     /// found that wrong, since bf16 is hardcoded in the text encoder cache
     /// step regardless of the optimizer. This is the concrete melder case
@@ -3484,7 +3494,7 @@ mod tests {
     #[test]
     fn preflight_catches_the_trainer_package_a_healthy_torch_hides() {
         use super::{preflight_verdict, Preflight};
-        // sockenmonster: the install died between torch and `pip install -e .`.
+        // A user: the install died between torch and `pip install -e .`.
         // torch imports, CUDA is fine, and the run still cannot start.
         let out = "TORCH_OK 2.7.0+cu128\nCAP 8 6\nARCHS sm_80 sm_86 sm_90\n";
         let v = preflight_verdict(true, out, "", Some("NVIDIA"));
@@ -3508,7 +3518,7 @@ mod tests {
     fn negative_control_the_old_verdict_called_the_package_gap_healthy() {
         use super::{preflight_verdict, Preflight};
         // The old rule was "torch imports and the kernels fit, therefore ready".
-        // Replayed on sockenmonster's environment it says ready; the new one
+        // Replayed on a user's environment it says ready; the new one
         // does not. This is the whole of the bug in two lines.
         let out = "TORCH_OK 2.7.0+cu128\nCAP 8 6\nARCHS sm_80 sm_86 sm_90\n";
         let old_rule_says_ready = out.contains("TORCH_OK");
@@ -3568,7 +3578,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("lu-trainer-torch-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
 
-        // venv exists, torch does not: the Sockenmonster case.
+        // venv exists, torch does not: the case.
         fs::create_dir_all(root.join("venv").join("lib").join("python3.11").join("site-packages")).unwrap();
         assert!(!torch_installed(&root));
 
@@ -3851,7 +3861,7 @@ mod tests {
     fn a_leading_tilde_is_never_accepted() {
         assert!(super::starts_with_tilde("~/LU-Trainer"));
         assert!(super::starts_with_tilde("~"));
-        assert!(!super::starts_with_tilde("/home/dave/LU-Trainer"), "an absolute path must not be flagged");
+        assert!(!super::starts_with_tilde("/home/alex/LU-Trainer"), "an absolute path must not be flagged");
         assert!(!super::starts_with_tilde("D:\\LU-Trainer"), "a drive path must not be flagged");
     }
 
@@ -3887,11 +3897,28 @@ mod tests {
     fn validate_trainer_root_candidate_accepts_a_real_absolute_folder() {
         let root = std::env::temp_dir().join(format!("lu-trainer-validate-ok-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
-        let accepted = super::validate_trainer_root_candidate(&root.to_string_lossy()).expect("a real, writable folder must be accepted");
+        // Room is given, not measured: a build machine with a nearly full
+        // drive refused this folder for a reason the test is not about.
+        let roomy = |_: &Path| Some(u64::MAX);
+        let accepted = super::validate_trainer_root_candidate_with(&root.to_string_lossy(), roomy)
+            .expect("a real, writable folder must be accepted");
         assert_eq!(accepted, root);
         assert!(root.is_dir(), "the folder must exist after validation");
         assert!(!root.join(".lu-write-check").exists(), "the write probe must be cleaned up, not left behind");
         fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A drive without room is refused before anything is created, so the
+    /// rejection leaves no empty folder behind.
+    #[test]
+    fn validate_trainer_root_candidate_refuses_a_full_drive_and_creates_nothing() {
+        let root = std::env::temp_dir().join(format!("lu-trainer-validate-full-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let full = |_: &Path| Some(1024 * 1024 * 1024);
+        let err = super::validate_trainer_root_candidate_with(&root.to_string_lossy(), full)
+            .expect_err("a drive with 1 GB free must be refused");
+        assert!(err.contains("1.0 GB free"), "the message must name the room that is there: {err}");
+        assert!(!root.exists(), "a refusal on room must not leave a folder behind");
     }
 
     /// BLOCKER 2, negative control on the write-then-check order: pointing
@@ -4214,6 +4241,7 @@ mod tests {
                 note_severity: None,
                 arch: None,
                 uuid: None,
+                shared_memory_mib: None,
             },
             crate::commands::gpu::DetectedGpu {
                 index: 1,
@@ -4225,6 +4253,7 @@ mod tests {
                 note_severity: None,
                 arch: None,
                 uuid: None,
+                shared_memory_mib: None,
             },
         ];
         let selection = crate::commands::gpu::GpuSelection { vendor: "nvidia".into(), indices: vec![1] };
@@ -4249,6 +4278,7 @@ mod tests {
                 note_severity: None,
                 arch: None,
                 uuid: None,
+                shared_memory_mib: None,
             },
             crate::commands::gpu::DetectedGpu {
                 index: 1,
@@ -4260,6 +4290,7 @@ mod tests {
                 note_severity: None,
                 arch: None,
                 uuid: None,
+                shared_memory_mib: None,
             },
         ];
         let selection = crate::commands::gpu::GpuSelection::default();
@@ -4285,6 +4316,7 @@ mod tests {
                 note_severity: None,
                 arch: None,
                 uuid: Some("GPU-aaaa".into()),
+                shared_memory_mib: None,
             },
             crate::commands::gpu::DetectedGpu {
                 index: 1,
@@ -4296,6 +4328,7 @@ mod tests {
                 note_severity: None,
                 arch: None,
                 uuid: Some("GPU-bbbb".into()),
+                shared_memory_mib: None,
             },
         ];
         let selection = crate::commands::gpu::GpuSelection::default();
@@ -4319,6 +4352,7 @@ mod tests {
             note_severity: None,
             arch: None,
             uuid: Some("GPU-cccc".into()),
+            shared_memory_mib: None,
         }];
         let selection = crate::commands::gpu::GpuSelection { vendor: "nvidia".into(), indices: vec![0] };
         let choice = super::choose_trainer_gpu(&cards, &selection, None).expect("a card was chosen");
@@ -4341,6 +4375,7 @@ mod tests {
                 note_severity: None,
                 arch: None,
                 uuid: None,
+                shared_memory_mib: None,
             },
             crate::commands::gpu::DetectedGpu {
                 index: 1,
@@ -4352,6 +4387,7 @@ mod tests {
                 note_severity: None,
                 arch: None,
                 uuid: None,
+                shared_memory_mib: None,
             },
         ];
         let selection = crate::commands::gpu::GpuSelection::default();
@@ -4490,7 +4526,7 @@ mod tests {
         assert_eq!(unknown.optimizer_type, "AdamW");
     }
 
-    /// Positive control: sdrairsoft's Tesla P100 (compute capability 6.0)
+    /// Positive control: a user's Tesla P100 (compute capability 6.0)
     /// must never reach `training_command` at all any more; it is refused
     /// by `capability_floor_refusal` before the trainer environment is even
     /// installed. See `capability_floor_now_refuses_pascal_the_concrete_melder_case`.
@@ -4638,7 +4674,7 @@ mod shutdown_tests {
         assert_eq!(venv_create_args(VenvAction::Keep), ["-m", "venv"]);
     }
 
-    // ── ticket 0004: the venv from the wrong Python (sockenmonster) ─────────
+    // ── ticket 0004: the venv from the wrong Python ─────────
     //
     // His machine has Python 3.14.6 and nothing older. LU used it for the
     // venv, torch from cu128 installed fine, and step 4 died on "Package
@@ -4650,7 +4686,7 @@ mod shutdown_tests {
     #[test]
     fn a_venv_from_a_python_the_trainer_cannot_use_is_rebuilt_not_kept() {
         use super::{venv_action, VenvAction};
-        assert_eq!(venv_action(true, Some("3.14.6"), true), VenvAction::Rebuild, "sockenmonster's venv");
+        assert_eq!(venv_action(true, Some("3.14.6"), true), VenvAction::Rebuild, "a user's venv");
         assert_eq!(venv_action(true, Some("3.13.5"), true), VenvAction::Rebuild, "the box's newest Python");
         assert_eq!(venv_action(true, Some("3.9.13"), true), VenvAction::Rebuild, "too old is as wrong as too new");
         for v in ["3.10.6", "3.11.7", "3.12.1"] {
@@ -4661,7 +4697,7 @@ mod shutdown_tests {
     /// K4, nachgebessert nach dem Opus-Review: before this, `arch_ok` did not
     /// exist and a venv built from a 32-bit or ARM64 Python 3.11 -- a version
     /// `trainer_supports_python` accepts -- always read Keep on this Keep
-    /// path, so "delete the 3.11 environment" (gekiritz was told this) had
+    /// path, so "delete the 3.11 environment" (a user was told this) had
     /// nothing to do here: the NEXT setup run rebuilt with the same bad
     /// interpreter, because nothing on the Keep path ever asked its
     /// architecture.
@@ -4697,7 +4733,7 @@ mod shutdown_tests {
         // so a working venv is never rebuilt because a Python appeared.
         let got = choose_trainer_python(&[pair("C:\\py311", "3.11.7"), pair("C:\\py312", "3.12.1")]);
         assert_eq!(got, Some(pair("C:\\py311", "3.11.7")));
-        // sockenmonster: the default is 3.14, and there is a 3.10 and a 3.12
+        // A user: the default is 3.14, and there is a 3.10 and a 3.12
         // further down the list. The newest that fits wins.
         let got = choose_trainer_python(&[
             pair("C:\\py314", "3.14.6"),
@@ -4826,7 +4862,7 @@ mod shutdown_tests {
         roh.push_str("ERROR: Could not install packages due to an OSError: [Errno 28] No space left on device\n");
         for i in 0..12 {
             roh.push_str(&format!(
-                "Moving to c:\\users\\ddrob\\musubi\\venv\\lib\\site-packages\\torch\\lib\\part{i}.dll\n"
+                "Moving to c:\\users\\alice\\musubi\\venv\\lib\\site-packages\\torch\\lib\\part{i}.dll\n"
             ));
         }
         let msg = repair_aborted_message(&Preflight::TorchBroken("No module named 'torch'".into()), &roh);
@@ -4911,8 +4947,8 @@ mod shutdown_tests {
 
     // ── A2 stage one: the setup step told everyone to check the network ────
     //
-    // aikabatzu (Discord #general, 2026-08-27), confirmed by aldrich_ironhart
-    // and by Z0mbieK in GH #121 on 2026-08-29: "Setting up the trainer
+    // A user (Discord #general, 2026-08-27), confirmed by a user
+    // and by a user in GH #121 on 2026-08-29: "Setting up the trainer
     // environment failed. Check that you are online" while online, with the
     // firewall off. Every failure class ended in that one sentence, because
     // there was only one sentence.
@@ -5088,7 +5124,7 @@ mod shutdown_tests {
 
 // ── the whole journey, ticket 0004 follow-up (06.09.2026) ───────────────────
 //
-// David's line: the app cannot afford to hand anyone instructions; from the
+// The owner's line: the app cannot afford to hand anyone instructions; from the
 // first error to a finished training, everything has to happen in the app.
 // These pin the pieces that replaced a pointer with an action: no git needed,
 // room checked before the first byte, a dropped download retried, the Visual
@@ -5317,7 +5353,7 @@ mod journey_tests {
     /// The interpreter is decided BEFORE the setup spends anything. A machine
     /// with only Python 3.13 or 3.14 has to be told so in one sentence, not
     /// after an archive, a venv and 2.5 GB of wheels (ticket 0004,
-    /// sockenmonster 2026-09-05, whose setup died in pip's step 4 with
+    /// A user 2026-09-05, whose setup died in pip's step 4 with
     /// "requires a different Python").
     #[test]
     fn the_python_rule_is_enforced_before_anything_is_downloaded() {

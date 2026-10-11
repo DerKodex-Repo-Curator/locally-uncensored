@@ -62,7 +62,7 @@ export function isWindows(): boolean {
 
 /**
  * Launch policy: the macOS desktop app is now a full local+cloud app like
- * Windows/Linux (David 2026-07-22 — local mode built + tested). The former
+ * Windows/Linux (2026-07-22 — local mode built + tested). The former
  * Cloud-ONLY mac wall is lifted; the Local/Cloud switch, local-hardware
  * surfaces and local onboarding are available again. Kept as a function
  * returning false so the (dead) call sites collapse to the normal switchable
@@ -208,7 +208,7 @@ export async function localFetch(
     // transport failure — surface it faithfully so callers' status checks
     // (think-field 400 downgrade, buildError) behave exactly like a direct
     // fetch does on Linux/macOS. Retrying via direct fetch would be pointless
-    // and on WebView2 149 just adds a second guaranteed failure (rikki
+    // and on WebView2 149 just adds a second guaranteed failure (a user
     // Discord 2026-06-10: Win11 "agent error" while Kubuntu was fine).
     const httpErr = parseProxyHttpError(proxyErrMsg)
     if (httpErr) {
@@ -279,7 +279,7 @@ export async function localFetchStream(
     ? { ...(body ? { "Content-Type": "application/json" } : {}), ...(extraHeaders ?? {}) }
     : undefined;
 
-  // Transport order (rikki Discord 2026-06-10, Win11 "agent error"):
+  // Transport order (Discord 2026-06-10, Win11 "agent error"):
   // on WebView2 the direct fetch to a loopback backend is dead on arrival —
   // Ollama's CORS rejects the tauri.localhost origin and WebView2 149 made
   // the failure mode flaky instead of clean. Burning that attempt first cost
@@ -331,12 +331,12 @@ export async function localFetchStream(
 }
 
 /**
- * STREAMING proxy (David 2026-06-02): a Tauri Channel forwards each chunk from
+ * STREAMING proxy (2026-06-02): a Tauri Channel forwards each chunk from
  * Rust as it arrives, fed into a ReadableStream → real token-by-token streaming
  * (the old buffered path produced NOTHING until the body was complete — the
- * multi-minute "model loading" hang, dhasim Discord report).
+ * multi-minute "model loading" hang, Discord report).
  *
- * Status fidelity (rikki Discord 2026-06-10): the Rust command rejects with the
+ * Status fidelity (Discord 2026-06-10): the Rust command rejects with the
  * string "HTTP <status>: <body>" when the backend answered non-2xx — BEFORE any
  * chunk is sent. The old code turned that into a stream error with no
  * statusCode, so callers' `res.status === 400` handling (Ollama think-field
@@ -364,7 +364,7 @@ async function proxyStreamChunked(url: string, method: string, body?: string, he
   // Deterministic backend cancellation: tag this stream with an id and, when the
   // caller aborts (Stop button / chat delete/close), tell Rust to cancel the
   // upstream request so Ollama actually stops generating — not just the JS loop
-  // (David 2026-06-15: "Aktivität komplett stoppen"). Without this, the proxy
+  // (2026-06-15: "Aktivität komplett stoppen"). Without this, the proxy
   // kept pulling from Ollama to completion after an abort, burning GPU.
   const streamId =
     (globalThis.crypto as Crypto | undefined)?.randomUUID?.() ??
@@ -528,9 +528,16 @@ export async function backendCall<T = unknown>(
     mlx_start: { path: "/local-api/mlx-start", method: "POST" },
     mlx_unload: { path: "/local-api/mlx-unload", method: "POST" },
     mlx_generate: { path: "/local-api/mlx-generate", method: "POST" },
+    mlx_generate_progress: { path: "/local-api/mlx-generate-progress" },
+    mlx_generate_cancel: { path: "/local-api/mlx-generate-cancel", method: "POST" },
+    mlx_loras: { path: "/local-api/mlx-loras" },
+    mlx_loras_open_folder: { path: "/local-api/mlx-loras-open-folder", method: "POST" },
+    mlx_lora_delete: { path: "/local-api/mlx-lora-delete", method: "POST" },
+    mlx_output_trash: { path: "/local-api/mlx-output-trash", method: "POST" },
     mlx_image_models: { path: "/local-api/mlx-image-models" },
     mlx_image_install_model: { path: "/local-api/mlx-image-install-model", method: "POST" },
     mlx_image_install_status: { path: "/local-api/mlx-image-install-status" },
+    mlx_image_cancel_install: { path: "/local-api/mlx-image-cancel-install", method: "POST" },
     mlx_image_delete_model: { path: "/local-api/mlx-image-delete-model", method: "POST" },
     install_mlx_diffusion: { path: "/local-api/install-mlx-diffusion", method: "POST" },
     install_mlx_diffusion_status: { path: "/local-api/install-mlx-diffusion" },
@@ -542,11 +549,55 @@ export async function backendCall<T = unknown>(
     video_install_mlx_status: { path: "/local-api/video-install-mlx" },
     video_install_model: { path: "/local-api/video-install-model", method: "POST" },
     video_install_model_status: { path: "/local-api/video-install-model-status" },
+    video_cancel_model_install: { path: "/local-api/video-cancel-model-install", method: "POST" },
     video_delete_model: { path: "/local-api/video-delete-model", method: "POST" },
+    video_stage_start_image: { path: "/local-api/video-stage-start-image", method: "POST" },
     video_generate: { path: "/local-api/video-generate", method: "POST" },
     video_progress: { path: "/local-api/video-progress" },
     video_cancel: { path: "/local-api/video-cancel", method: "POST" },
     read_media_file: { path: "/local-api/read-media-file", method: "POST" },
+    // Astra voice loop: installed and run by the Rust process only. Mapped so
+    // the browser dev surface gets the desktop-only answer from
+    // dev-server/voice-loop-stubs.ts instead of "Unknown backend command".
+    voice_loop_requirements: { path: "/local-api/voice-loop-requirements" },
+    voice_loop_install: { path: "/local-api/voice-loop-install", method: "POST" },
+    voice_loop_install_status: { path: "/local-api/voice-loop-install-status" },
+    voice_loop_install_cancel: { path: "/local-api/voice-loop-install-cancel", method: "POST" },
+    voice_loop_status: { path: "/local-api/voice-loop-status" },
+    voice_loop_start: { path: "/local-api/voice-loop-start", method: "POST" },
+    voice_loop_set_voice: { path: "/local-api/voice-loop-set-voice", method: "POST" },
+    voice_loop_stop: { path: "/local-api/voice-loop-stop", method: "POST" },
+    // The "Whole computer" grant of a voice session lives in the Rust file
+    // jail. The dev server has none to give and answers 501.
+    fs_whole_computer: { path: "/local-api/fs-whole-computer", method: "POST" },
+    fs_whole_computer_forget: { path: "/local-api/fs-whole-computer-forget", method: "POST" },
+    voice_loop_uninstall: { path: "/local-api/voice-loop-uninstall", method: "POST" },
+    // Astra computer use: mouse, keyboard and screen belong to the Rust
+    // process. Mapped for the same reason as the voice loop above; the
+    // answers come from dev-server/computer-stubs.ts.
+    computer_status: { path: "/local-api/computer-status" },
+    computer_permissions: { path: "/local-api/computer-permissions" },
+    computer_permission_request: { path: "/local-api/computer-permission-request", method: "POST" },
+    computer_permission_reset: { path: "/local-api/computer-permission-reset", method: "POST" },
+    computer_chat_ask: { path: "/local-api/computer-chat-ask", method: "POST" },
+    computer_chat_answer: { path: "/local-api/computer-chat-answer", method: "POST" },
+    computer_session_begin: { path: "/local-api/computer-session-begin", method: "POST" },
+    computer_session_allow_app: { path: "/local-api/computer-session-allow-app", method: "POST" },
+    computer_session_revoke_app: { path: "/local-api/computer-session-revoke-app", method: "POST" },
+    computer_session_set_autonomous: { path: "/local-api/computer-session-set-autonomous", method: "POST" },
+    computer_session_end: { path: "/local-api/computer-session-end", method: "POST" },
+    computer_stop: { path: "/local-api/computer-stop", method: "POST" },
+    computer_request_attention: { path: "/local-api/computer-request-attention", method: "POST" },
+    computer_guard: { path: "/local-api/computer-guard" },
+    computer_windows: { path: "/local-api/computer-windows" },
+    computer_screen: { path: "/local-api/computer-screen", method: "POST" },
+    computer_action: { path: "/local-api/computer-action", method: "POST" },
+    computer_tree: { path: "/local-api/computer-tree", method: "POST" },
+    computer_pause: { path: "/local-api/computer-pause", method: "POST" },
+    computer_takeover_answer: { path: "/local-api/computer-takeover-answer", method: "POST" },
+    computer_watch: { path: "/local-api/computer-watch" },
+    computer_surface: { path: "/local-api/computer-surface", method: "POST" },
+    computer_surface_corner: { path: "/local-api/computer-surface-corner", method: "POST" },
     transcribe: { path: "/local-api/transcribe", method: "POST" },
     execute_code: { path: "/local-api/execute-code", method: "POST" },
     // file_read / file_write: ABSICHTLICH NICHT HIER. Die beiden Dev-Endpunkte
@@ -721,13 +772,13 @@ export function comfyuiUrl(path: string): string {
 }
 
 /**
- * Web-build fallback for a relative ComfyUI media URL (konata 2026-06-08 chat,
+ * Web-build fallback for a relative ComfyUI media URL (a user 2026-06-08 chat,
  * 2026-06-25 Create page). In the browser build, media URLs are the RELATIVE
  * Vite-proxy path (`/comfyui/view?…`). That loads fine under `npm run dev`, but
  * a static host — or a reverse-proxy / SSH tunnel in front of a remote ComfyUI —
  * can mishandle the `<video>` byte-range subrequest and never paint it, while a
  * plain `<img>` GET and a direct top-level navigation to the same URL still work
- * (exactly konata's "video not in gallery, direct link works" report). When the
+ * (exactly a user's "video not in gallery, direct link works" report). When the
  * relative load fires onError, retry with an ABSOLUTE URL straight to the
  * ComfyUI host — `<img>`/`<video>` display is not CORS-gated, so it needs no
  * proxy. Tauri URLs are already absolute (never start with '/') and pass through
@@ -763,7 +814,7 @@ export async function downloadComfyFile(filename: string, subfolder: string = ''
   // Tauri mode: fetch the bytes through the proxy, then a NATIVE Save-As dialog.
   // The old blob-URL + anchor-click pattern is UNRELIABLE in WebView2 — the
   // webview navigates to the blob URL instead of saving it, so clicking Download
-  // did nothing (David 2026-06-12: "der download button geht nicht für video und
+  // did nothing (2026-06-12: "der download button geht nicht für video und
   // image mcp"). save_binary_file_dialog writes the real bytes to the chosen path
   // (same native dialog the chat file-artifact card uses, which works).
   const invoke = await getInvoke()

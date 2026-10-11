@@ -1,5 +1,5 @@
 /**
- * A14 (2.6.8), David: "Die Modelle erscheinen unter Installed in einer Gruppe
+ * A14 (2.6.8), the owner: "Die Modelle erscheinen unter Installed in einer Gruppe
  * 'LU Engine' (analog zu den Provider-Gruppen)" and the same in the composer's
  * picker.
  *
@@ -214,7 +214,7 @@ describe('de-duplication asks about the FILE, never about the model', () => {
     expect(dropDuplicateLuEngineRows([ours], lmsHas('qwen/qwen2.5-0.5b'))).toEqual([])
   })
 
-  // THE A14 THIRD REVIEW FINDING, and David's own machine: ~/lu-e2e-models
+  // THE A14 THIRD REVIEW FINDING, and the owner's own machine: ~/lu-e2e-models
   // holds Qwen2.5-0.5B-Instruct-Q8_0.gguf, LM Studio reports the collapsed id
   // because it happens to hold one quant, and that quant may be a Q4_K_M in a
   // completely different folder. Our file names its quant, so the two are not

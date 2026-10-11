@@ -6,7 +6,7 @@ import { downloadFile } from '../../lib/chat-export'
 import { formatBytes } from '../../lib/formatters'
 
 /**
- * In-chat file artifact (David 2026-06-12). In PLAIN chat a "file write" never
+ * In-chat file artifact (2026-06-12). In PLAIN chat a "file write" never
  * touches disk — the model's file lands here and shows like a ChatGPT artifact:
  * filename + a scrollable preview + a Download button (native Save-As in Tauri,
  * blob-download in the browser).

@@ -1,7 +1,7 @@
 /**
  * The catalog's own LoRAs on Models, LoRAs, Get new: one click each, no search.
  *
- * Discord 2026-10-03 (boromirofgeo): 3.0.4 said "put the turbo lora in the
+ * Discord 2026-10-03: 3.0.4 said "put the turbo lora in the
  * lora stack" and nobody said where the file comes from. The tiles are the
  * same ones the Image and Video tabs show for these add-ons, with the same
  * install path (size, sha256, models/loras), so there is one answer about
@@ -13,7 +13,7 @@ import { checkBundlesInstalled, installBundleComplete, remoteBundleNotice } from
 import { openExternal } from '../../api/backend'
 import { bundleHasErrors, bundleIsComplete, bundleIsDownloading } from '../../lib/bundle-state'
 import { useDownloadStore } from '../../stores/downloadStore'
-import { BundleTile } from './ModelTiles'
+import { modelSkin } from './skin'
 
 const GIB = 1_073_741_824
 
@@ -74,13 +74,14 @@ export function LoraAddons({ search = '' }: { search?: string }) {
     ? bundles.filter((b) => b.name.toLowerCase().includes(q) || b.description.toLowerCase().includes(q))
     : bundles
   if (shown.length === 0) return null
+  const skin = modelSkin()
 
   return (
-    <section className="space-y-1.5" data-testid="lora-addons">
-      <h3 className="px-1 t-micro font-semibold uppercase tracking-[0.12em] text-gray-700 dark:text-gray-300">Ready to install</h3>
+    <section className={skin.cls.group} data-testid="lora-addons">
+      <skin.Head place="addons" title="Ready to install" count={shown.length} />
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
         {shown.map((bundle) => (
-          <BundleTile
+          <skin.BundleTile
             key={bundle.name}
             bundle={bundle}
             vramGb={null}
@@ -95,7 +96,7 @@ export function LoraAddons({ search = '' }: { search?: string }) {
         ))}
       </div>
       {message && (
-        <p className={`px-1 t-micro ${message.failed ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>{message.text}</p>
+        <p className={`${skin.cls.addonsMessage} ${message.failed ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>{message.text}</p>
       )}
     </section>
   )

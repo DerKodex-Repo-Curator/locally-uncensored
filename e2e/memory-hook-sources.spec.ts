@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { tauriMockInit, DEFAULT_MODEL_NAME } from './support/tauri-mock'
 import { seedOnboardingDone } from './support/cloud-mock'
-import { openNewChat } from './support/ui'
+import { openNewChat, appModules, type AppWindow } from './support/ui'
 import { isRecord } from './support/recorded'
 import type { MemoryFile } from '../src/types/agent-mode'
 
@@ -30,15 +30,13 @@ for (const mode of ['Chat', 'Agent', 'Code'] as const) {
     }
     // Seed only input state. Retrieval, hooks, provider serialization, answer
     // mutation and rendering all remain production code.
+    await appModules(page, ['/src/stores/memoryStore.ts', '/src/stores/chatStore.ts', '/src/stores/cloudAuthStore.ts'])
     await page.evaluate(async selectedCollection => {
-      const memoryPath = '/src/stores/memoryStore.ts'
-      const chatPath = '/src/stores/chatStore.ts'
-      const memory = await import(/* @vite-ignore */ memoryPath) as typeof import('../src/stores/memoryStore')
-      const chat = await import(/* @vite-ignore */ chatPath) as typeof import('../src/stores/chatStore')
+      const memory = (window as unknown as AppWindow).__APP__['/src/stores/memoryStore.ts'] as typeof import('../src/stores/memoryStore')
+      const chat = (window as unknown as AppWindow).__APP__['/src/stores/chatStore.ts'] as typeof import('../src/stores/chatStore')
       await memory.useMemoryStore.persist.rehydrate()
       if (selectedCollection === 'account') {
-        const authPath = '/src/stores/cloudAuthStore.ts'
-        const { useCloudAuthStore } = await import(authPath) as typeof import('../src/stores/cloudAuthStore')
+        const { useCloudAuthStore } = (window as unknown as AppWindow).__APP__['/src/stores/cloudAuthStore.ts'] as typeof import('../src/stores/cloudAuthStore')
         useCloudAuthStore.getState().setSignedIn({ id: 'proof-owner' }, { licenseActive: false, tier: null, access: true, quota: null })
         if (!memory.useMemoryStore.getState().selectMemoryCollection('proof-owner')) throw new Error('Could not select proof collection')
       }
@@ -59,9 +57,9 @@ for (const mode of ['Chat', 'Agent', 'Code'] as const) {
     await page.getByRole('button', { name: 'Send message' }).click()
     await expect(page.getByRole('main').getByText('SOURCEPROOF answer from the transport fixture.', { exact: true })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByRole('button', { name: 'Send message' })).toBeVisible({ timeout: 30_000 })
+    await appModules(page, ['/src/stores/chatStore.ts'])
     const result = await page.evaluate(async () => {
-      const chatPath = '/src/stores/chatStore.ts'
-      const chat = await import(/* @vite-ignore */ chatPath) as typeof import('../src/stores/chatStore')
+      const chat = (window as unknown as AppWindow).__APP__['/src/stores/chatStore.ts'] as typeof import('../src/stores/chatStore')
       await chat.flushChatPersist()
       const bodies: unknown = Reflect.get(window, '__E2E_CHAT_BODIES__')
       if (!Array.isArray(bodies) || !bodies.every(body => typeof body === 'string')) throw new Error('Missing transport bodies')
@@ -77,7 +75,7 @@ for (const mode of ['Chat', 'Agent', 'Code'] as const) {
     expect(system).toContain('SOURCEPROOF_project')
     for (const excluded of ['private', 'foreign', 'stale']) expect(body).not.toContain(`SOURCEPROOF_${excluded}`)
     // Regression guard: the "Memory sources" chip under an answer was removed
-    // (David 2026-09-19: the purple brain icon already shows memory is active,
+    // (2026-09-19: the purple brain icon already shows memory is active,
     // repeating it under every reply was noise). Retrieval above still runs in
     // full; only the per-answer disclosure is gone.
     await expect(page.getByText('Memory sources', { exact: false })).toHaveCount(0)

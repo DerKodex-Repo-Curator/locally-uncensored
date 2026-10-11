@@ -2,6 +2,7 @@
 // the waiting area, so the two cannot disagree about the model on the card.
 import { useCreateStore } from '../../../stores/createStore'
 import { resolveLocalOpPick, videoLaneModels, type ClassifiedModel } from '../../../api/comfyui'
+import { imageLaneModels } from '../../../lib/image-engines'
 
 export interface LocalPick {
   isVideo: boolean
@@ -34,12 +35,14 @@ export function useLocalPick(): LocalPick {
     : intent === 'motion' ? motionModelList
     : null
 
-  // Mirror the cloud picker's op-gating (David 2026-07-17: "only offer models
+  // Mirror the cloud picker's op-gating (2026-07-17: "only offer models
   // that can actually do it"): Animate/Extend list i2v-capable local models,
   // Video lists t2v-capable ones (SVD/FramePack are i2v-only and drop there).
   // Shared with Stage's missing-models gate so card and picker cannot drift.
   const rawList = isVideo ? videoModelList : imageModelList
-  const list = laneList ?? (!isVideo ? rawList : videoLaneModels(rawList, intent))
+  // The image list is narrowed only where it says itself which models edit
+  // (the Mac's catalogue); a ComfyUI list comes back as it is.
+  const list = laneList ?? (!isVideo ? imageLaneModels(rawList, intent) : videoLaneModels(rawList, intent))
   const stored = laneList ? localOpModel : (isVideo ? videoModel : imageModel)
   // Reflect the model the run will really use: a leftover pick the current
   // op can't perform must not show as "selected". Lanes share the submit-side

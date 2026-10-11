@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * 3.0.5, samvenice on Discord: in a group chat every model answered under the
+ * 3.0.5, a user on Discord: in a group chat every model answered under the
  * one persona of the chat. Two models were both told they are the same
  * character, and each took over the other's role. Now each participant can
  * have its own persona, stored on the conversation.

@@ -42,7 +42,7 @@ use super::git::{windows_git_install_hint, windows_git_probe, WindowsGitState};
 #[cfg(target_os = "windows")]
 use super::CREATE_NO_WINDOW;
 
-// ── Disk-pressure pre-flight (Bug #1 — techx69 100%-busy-drive hang) ────────
+// ── Disk-pressure pre-flight (Bug #1 — 100%-busy-drive hang) ────────
 //
 // FREE SPACE IS THE ONLY THING MEASURED HERE, and that is deliberate. The doc
 // comment below used to promise a second check as well — "or its pending I/O
@@ -227,7 +227,7 @@ pub fn install_comfyui(
         .map(PathBuf::from)
         .unwrap_or_else(|| dirs::home_dir().unwrap_or_default().join("ComfyUI"));
 
-    // Bug #1 (techx69): pre-flight disk pressure check. On a drive sitting
+    // Bug #1: pre-flight disk pressure check. On a drive sitting
     // at 100% utilisation the install hangs for 45+ minutes and the app
     // OOMs. Surface the risk BEFORE we start — the user can free space
     // or pick a different drive instead of staring at a frozen progress
@@ -267,7 +267,7 @@ pub fn install_comfyui(
     }
     let install_status = state.install_status.clone();
     // Cloned into the worker so a custom install target can be persisted as
-    // the active ComfyUI path once the install completes (andy_38747).
+    // the active ComfyUI path once the install completes.
     let comfy_path_slot = state.comfy_path.clone();
 
     std::thread::spawn(move || {
@@ -306,7 +306,7 @@ pub fn install_comfyui(
         // else looks at the folder.
         restore_orphaned_venv_if_needed(&target_dir);
 
-        // Bug N (juliandiggins-stack issue #40, 2026-05-18) — probe Windows
+        // Bug N (issue #40, 2026-05-18) — probe Windows
         // git BEFORE clone so a WSL/non-native git on PATH surfaces a clear
         // hint instead of failing the clone halfway with cryptic stderr.
         #[cfg(target_os = "windows")]
@@ -454,7 +454,7 @@ pub fn install_comfyui(
             return;
         }
 
-        // Bug E (rzgrozt, Arch GH #32 comment, 2026-05-08) was the first
+        // Bug E (Arch GH #32 comment, 2026-05-08) was the first
         // reason ComfyUI got a venv of its own: a PEP 668 protected system
         // Python refuses `pip install` outright. Since 3.0.4 every fresh
         // install builds one (see the build below). The launcher in
@@ -548,7 +548,7 @@ pub fn install_comfyui(
             // Always a venv of its own, on every platform. Without one,
             // Windows and macOS put PyTorch and every ComfyUI package into the
             // user's system Python, next to whatever other software had
-            // installed there. nosferatue412 (Discord 2026-09-22, Windows 11,
+            // installed there. A user (Discord 2026-09-22, Windows 11,
             // RX 9060 XT): the environment check died on "python.exe - Bad
             // Image" for a ROCm DLL in Python312\Lib\site-packages that came
             // from another install. Linux already did this whenever PEP 668
@@ -718,7 +718,7 @@ pub fn install_comfyui(
 
         println!("[Install] ComfyUI installation complete");
 
-        // andy_38747 (Discord): the install target is user-configurable now.
+        // A user (Discord): the install target is user-configurable now.
         // Persist it exactly like `set_comfyui_path` does (memory + config.json),
         // otherwise a non-default target (e.g. D:\ComfyUI) is installed fine but
         // never found again — `find_comfyui_path` only scans standard locations.

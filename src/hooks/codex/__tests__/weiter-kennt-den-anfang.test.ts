@@ -1,5 +1,5 @@
 /**
- * Kundenfall 30.09.2026 (swift_maple90, zweite Mail): "when it stopped i will
+ * Kundenfall 30.09.2026 (zweite Mail): "when it stopped i will
  * continue the task then its start from again reapting same and same always".
  * Am Ende eines Laufs bleiben nur die letzten 60 Nachrichten der Werkzeugkette
  * gespeichert. Was davor lag, stand nirgends mehr, auch nicht im sichtbaren

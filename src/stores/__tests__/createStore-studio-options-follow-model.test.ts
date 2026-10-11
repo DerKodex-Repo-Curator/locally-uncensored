@@ -1,6 +1,6 @@
 /**
- * Fund F2 (05.10.2026, Vorlage: apps/web/stores/__tests__/
- * createStore-studio-options-follow-model.test.ts): Studio-Optionen gehoeren zu
+ * Fund F2 (05.10.2026, Vorlage: the web app):
+ * Studio-Optionen gehoeren zu
  * dem Modell, fuer das sie gewaehlt wurden. Eine laengere Dauer oder eine
  * hoehere Aufloesung wandert bei keinem Wechsel still zum naechsten Modell mit.
  */

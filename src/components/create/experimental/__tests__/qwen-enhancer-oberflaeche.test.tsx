@@ -95,16 +95,16 @@ describe('who writes', () => {
     expect(screen.queryByRole('radiogroup')).toBeNull()
     fireEvent.click(theSwitch()!)
     expect(screen.getByRole('radiogroup', { name: 'Rewritten by' })).toBeTruthy()
-    expect(writers()).toEqual(['Qwen enhancer*', 'Qwen enhancer, no refusals', 'Chat model'])
+    expect(writers()).toEqual(['Qwen enhancer*', 'Qwen enhancer, No Filter', 'Chat model'])
   })
 
   it('a click picks the one without refusals and it is remembered in the store', () => {
     useCreateStore.getState().setIntent('image')
     useCreateStore.setState({ improvePrompt: true })
     render(<ImproveToggle />)
-    fireEvent.click(screen.getByRole('radio', { name: 'Qwen enhancer, no refusals' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Qwen enhancer, No Filter' }))
     expect(useCreateStore.getState().improveWith).toBe('unfiltered')
-    expect(writers()).toEqual(['Qwen enhancer', 'Qwen enhancer, no refusals*', 'Chat model'])
+    expect(writers()).toEqual(['Qwen enhancer', 'Qwen enhancer, No Filter*', 'Chat model'])
   })
 
   it('picking the chat model brings the chat tooltip back', async () => {
@@ -121,7 +121,7 @@ describe('who writes', () => {
     useCreateStore.getState().setIntent('edit')
     useCreateStore.setState({ improvePrompt: true, improveWith: 'chat' })
     render(<ImproveToggle />)
-    expect(writers()).toEqual(['Qwen enhancer*', 'Qwen enhancer, no refusals'])
+    expect(writers()).toEqual(['Qwen enhancer*', 'Qwen enhancer, No Filter'])
   })
 
   it('a single enhancer on Edit leaves nothing to choose: no row', () => {

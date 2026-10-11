@@ -58,6 +58,29 @@ export interface CloudScenario {
    * pickers must stand there neutral (no mark, no "Older models" row).
    */
   tierCatalog?: boolean
+  /**
+   * 08.10.2026: the media catalog names the open models with the cloud's own
+   * neutral word in `label` and sends the app's name as `native_label`. Set
+   * this to reproduce a server that sends `label` alone: the app then shows
+   * `label` as it comes.
+   */
+  catalogWithoutNativeLabel?: boolean
+  /**
+   * 09.10.2026, Create in chat. Unset reproduces a server from before it:
+   * /api/me carries no `features`, no model carries `create_in_chat`, and the
+   * app must show nothing of it. `true` is a released account (the server's
+   * switch plus its allowlist) and one released model (GLM 5.3 Flash; the
+   * other two stay unreleased so the greyed switch has a case). `false` is a
+   * server that knows the feature and says no for this account.
+   */
+  createChat?: boolean
+  /**
+   * 09.10.2026, billing by length. Set it and the media catalog carries a
+   * talking model billed by the second of its audio and the voice model
+   * billed by the character, each with the rule in `credits.length` the way
+   * the server sends it. Unset is a server from before the rule.
+   */
+  lengthCatalog?: boolean
 }
 
 // P9: one Studio model, shaped like a real /api/jobs/catalog entry once P0's
@@ -148,8 +171,16 @@ export async function routeCloud(page: Page, scenario: CloudScenario): Promise<v
               ? { status: 'active', tier, access, ...(scenario.paidPlan === undefined ? {} : { paidPlan: scenario.paidPlan }) }
               : { status: 'none' },
           profile: null,
+          ...(scenario.createChat === undefined ? {} : { features: { createChat: scenario.createChat } }),
         }),
       )
+    }
+
+    // What an order of the chat reads before it is laid out. Only with the
+    // scenario: every other spec keeps the mock it was written against.
+    if (scenario.createChat !== undefined && path === '/api/loras') return route.fulfill(json(200, { loras: [] }))
+    if (scenario.createChat !== undefined && path === '/api/account/content-policy') {
+      return route.fulfill(json(200, { policy: 'soft', ageConfirmedAt: null, ageConfirmationRequired: true }))
     }
 
     if (path === '/api/jobs/quota') {
@@ -192,9 +223,17 @@ export async function routeCloud(page: Page, scenario: CloudScenario): Promise<v
             // on EVERY scenario, not just studioCatalog, so
             // create-studio.spec.ts can prove the fallback actually resolves
             // to a real, pickable model instead of an empty list.
-            { id: 'wan-2.2-spicy-extend', label: 'Wan 2.2 Uncensored Extend', kind: 'video', ops: ['extend'], t2v: false, i2v: false, adult: true, credits: { base: 15000 } },
+            // The server lists the open models under its own neutral word
+            // and sends the app's name next to it (`native_label`). A server
+            // from before that field sends `label` alone.
+            { id: 'wan-2.2-spicy-extend', label: 'Wan 2.2 Unfiltered Extend', ...(scenario.catalogWithoutNativeLabel ? {} : { native_label: 'Wan 2.2 Uncensored Extend' }), kind: 'video', ops: ['extend'], t2v: false, i2v: false, adult: true, credits: { base: 15000 } },
             { id: 'wan-2.2-animate', label: 'Wan 2.2 Animate', kind: 'video', ops: ['motion'], t2v: false, i2v: false, credits: { base: 12000 } },
             ...(scenario.studioCatalog ? [STUDIO_CATALOG_MODEL] : []),
+            ...(scenario.lengthCatalog
+              ? [{ id: 'infinitetalk-fast', label: 'InfiniteTalk Fast', kind: 'video' as const, ops: ['lipsync'], t2v: false, i2v: false, credits: { base: 3150, length: { basis: 'audio', block: 1, per_block: 315, min: 3, max: 600, quote: 10 } } },
+                 { id: 'qwen3-tts', label: 'Qwen3 TTS', kind: 'audio' as const, ops: ['tts'], credits: { base: 525, length: { basis: 'chars', block: 100, per_block: 105, min: 1, max: 4000, quote: 500 } } },
+                 { id: 'qwen3-tts-design', label: 'Qwen3 TTS Design', kind: 'audio' as const, ops: ['tts'], credits: { base: 525, length: { basis: 'chars', block: 100, per_block: 105, min: 1, max: 4000, quote: 500 } } }]
+              : []),
             ...(scenario.tierCatalog
               ? [{ id: 'z-image-turbo', label: 'Z-Image Turbo (fast)', kind: 'image' as const, edit: false, cfg: false, negative_prompt: false, credits: { base: 300 }, tier: 'best', weights: 'open' },
                  { id: 'nucleus-image', label: 'Nucleus', kind: 'image' as const, adult: true, ops: ['studio'], quote_required: true, tier: 'standard', weights: 'open-family' }]
@@ -277,6 +316,7 @@ export async function routeCloud(page: Page, scenario: CloudScenario): Promise<v
               input_modalities: ['text', 'image'],
               think: 'always',
               supports_tools: true,
+              ...(scenario.createChat ? { create_in_chat: true } : {}),
               reasoning_effort_levels: ['low', 'medium', 'high', 'max'],
               reasoning_effort_default: 'high',
             },
@@ -303,7 +343,7 @@ export async function routeCloud(page: Page, scenario: CloudScenario): Promise<v
             id: 'job-e2e-1',
             kind: 'image',
             model: 'flux-schnell',
-            provider: 'wavespeed',
+            provider: 'upstream',
             status: 'succeeded',
             result_url: 'https://lu-labs.ai/e2e/result.png',
             attestation: null,

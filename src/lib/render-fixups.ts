@@ -1,6 +1,6 @@
 // ─── Fix what a render is missing, then run it ───
 //
-// Discord 2026-09-26..28 (David: "not just say what is wrong, make it work"):
+// Discord 2026-09-26..28 (the owner: "not just say what is wrong, make it work"):
 // a model whose text encoder or VAE is not on disk, or a ComfyUI too old for
 // the model's loader, used to end the run with a sentence that sent people to
 // the Model Manager or to Settings. The builder now says exactly what is

@@ -1,7 +1,7 @@
 /**
  * Who gets the Docs button, how it looks, and what its tooltip may honestly say.
  *
- * A9 (aldrich_ironhart, Discord #general 2026-09-01): "There's no document tab
+ * A9 (Discord #general 2026-09-01): "There's no document tab
  * in cloud chat to add documents and audio clips". He was right, and the
  * reason it was missing did not hold up. Document Chat needs an EMBEDDING
  * backend, not a chat backend, and the embedding backend is the bundled
@@ -57,7 +57,7 @@ export function docsTitleRemote(endpoint: string | null): string {
   return `Document Chat (RAG). Indexing runs on ${endpoint ?? 'your configured Ollama host'}, so whole documents are sent there. Matching passages then go to the cloud model.`
 }
 
-/** No embedding lane. The wording David asked for, plus the way out. */
+/** No embedding lane. The wording the owner asked for, plus the way out. */
 export const DOCS_TITLE_NO_EMBEDDINGS =
   'Documents need the local embeddings engine. Click to install it.'
 

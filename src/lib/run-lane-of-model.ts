@@ -8,7 +8,7 @@
  * Slots faellt das auseinander, und zwar in beide Richtungen:
  *
  *   ollama::qwen3:8b   auf localhost           →  lokal, eigene Karte
- *   ollama::qwen3:8b   auf 192.168.0.54:11434  →  fremde Karte, also cloud
+ *   ollama::qwen3:8b   auf 192.168.1.54:11434  →  fremde Karte, also cloud
  *   openai::gpt-oss    im mitgelieferten Motor →  lokal, eigene Karte
  *   openai::llama3     in LM Studio, localhost →  lokal, eigene Karte
  *   openai::gpt-4o     bei OpenAI selbst       →  cloud

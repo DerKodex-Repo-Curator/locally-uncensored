@@ -1,7 +1,7 @@
 /**
  * Studio-Felder von createStore (Portplan Abschnitt 3e/3f, Paket P5).
  *
- * Vier Faelle, die David/der Plan als Waechter verlangen:
+ * Vier Faelle, die der Inhaber/der Plan als Waechter verlangen:
  *  1. Ein Zustand der Version 1 (vor dem Studio) liest cloudStudioOptions als
  *     {} ein, nie als undefined, sonst faellt Object.entries() im Composer.
  *  2. Ein LOKALER Lauf laesst den Cloud-Modellwaehler in Ruhe: im Desktop

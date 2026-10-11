@@ -50,6 +50,12 @@ export interface EngineOffloadStatus {
    *  flash attention rung keeps the card, so this can be set with `cpuOnly`
    *  false and a real layer count. */
   sanityNote?: string | null
+  /** Why this model came up WITHOUT its image part although one is
+   *  installed: the graphics memory had no room for it next to the model, or
+   *  the engine refused the part (engine.rs IMAGE_PART_NO_ROOM_NOTE and
+   *  IMAGE_PART_REFUSED_NOTE). Written in Rust, shown as it is. Null on every
+   *  start that loaded the part, and on a model that has none. */
+  imageNote?: string | null
 }
 
 /** The sentence the standing line carries after a fallback. */
@@ -87,18 +93,21 @@ export function engineOffloadLine(status: EngineOffloadStatus | null | undefined
  */
 export function engineCpuFallbackKey(status: EngineOffloadStatus | null | undefined): string | null {
   if (!status?.running) return null
-  if (!status.cpuOnly && !status.sanityNote) return null
+  if (!status.cpuOnly && !status.sanityNote && !status.imageNote) return null
   // The sentence is part of the key: an engine that was first healed without
   // Flash Attention and then, on the next pass, moved to the processor has
   // something new to say about the same port and model.
-  return `${status.port ?? '?'}|${status.model_path ?? '?'}|${status.sanityNote ?? ''}`
+  return `${status.port ?? '?'}|${status.model_path ?? '?'}|${status.sanityNote ?? ''}|${status.imageNote ?? ''}`
 }
 
 /** The sentence the standing line carries for this status. */
 export function engineStandingNote(status: EngineOffloadStatus): string {
   // Rust wrote the sanity sentence with the cause in it, so it wins over the
-  // generic fallback line whenever it is there.
-  return status.sanityNote || ENGINE_CPU_ONLY_NOTE
+  // generic fallback line whenever it is there. The image note is about
+  // something else (what the model can see, not where it computes), so it
+  // stands beside whichever of the two applies and alone when neither does.
+  const where = status.sanityNote || (status.cpuOnly ? ENGINE_CPU_ONLY_NOTE : null)
+  return [where, status.imageNote].filter(Boolean).join(' ')
 }
 
 /**
@@ -142,9 +151,29 @@ export const ENGINE_NOTE_UNSEEN_HOLD_MS = 5 * 60_000
 /** The last engine a fallback was announced for, so a poll cannot repeat it. */
 let angesagt: string | null = null
 
+/** The image note of the last status, so a change can be told to the lists. */
+let lastImageNote: string | null = null
+
 /** Test-only: forget what was said. */
 export function __resetEngineCpuFallbackNote(): void {
   angesagt = null
+  lastImageNote = null
+}
+
+/**
+ * Keep "can see" true in every model list.
+ *
+ * Whether the loaded model sees is decided at its start (with or without the
+ * image part), and the lists learned it when they were last fetched. A start
+ * that left the part out, or a later one that took it again, changes the
+ * answer under the same model name, so the lists are asked to fetch again.
+ * Only on a change: the status is polled every few seconds.
+ */
+function noteWhatTheModelSees(status: EngineOffloadStatus | null | undefined): void {
+  const now = status?.running ? status.imageNote ?? null : null
+  if (now === lastImageNote) return
+  lastImageNote = now
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lu-models-refresh'))
 }
 
 /**
@@ -155,6 +184,7 @@ export function __resetEngineCpuFallbackNote(): void {
  * when there is nothing to say, which is almost always.
  */
 export function announceEngineCpuFallback(status: EngineOffloadStatus | null | undefined): void {
+  noteWhatTheModelSees(status)
   const key = engineCpuFallbackKey(status)
   if (key === null) {
     // The engine came back on the card, or stopped. The next fallback is a new

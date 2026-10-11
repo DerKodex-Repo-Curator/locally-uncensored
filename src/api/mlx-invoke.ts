@@ -1,7 +1,7 @@
 import { backendCall, isTauri } from './backend'
 
 /**
- * GH #135 (eloieloie, 2026-09-15): "Install engine" under Models, Image ran
+ * GH #135 (2026-09-15): "Install engine" under Models, Image ran
  * in the plain Vite dev server and answered "Unknown backend command:
  * install_mlx_diffusion", which reads like a broken build. MLX image and
  * video run in a Python sidecar the Rust side spawns, and `npm run dev` has

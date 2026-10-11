@@ -24,6 +24,7 @@ import {
   type AudioRecorder,
 } from "../api/voice";
 import { CloudJobError } from "../api/cloud/client";
+import { requestLimitMessageOf } from "../lib/request-limit";
 import { isTauri } from "../api/backend";
 import { log } from "../lib/logger";
 import { registerAutoSpeak } from "../lib/ttsBridge";
@@ -42,6 +43,9 @@ export function sttErrorMessage(err: unknown): string {
     if (err.status === 401) return "Signed out, sign in again to use cloud dictation";
     if (err.status === 413) return "Recording too long, try a shorter take";
     if (err.status >= 500) return "Cloud transcription is unavailable right now, try again";
+    // A request limit: the server's sentence, or ours when it sent only the
+    // status label. Nothing is booked before this guard on the server.
+    if (err.status === 429) return requestLimitMessageOf(err, { nothingCharged: true, again: "try again" });
     return err.message;
   }
   // Local Whisper rejects with the Rust error STRING, and those are written for
@@ -82,7 +86,7 @@ export function noSpeechMessage(transcript: string): string | null {
 let speakGen = 0;
 let speakAbort: AbortController | null = null;
 
-// #77 (ElBiggus): the boot probe (App.tsx) can lose a cold-start race against
+// #77: the boot probe (App.tsx) can lose a cold-start race against
 // resolve_lu_python and leave store.ttsAvailable stuck false, so read-aloud
 // silently used the Windows SAPI voice and Piper never spoke. When we're about
 // to concede to SAPI in local Piper mode, re-probe availability a bounded
@@ -374,7 +378,7 @@ export function useVoice() {
           // Local neural (Piper). Trust the cached availability flag, but if it
           // is false while we're in local Piper mode, re-probe (bounded) before
           // conceding to the browser SAPI fallback — a racy boot probe must not
-          // permanently silence Piper (#77, ElBiggus). A positive re-probe is
+          // permanently silence Piper (#77). A positive re-probe is
           // written back to the store so later reads skip straight to Piper.
           let piperReady = store.ttsAvailable;
           if (!piperReady && lazyTtsReprobes < MAX_LAZY_TTS_REPROBES && store.ttsMode !== "external") {
@@ -393,7 +397,7 @@ export function useVoice() {
             } catch (err) {
               if (stopped()) return;
               log.error("Neural TTS failed, falling back to browser voices", { err });
-              // #77 (ElBiggus): this fallback was invisible — Piper installed
+              // #77: this fallback was invisible — Piper installed
               // AND selected, yet every read-aloud spoke the system voice and
               // nothing in the app said why. Record the reason for Settings.
               store.setTtsFallbackReason(

@@ -2,12 +2,12 @@
 /**
  * Die Modellwaehler der Cloud ordnen nach Stufe und nennen die Herkunft.
  *
- * 02.10.2026, Entscheid von David: "Best" steht oben und traegt eine kleine
+ * 02.10.2026, Entscheid des Inhabers: "Best" steht oben und traegt eine kleine
  * Marke, aeltere Modelle stehen gesammelt unten unter "Older models", nichts
  * wird versteckt. Die Herkunft steht dezent daneben ("Open weights"), sobald
  * die Familie offene Gewichte hat.
  *
- * 05.10.2026, David: die Cloud-Waehler gruppieren nach Familie, mit denselben
+ * 05.10.2026: die Cloud-Waehler gruppieren nach Familie, mit denselben
  * einzeiligen Gruppenkoepfen wie die Modellauswahl im Chat. Beides gilt
  * zusammen (lib/render/model-tier, groupForPicker): Familien zuerst, die mit
  * einem "Best" vorn, in jeder Gruppe die Besten zuerst, einzelne Modelle

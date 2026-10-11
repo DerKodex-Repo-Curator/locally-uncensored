@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { seedOnboardingDone } from './support/cloud-mock'
 
 /**
- * GH #148 (neilmcginnis): the Qwen-Image 2.1 prompt enhancer behind the one
+ * GH #148: the Qwen-Image 2.1 prompt enhancer behind the one
  * switch "Improve my prompt". A rebuilt ComfyUI answers through
  * proxy_localhost with a local Qwen-Image 2.1 and, per test, the enhancer
  * files in its text encoder folder. Nothing is rendered.
@@ -78,11 +78,11 @@ for (const [weights, model] of WEIGHTS) {
 
     await theSwitch(page).click()
     await expect(theSwitch(page)).toHaveAttribute('aria-checked', 'true')
-    await expect(writers(page).getByRole('radio')).toHaveText(['Qwen enhancer', 'Qwen enhancer, no refusals', 'Chat model'])
+    await expect(writers(page).getByRole('radio')).toHaveText(['Qwen enhancer', 'Qwen enhancer, No Filter', 'Chat model'])
     await expect(page.getByRole('radio', { name: 'Qwen enhancer', exact: true })).toHaveAttribute('aria-checked', 'true')
 
-    await page.getByRole('radio', { name: 'Qwen enhancer, no refusals' }).click()
-    await expect(page.getByRole('radio', { name: 'Qwen enhancer, no refusals' })).toHaveAttribute('aria-checked', 'true')
+    await page.getByRole('radio', { name: 'Qwen enhancer, No Filter' }).click()
+    await expect(page.getByRole('radio', { name: 'Qwen enhancer, No Filter' })).toHaveAttribute('aria-checked', 'true')
     await expect.poll(() => saved(page)).toEqual({ improvePrompt: true, improveWith: 'unfiltered' })
 
     // Nothing of it sits in or above the prompt field: with the drawer closed
@@ -97,7 +97,7 @@ for (const [weights, model] of WEIGHTS) {
     await openAdvanced(page, 'Edit / Image to Image')
     await expect(theSwitch(page)).toBeVisible({ timeout: 15_000 })
     await theSwitch(page).click()
-    await expect(writers(page).getByRole('radio')).toHaveText(['Qwen enhancer', 'Qwen enhancer, no refusals'])
+    await expect(writers(page).getByRole('radio')).toHaveText(['Qwen enhancer', 'Qwen enhancer, No Filter'])
   })
 
   test(`${weights}: without an enhancer the switch is the chat model switch: no row, and none on Edit`, async ({ page }) => {

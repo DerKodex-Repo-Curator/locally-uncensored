@@ -1,5 +1,5 @@
 /**
- * localFetchStream transport tests (rikki Discord 2026-06-10 — Win11 "agent error").
+ * localFetchStream transport tests (Discord 2026-06-10 — Win11 "agent error").
  *
  * The chunked Rust proxy rejects with the STRING "HTTP <status>: <body>" when
  * the local backend answered non-2xx. These tests pin the three behaviours the

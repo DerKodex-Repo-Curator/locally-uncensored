@@ -57,3 +57,36 @@ export function pickerFixtureModels(): AIModel[] {
     creditRates: m.rates ? { inputPerMillion: m.rates[0], outputPerMillion: m.rates[1] } : undefined,
   }))
 }
+
+/**
+ * The models the cloud serves from one fixed upstream and marks
+ * `unrestricted`, as its listing sends them: `label` is the neutral name the
+ * web app prints, `nativeName` the model's own published name, sent only where
+ * the two differ. The provider client keeps the published name
+ * (api/providers/openai-provider), so that is what the store holds.
+ */
+export interface DirectFixtureModel extends PickerFixtureModel {
+  nativeName?: string
+}
+
+export const DIRECT_FIXTURE: DirectFixtureModel[] = [
+  { id: 'direct/v-1.2', label: 'Unfiltered 1.2', nativeName: 'Venice Uncensored 1.2', vision: true, think: 'never', context: 128000, rates: [13637, 61364] },
+  { id: 'direct/gemma-4', label: 'Gemma 4 Unfiltered', nativeName: 'Gemma 4 Uncensored', vision: true, think: 'never', context: 256000, rates: [11080, 34091] },
+  { id: 'direct/glm-4.7-flash-heretic', label: 'GLM 4.7 Flash Heretic', think: 'toggle', context: 200000, rates: [4773, 27273] },
+]
+
+export function directFixtureModels(): AIModel[] {
+  return DIRECT_FIXTURE.map((m) => cloudModelRow({
+    id: m.id,
+    name: m.nativeName ?? m.label,
+    provider: 'lu-cloud',
+    providerName: 'LU Cloud',
+    contextLength: m.context ?? 8192,
+    declaredContext: m.context,
+    supportsTools: true,
+    supportsVision: m.vision || undefined,
+    thinkMode: m.think,
+    unrestricted: true,
+    creditRates: m.rates ? { inputPerMillion: m.rates[0], outputPerMillion: m.rates[1] } : undefined,
+  }))
+}

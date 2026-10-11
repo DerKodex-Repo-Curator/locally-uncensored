@@ -4,6 +4,8 @@ import { useUIStore, type CloudTeaserTarget } from '../../../stores/uiStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { isIntentLocked, visibleIntents } from './intents'
 import { isMlxImageHost } from '../../../api/mlx-image'
+import { mlxTakesStartImage } from '../../../api/mlx-video'
+import { mlxTakesEditImage } from '../../../lib/image-engines'
 import { cn } from '../ui/cn'
 import { ICON_SM } from '../../ui/icon-size'
 
@@ -68,7 +70,7 @@ export function IntentBar() {
   // features in Local mode" off, the hosted-only tools are left out of the
   // local bar (visibleIntents). The 2.5.8 lanes with hasLocalLane
   // (lipsync / music / extend / motion) are REAL local tabs, plain selectable
-  // pills with NO cloud glyph (David 2026-07-19: the top row only carries a
+  // pills with NO cloud glyph (2026-07-19: the top row only carries a
   // cloud badge for the genuinely hosted-only tools). Only upscale, eraser and
   // character training (cloudOnly, no local backend) render as locked,
   // cloud-tagged pills in local mode; a tap opens the teaser sheet / plans gate.
@@ -78,7 +80,12 @@ export function IntentBar() {
   // pure + unit tested; this component only renders the verdict.
   const mlxHost = isMlxImageHost()
   const cloudFeatures = useSettingsStore((s) => s.settings.cloudTeasersEnabled)
-  const intents = visibleIntents(backend, mlxHost, cloudFeatures)
+  // Animate Image is a local tab on the Mac while an installed video model
+  // starts from an image (the catalogue's word, carried on the list entry).
+  const mlxAnimate = useCreateStore((s) => mlxTakesStartImage(s.videoModelList))
+  // And Edit while an installed image model takes an image (Qwen-Image 2.1).
+  const mlxEdit = useCreateStore((s) => mlxTakesEditImage(s.imageModelList))
+  const intents = visibleIntents(backend, mlxHost, cloudFeatures, mlxAnimate, mlxEdit)
 
   return (
     <div
@@ -93,7 +100,7 @@ export function IntentBar() {
       // jede rem-Laenge dieser Leiste ist ihr altes Mass mal 0,763, in
       // ganzen Pixeln des 16px-Rasters (36px Pille -> 28px, 16px Icon ->
       // 12px = ICON_SM, 12px Label -> 9px).
-      // David, 05.09.2026: die Leiste klebte an der Hauptnavigation. Gemessen
+      // 05.09.2026: die Leiste klebte an der Hauptnavigation. Gemessen
       // am Windows-Bau (1296x808): 9,2 gerenderte px zwischen Kopfzeilenkante
       // und Leiste, 10,9 bis zur ersten Pille. `pt-1.5` legt 4,5
       // Entwurfspixel dazu, gerendert gut 5. Das ist die „minimale
@@ -102,7 +109,7 @@ export function IntentBar() {
       className="flex flex-wrap items-center justify-center gap-x-[3px] gap-y-[3px] px-3 pt-1.5 pb-[1.5px] [--text-control:9px]"
     >
       {intents.map((meta) => {
-        const locked = isIntentLocked(meta, backend, mlxHost)
+        const locked = isIntentLocked(meta, backend, mlxHost, mlxAnimate, mlxEdit)
         const selected = !locked && intent === meta.id
         const Icon = meta.icon
         return (

@@ -1,7 +1,7 @@
 /**
  * Die Zeilen, die frueher IM Eingabefeld standen.
  *
- * David, 21.09.2026, am echten Windows-Bau, mehrfach und veraergert: „NICHTS
+ * 21.09.2026, am echten Windows-Bau, mehrfach und veraergert: „NICHTS
  * im prompt fenster!" Gemeint ist woertlich alles, was ueber, in oder
  * unmittelbar an der Eingabezeile hing. Gemessen am Bau stand dort unter
  * anderem eine Leiste mit x und dem Satz „…is gone from the model list, so
@@ -34,7 +34,7 @@ import { useChatStore } from './chatStore'
 
 /** Die Zeilen, die es gibt. Kein freier Schluessel: eine Aufzaehlung laesst
  *  sich nachzaehlen, ein String-Schluessel waechst unbemerkt. */
-export type ChatNoticeId = 'document-belongs-in-docs' | 'model-cannot-see-images' | 'image-attach' | 'file-attach' | 'agent-outside-workspace' | 'agent-for-local-files'
+export type ChatNoticeId = 'document-belongs-in-docs' | 'model-cannot-see-images' | 'image-attach' | 'file-attach' | 'agent-outside-workspace' | 'agent-for-local-files' | 'create-save'
 
 export interface ChatNotice {
   id: ChatNoticeId

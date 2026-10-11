@@ -101,7 +101,7 @@ pub(crate) fn pytorch_pip_args(index_url: Option<&str>, packages: &[&str]) -> Ve
 /// GPU probe + wheel choice + pip args, shared between the first install and
 /// `repair_comfyui_env` so the two can never drift apart.
 ///
-/// Bug #10 (vokurta, RTX 6000 Blackwell, 2026-05-11): SM 12.0 GPUs need their
+/// Bug #10 (RTX 6000 Blackwell, 2026-05-11): SM 12.0 GPUs need their
 /// own CUDA channel, older ones simply do not ship the kernel and the first
 /// compute call dies with "no kernel image is available".
 ///
@@ -112,7 +112,7 @@ pub(crate) fn pytorch_pip_args(index_url: Option<&str>, packages: &[&str]) -> Ve
 /// torch only accepts from 2.6 on, so a freshly repaired venv died at import
 /// with the infer_schema ValueError.
 ///
-/// AMD bundle 2026-08-28 (numbrain, lapbo, petermanmancusso, sancora): the
+/// AMD bundle 2026-08-28: the
 /// probe was `nvidia-smi` and nothing else, so an AMD card came out of it
 /// looking exactly like a machine with no card, and the venv got the
 /// processor wheels. Those wheels install cleanly and then answer
@@ -1181,7 +1181,7 @@ mod tests {
     #[cfg(not(windows))]
     fn write_fake_python_missing_ensurepip(dir: &std::path::Path) -> String {
         let path = dir.join("fake-python-no-ensurepip.sh");
-        std::fs::write(
+        crate::test_support::write_script(
             &path,
             "#!/bin/sh\n\
              if [ \"$1\" = \"-c\" ]; then\n\
@@ -1195,11 +1195,7 @@ mod tests {
              exit 0\n\
              fi\n\
              exit 1\n",
-        )
-        .unwrap();
-        let mut perms = std::fs::metadata(&path).unwrap().permissions();
-        std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
-        std::fs::set_permissions(&path, perms).unwrap();
+        );
         path.to_string_lossy().to_string()
     }
 
@@ -1227,10 +1223,7 @@ mod tests {
     #[cfg(not(windows))]
     fn write_fake_python_without_ssl(dir: &std::path::Path) -> String {
         let path = dir.join("fake-python-no-ssl.sh");
-        std::fs::write(&path, "#!/bin/sh\nexit 1\n").unwrap();
-        let mut perms = std::fs::metadata(&path).unwrap().permissions();
-        std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
-        std::fs::set_permissions(&path, perms).unwrap();
+        crate::test_support::write_script(&path, "#!/bin/sh\nexit 1\n");
         path.to_string_lossy().to_string()
     }
 

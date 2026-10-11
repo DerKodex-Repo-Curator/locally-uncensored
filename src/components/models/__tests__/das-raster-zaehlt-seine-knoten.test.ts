@@ -111,7 +111,7 @@ describe('D-S26 · was das Raster wirklich kostet', () => {
     // nicht laeuft (siehe api/__tests__/glm53-nur-was-laeuft.test.ts).
     //
     // 53 -> 56 am 02.09.2026, dritte Bewegung dieser Schranke. Drei neue
-    // Gruppen in der Uncensored-Liste, nachdem David gesagt hatte „such mehr
+    // Gruppen in der Uncensored-Liste, nachdem der Inhaber gesagt hatte „such mehr
     // nach uncensored, irgendwas muss es geben": Qwen 3.8 27B Heretic RVN
     // (1,2 Mio Downloads), Gemma 4 12B Heretic (302K) und Qwen3-VL 8B
     // Abliterated (650K). Alle drei standen unter den zehn meistgeladenen
@@ -125,20 +125,40 @@ describe('D-S26 · was das Raster wirklich kostet', () => {
     // Kurve ist an zwei Punkten belegt (53 -> 0,2 ms · 303 -> 1,1 ms), und 56
     // liegt weiterhin am unteren Ende. Neu zu messen waere bei einem Sprung
     // in die Hunderter noetig.
-    expect(messeReiter(getMainstreamTextModels()).kacheln).toBe(53)
     //
-    // 56 -> 57 am 05.09.2026, vierte Bewegung. David: „orcarouter ist ein
+    // 53 -> 54 am 06.10.2026: Holo 3.1 9B, das Modell fuer Computer control,
+    // ist als eigene Kachel dazugekommen.
+    //
+    // 54 -> 49 am 08.10.2026: Katalog aufgefrischt (der Inhaber: nur Modelle auf dem
+    // Stand von heute). Die Bestaende von 2024/25 sind raus, 20 aktuelle
+    // Gruppen dazu. Die Zahl sinkt, die Messung oben traegt also weiter.
+    //
+    // 49 -> 50 am 08.10.2026: Hermes 3 3B ist ein offizielles NousResearch-
+    // Modell und steht jetzt hier neben Hermes 4.3 statt unter Unfiltered.
+    expect(messeReiter(getMainstreamTextModels()).kacheln).toBe(50)
+    //
+    // 56 -> 57 am 05.09.2026, vierte Bewegung. Der Inhaber: „orcarouter ist ein
     // muss." Die sechs Qwen-3.8-27B-Uncensored-Quants zeigen jetzt auf
     // bartowskis ungated Requant von OrcaRouters Abliteration (gleiche Gruppe,
     // keine neue Kachel), und dazu kommt OrcaRouters eigener Ollama-Tag, eine
     // Kachel fuer sich, weil Ollama-Zeilen keine Gruppe tragen.
-    expect(messeReiter(getUncensoredTextModels()).kacheln).toBe(57)
+    //
+    // 57 -> 44 am 08.10.2026, dieselbe Auffrischung: die veralteten
+    // Abliterationen sind raus, 14 aktuelle Gruppen dazu.
+    //
+    // 44 -> 43 am 08.10.2026: Hermes 3 3B ist nach Mainstream gezogen.
+    expect(messeReiter(getUncensoredTextModels()).kacheln).toBe(43)
   })
 
   it('eine Kachel ist rund 28 Elementknoten gross, nicht 300', () => {
     const m = messeReiter(getMainstreamTextModels())
     expect(m.proKachel).toBeGreaterThan(20)
-    expect(m.proKachel).toBeLessThan(35)
+    // 35 -> 40 am 09.10.2026, Zusammenfuehrung fuer 3.0.6: gemessen 35,42.
+    // Zwei Dinge trafen sich. Der aufgefrischte Katalog hat mehr Modelle mit
+    // Bildeingang, und seit dem Bildteil traegt jedes davon die Marke
+    // „Vision", also ein Zeichen mehr in der Kachel. Die Aussage des Tests
+    // ist die Groessenordnung (rund 30, nicht 300), und die steht.
+    expect(m.proKachel).toBeLessThan(40)
   })
 
   it('ein Reiter kostet rund 1500 Elementknoten — die Zahl des Audits', () => {

@@ -2,6 +2,7 @@ import { useCodex } from '../../hooks/useCodex'
 import { useAutoScroll } from '../../hooks/useAutoScroll'
 import { useCodexStore } from '../../stores/codexStore'
 import { useChatStore } from '../../stores/chatStore'
+import { useComputerStore } from '../../stores/computerStore'
 import { useBackgroundAgentWake } from '../../hooks/useBackgroundAgentWake'
 import { useGenerationStore } from '../../stores/generationStore'
 import { ChatInput } from './ChatInput'
@@ -23,7 +24,7 @@ import { PluginsDropdown } from './PluginsDropdown'
 import { CodexModeDropdown } from './CodexModeDropdown'
 import { ModelSelector } from '../models/ModelSelector'
 import { MONOGRAM, MONOGRAM_INVERT } from '../layout/brand'
-import { AVATAR_SLOT } from './avatar-slot'
+import { AVATAR_SLOT, MODEL_MARK, MODEL_MARK_SLOT } from './avatar-slot'
 import { GoalBar } from './GoalBar'
 import { ChatNotices } from './ChatNotices'
 import { LocalLaneWaitLine } from './LocalLaneWaitLine'
@@ -67,7 +68,7 @@ const stripChannelTags = (text: string) => stripModelNoise(text, { aggressive: t
 const QUIET_HINT_TEXT = `text-[0.55rem] ${HINWEIS_TEXT.ruhig}`
 
 // Code-Mode renders EVERY between-tool answer as normal, always-visible prose
-// now (David 2026-06-04: "kein Collapse, das soll ganz normal wie eine Antwort
+// now (2026-06-04: "kein Collapse, das soll ganz normal wie eine Antwort
 // angezeigt werden"). The render path below dedupes verbatim repeats so a
 // chatty small model can't stack the same line. (The old CollapsibleAnswer
 // one-line-preview component was removed.)
@@ -103,7 +104,7 @@ export function CodexView() {
     conversation?.compactions,
   )
 
-  // Per-conversation generating flag (David 2026-06-12): the typing indicator
+  // Per-conversation generating flag (2026-06-12): the typing indicator
   // + realtime counter + a message's live-stream state must follow the coding
   // chat that's ACTUALLY running, not every chat the user switches to. The
   // hook's `isRunning` is global (kept for the input, which guards shared stream
@@ -111,6 +112,8 @@ export function CodexView() {
   const generatingMap = useGenerationStore((s) => s.generating)
   const codexGenerating = !!activeConversationId && !!generatingMap[activeConversationId]
   const pendingConfirm = useCodexConfirmStore((s) => s.pending)
+  // The question of the first use of computer control is open in this conversation.
+  const chatAsked = useComputerStore((s) => !!s.chatAsk && !s.chatAsk.voice && (s.chatAsk.conversationId === null || s.chatAsk.conversationId === activeConversationId))
   // Runde 4 (review-lanes.md Blocker 1+6): THIS conversation's own send
   // queued behind another local run. Not part of `generatingMap` (no stream
   // is flowing yet), so it needs its own read. Nachbesserung 9 (Runde 3) had
@@ -122,7 +125,7 @@ export function CodexView() {
   const queuedForLocalLane = useIsQueuedForLocalLane(activeConversationId)
   const localLaneQueuePosition = useLocalLaneQueuePosition(activeConversationId)
 
-  // G8-3 (David): "sobald er fertig gedacht hat, hakt das so komisch ab und
+  // G8-3: "sobald er fertig gedacht hat, hakt das so komisch ab und
   // zoomt irgendwo ganz anders hin." The hand-rolled pin here only fired on
   // [messages, events] changes, so the height SWAP when a thinking round ends
   // (live bubble cleared above, ThinkingBlock added below, preview collapses)
@@ -195,7 +198,7 @@ export function CodexView() {
     checkGitInstalled().then(setGitStatus).catch(() => {}).finally(() => setGitChecking(false))
   }
 
-  // New coding session (David 2026-06-04: "start neu" must really start new).
+  // New coding session (2026-06-04: "start neu" must really start new).
   // Abort any in-flight loop, then create a fresh codex conversation. The
   // working directory persists in codexStore, so the new session keeps the
   // folder; a brand-new conversation means a brand-new thread on next send.
@@ -255,7 +258,7 @@ export function CodexView() {
             </span>
           )}
           {/* Working directory indicator, so the user always sees WHERE the
-              agent operates (David 2026-06-04: "ich hab den Ordner angegeben …
+              agent operates (2026-06-04: "ich hab den Ordner angegeben …
               er ist eigentlich in Dokumenten"). Empty = per-chat sandbox under
               ~/agent-workspace, which is also where shell output now lands. */}
           <span
@@ -283,7 +286,7 @@ export function CodexView() {
           )}
           <div className="flex-1" />
           {/* New coding session: aborts any running loop and starts a fresh
-              chat/thread (keeps the working directory). David 2026-06-04:
+              chat/thread (keeps the working directory). 2026-06-04:
               "start neu" must actually start new. */}
           <button
             onClick={startNewSession}
@@ -296,7 +299,7 @@ export function CodexView() {
           {/* Plugins (Chat Tools · Caveman · Persona · Group) lives HERE, next
               to New, as a bare icon with the name in the tooltip. It used to
               sit in the composer action bar and was one of the four things
-              crowding the prompt row (David, 2026-08-22: "das promptfenster ist
+              crowding the prompt row (2026-08-22: "das promptfenster ist
               ueberfuellt"). The dropdown itself is untouched, only the place
               and the trigger changed. */}
           <PluginsDropdown iconOnly />
@@ -436,16 +439,18 @@ export function CodexView() {
                     key={msg.id}
                     className={`flex gap-2 px-3 py-1 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
                   >
-                    {/* Derselbe Chip wie im Chat (avatar-slot.ts). Hier stand
-                        die dritte Fassung: 20px, ohne Rahmen, Monogramm nackt. */}
-                    <div className={AVATAR_SLOT}>
-                      {msg.role === 'user'
-                        ? (userAvatarDataUrl
-                            ? <img src={userAvatarDataUrl} alt="" className="w-full h-full object-cover" />
-                            : <User size={11} className="text-gray-400" />)
-                        : <img src={MONOGRAM} alt="" className={`w-[70%] h-[70%] object-contain opacity-80 ${MONOGRAM_INVERT}`} />
-                      }
-                    </div>
+                    {/* The same avatar column as in the chat (avatar-slot.ts). */}
+                    {msg.role === 'user' ? (
+                      <div className={AVATAR_SLOT}>
+                        {userAvatarDataUrl
+                          ? <img src={userAvatarDataUrl} alt="" className="w-full h-full object-cover" />
+                          : <User size={11} className="text-gray-400" />}
+                      </div>
+                    ) : (
+                      <div className={MODEL_MARK_SLOT} data-testid="model-mark">
+                        <img src={MONOGRAM} alt="" className={`${MODEL_MARK} ${MONOGRAM_INVERT}`} />
+                      </div>
+                    )}
                     <div className="max-w-[85%] space-y-0.5">
                       {/* Thinking */}
                       {msg.role === 'assistant' && msg.thinking && (
@@ -491,7 +496,7 @@ export function CodexView() {
                             ? (() => {
                                 // Interleave strictly by timestamp: tool → answer →
                                 // tool → tool → answer … in the real order produced
-                                // (provider/LLM-agnostic, David 2026-06-02 r2). Drop
+                                // (provider/LLM-agnostic, 2026-06-02 r2). Drop
                                 // answer blocks that strip to empty.
                                 const ordered = [...msg.agentBlocks!]
                                   .filter(
@@ -503,7 +508,7 @@ export function CodexView() {
                                   )
                                   .sort((a, b) => a.timestamp - b.timestamp)
                                 // Render EVERY answer normally + visible
-                                // (David 2026-06-04: "kein Collapse, ganz
+                                // (2026-06-04: "kein Collapse, ganz
                                 // normal wie eine Antwort"). Skip only a
                                 // verbatim repeat of the previous answer.
                                 const skippedAnswers = new Set<string>()
@@ -521,7 +526,7 @@ export function CodexView() {
                                       // Consecutive tool calls render as ONE
                                       // band that morphs from tool to tool and
                                       // collapses to "N steps" when done
-                                      // (David 2026-07-31).
+                                      // (2026-07-31).
                                       if (group.kind === 'tools') {
                                         return (
                                           <ToolCallBand
@@ -606,7 +611,7 @@ export function CodexView() {
                           </div>
                         ) : null
 
-                        // Slash command (David 2026-06-12): the STEPS (tool calls +
+                        // Slash command (2026-06-12): the STEPS (tool calls +
                         // intermediate commentary) go in the collapsible window;
                         // the FINAL answer renders OUTSIDE it, normal + readable ,
                         // "die finale antwort soll nicht im tool call sein, nur die
@@ -699,10 +704,10 @@ export function CodexView() {
               })}
               {/* 3-dot indicator while THIS coding chat is mid-loop. Bound to
                   the per-conversation flag so switching to another (idle) chat
-                  doesn't show its dots. David 2026-06-12 ("die drei ladepunkte
+                  doesn't show its dots. 2026-06-12 ("die drei ladepunkte
                   kommen in vorherigen chats auch"). */}
               {/* Shell/code approval, inline in the stream so it reads as the
-                  next step of the run instead of covering it (David 2026-07-24:
+                  next step of the run instead of covering it (2026-07-24:
                   "ich hätte das gerne im chat, wie ein tool call"). Renders
                   nothing while no request is pending. */}
               <CodexConfirmDialog />
@@ -712,14 +717,15 @@ export function CodexView() {
               <WorkingAnchor
                 isRunning={codexGenerating}
                 conversationId={activeConversationId}
-                label={pendingConfirm ? 'Waiting for your approval' : undefined}
+                awaitingApproval={!!pendingConfirm || chatAsked}
+                message={messages[messages.length - 1]?.role === 'assistant' ? messages[messages.length - 1] : undefined}
               />
             </div>
           )}
         </div>
 
         {/* Die stehenden Sitzungsbaender und die Zeilen, die frueher IM
-            Composer standen (David, 21.09.2026: „NICHTS im prompt fenster!").
+            Composer standen (21.09.2026: „NICHTS im prompt fenster!").
             LoopBar und GoalBar sind Bedienelemente und bleiben sichtbar, nur
             als Geschwister UEBER dem Kasten statt darin; die Wartezeile und
             die Composer-Hinweise sind Hinweise und stehen jetzt hier. Die

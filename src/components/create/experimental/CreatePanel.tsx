@@ -4,6 +4,8 @@ import { Images, Play, PanelRightClose, Trash2, Download, MonitorOff, AudioLines
 import { useCreateStore, type GalleryItem } from '../../../stores/createStore'
 import { galleryLabel } from '../../../lib/render/gallery-label'
 import { GALLERY_DRAG_TYPE } from './galleryUrl'
+import { deleteTitle, unavailableTitle } from './galleryWording'
+import { isMlxImageHost } from '../../../api/mlx-image'
 import { downloadGalleryItem } from './galleryDownload'
 import { useComfyMedia } from './useComfyMedia'
 import { cn } from '../ui/cn'
@@ -124,7 +126,7 @@ export function CreatePanel({ open, onOpenChange, activeId, onSelect }: Props) {
                       {g.unavailable && (
                         <span
                           className="absolute inset-0 flex items-center justify-center bg-black/50 text-gray-500"
-                          title={g.unavailableReason === 'gone' ? 'No longer in the ComfyUI output folder' : "Local render, but the local engine isn't reachable"}
+                          title={unavailableTitle(g.unavailableReason === 'gone', isMlxImageHost())}
                         >
                           <MonitorOff size={16} />
                         </span>
@@ -133,7 +135,7 @@ export function CreatePanel({ open, onOpenChange, activeId, onSelect }: Props) {
                     <button
                       onClick={() => removeFromGallery(g.id)}
                       className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-600/90 hover:bg-red-600 text-gray-100 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-sm"
-                      title="Delete (moves the file to the Recycle Bin)"
+                      title={deleteTitle(isMlxImageHost())}
                     >
                       <Trash2 size={12} />
                     </button>

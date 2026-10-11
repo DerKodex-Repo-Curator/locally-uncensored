@@ -1,7 +1,7 @@
 /**
  * Which IndexedDB-backed stores need to be put back from the appData backup.
  *
- * aldrich_ironhart, 2.6.5, Discord #general 18.08.: "has anyone lost their
+ * A user, 2.6.5, Discord #general 18.08.: "has anyone lost their
  * chats after a restart??", then "My code chats are vaporised".
  *
  * LU keeps chat-conversations and locally-uncensored-memory in IndexedDB

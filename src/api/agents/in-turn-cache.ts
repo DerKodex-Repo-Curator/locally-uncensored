@@ -19,6 +19,8 @@
 import { useToolAuditStore } from '../../stores/toolAuditStore'
 import type { ExecutionRequest } from './tool-executor'
 import { toolResultIsFailure } from '../../lib/tool-result-failure'
+import { MUTATING_TOOLS } from '../../lib/mutating-tools'
+import { toolRegistry } from '../mcp/tool-registry'
 
 export interface InTurnCacheOptions {
   convId: string
@@ -55,6 +57,14 @@ const NON_CACHEABLE_TOOLS = new Set<string>([
   // store — and a plan that silently stops updating is the one failure mode
   // that makes the whole feature untrustworthy.
   'todo_write',
+  // Puts an order into the conversation's store. Served from cache, the text
+  // would arrive but no order the customer could approve.
+  'create_order',
+  // Asks how the background agents stand right now. Served from cache, an
+  // agent that waits for a task would read "running" for the rest of the turn.
+  'check_tasks',
+  // Sends a message to another agent. The same words twice are two messages.
+  'message_agent',
 ])
 
 /**
@@ -80,6 +90,15 @@ const WORKSPACE_MUTATING_TOOLS = new Set<string>([
 const READ_TOOLS = new Set<string>(['file_read', 'file_list'])
 
 function isNonCacheableTool(name: string): boolean {
+  // Whatever acts outside the conversation has to act every time it is
+  // called. The screen is the plainest case (box, 09.10.2026): a model called
+  // `computer_use` with action "screenshot" and "focus_window" in turns, the
+  // cache answered 97 of 101 calls with the picture and the sentence of the
+  // first ones, no window moved, and the model never saw that.
+  if (MUTATING_TOOLS.has(name)) return true
+  // A tool of a connected MCP server acts in a program LU knows nothing
+  // about. Whether it reads or writes there is not ours to guess.
+  if (toolRegistry.getToolByName(name)?.source === 'external') return true
   // git_* covers the redirected typed git tools, reads and writes alike.
   return NON_CACHEABLE_TOOLS.has(name) || name.startsWith('git_')
 }

@@ -1,7 +1,7 @@
 /**
  * Wo die Anleitung zum Malen der Maske steht.
  *
- * Entscheid von David, 19.09.2026: "Bei Edit Image will ich, dass du die
+ * Entscheid des Inhabers, 19.09.2026: "Bei Edit Image will ich, dass du die
  * Meldung 'Paint a mask on the image above' zu einer einmal wegklickbaren Info
  * machst, wenn man die Paint Mask oeffnet. Komplett raus aus dem Promptfenster."
  *

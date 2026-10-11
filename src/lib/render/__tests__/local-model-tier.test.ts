@@ -1,5 +1,5 @@
 /**
- * Die Stufen der lokalen ComfyUI-Modelle (02.10.2026, David).
+ * Die Stufen der lokalen ComfyUI-Modelle (02.10.2026).
  *
  * Zwei Seiten muessen dasselbe sagen: der Katalog (jedes Bundle traegt `tier`)
  * und der lokale Waehler, der eine installierte Datei nur aus Typ und Namen

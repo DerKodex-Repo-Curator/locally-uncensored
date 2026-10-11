@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { safeJSONStorage } from '../lib/storage-quota'
 import type { SettingsTab } from '../lib/settings-reset'
 
-export type View = 'chat' | 'models' | 'settings' | 'create' | 'benchmark'
+export type View = 'chat' | 'models' | 'settings' | 'create' | 'benchmark' | 'voice'
 
 /** Which collapsible section of the Settings page a deep link wants open.
  *  Only sections a hint elsewhere in the app sends people to. */
@@ -72,7 +72,7 @@ export function clampAgentPanelWidth(width: number, viewportWidth: number): numb
 /**
  * Geometrie der Chatspalte links (D1, 02.09.2026).
  *
- * David: "Der left Sidepanel bei Chat Agent und Code ist Textmaessig als
+ * Der Inhaber: "Der left Sidepanel bei Chat Agent und Code ist Textmaessig als
  * Sessionname und Datum nicht sauber bis zum Ende durchgezogen bzw dynamisch
  * mit vergroesserung anpassend." Die erste Haelfte war der harte
  * `truncate(title, 30)` in der Zeile, den der CSS-Schnitt ersetzt hat. Die
@@ -193,7 +193,7 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       currentView: 'chat',
-      // Collapsed by default, web parity (apps/web/stores/uiStore.ts:13-19):
+      // Collapsed by default, web parity (the web app):
       // the left column starts as a slim icon rail and the user expands it to
       // the full conversation list on demand. Unlike the web build this one is
       // persisted (see partialize), because a desktop app is not reloaded from

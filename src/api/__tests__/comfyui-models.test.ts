@@ -88,7 +88,7 @@ describe('classifyModel', () => {
     expect(classifyModel('ernie_image_turbo_bf16.safetensors')).toBe('ernie_image')
   })
 
-  // K9 (GH #136, eloieloie): Krea 2 checkpoints fell through to 'unknown' and
+  // K9 (GH #136): Krea 2 checkpoints fell through to 'unknown' and
   // got CheckpointLoaderSimple with no CLIP wired in ("clip input is invalid:
   // None"). Filenames from the reporter's own install (krea-2, krea2, KREA_2).
   it('classifies Krea 2 models (K9, GH #136)', () => {
@@ -381,7 +381,7 @@ describe('determineStrategy', () => {
   })
 })
 
-// ─── extractComfyOutputFiles (Bug R — v2.4.7, silentrunningcaUSA #6) ───
+// ─── extractComfyOutputFiles (Bug R — v2.4.7, #6) ───
 //
 // Pre-v2.4.7 LU only checked `images` / `gifs` / `videos` on each history
 // node output. Custom save nodes (Civitai workflows, SaveImageWithMetadata,

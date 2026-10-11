@@ -3,7 +3,7 @@
  *
  * „NICHTS im prompt fenster!"
  *
- * David, 21.09.2026, mehrfach und veraergert, am echten Windows-Bau. Der
+ * 21.09.2026, mehrfach und veraergert, am echten Windows-Bau. Der
  * Befund lag als Bild vor (e2e/box-gruen/t15/shots/B3-dropdown-hint.png):
  * direkt ueber der Chat-Eingabe, IM Kasten des Composers, stand eine Leiste
  * mit x und dem Satz

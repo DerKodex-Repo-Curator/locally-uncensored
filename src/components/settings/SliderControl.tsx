@@ -5,9 +5,11 @@ interface Props {
   max: number
   step: number
   onChange: (value: number) => void
+  /** What to show for the value when it is not the number itself. */
+  display?: string
 }
 
-export function SliderControl({ label, value, min, max, step, onChange }: Props) {
+export function SliderControl({ label, value, min, max, step, onChange, display }: Props) {
   const pct = ((value - min) / (max - min)) * 100
 
   return (
@@ -15,7 +17,7 @@ export function SliderControl({ label, value, min, max, step, onChange }: Props)
       {/* Label + value on one line */}
       <div className="flex items-center justify-between">
         <span className="text-[0.7rem] text-gray-500 dark:text-gray-400">{label}</span>
-        <span className="text-[0.65rem] font-mono text-gray-400 dark:text-gray-500">{value}</span>
+        <span className="text-[0.65rem] font-mono text-gray-400 dark:text-gray-500">{display ?? value}</span>
       </div>
       {/* Slider full width below */}
       <div className="relative h-5 flex items-center">
@@ -30,6 +32,8 @@ export function SliderControl({ label, value, min, max, step, onChange }: Props)
           max={max}
           step={step}
           value={value}
+          aria-label={label}
+          aria-valuetext={display}
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className="absolute inset-x-0 w-full cursor-pointer"
           style={{ zIndex: 2, opacity: 0, top: '-4px', height: '28px' }}

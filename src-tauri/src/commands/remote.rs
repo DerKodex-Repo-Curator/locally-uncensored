@@ -23,7 +23,7 @@ use tracing::{error, info, warn};
 
 // 15 minutes. The pairing code the user types on the phone. Was 5 min, but it
 // auto-rotates on expiry, and 5 min silently rotated the code mid-connect when
-// there was any delay between reading it and entering it (David 2026-06-15).
+// there was any delay between reading it and entering it (2026-06-15).
 // 15 min gives a comfortable pairing window; the live panel still shows a
 // countdown + the current code, and the JWT issued after pairing has its own
 // (separate) lifetime, so this only widens the one-time pairing window.
@@ -1662,7 +1662,7 @@ mod openai_bridge_tests {
         for b in [
             "http://127.0.0.1:8127/v1",
             "http://localhost:1234/v1",
-            "http://192.168.0.54:11434/v1",
+            "http://192.168.1.54:11434/v1",
             "http://10.0.0.5:8080/v1",
             "http://172.20.1.2:8080/v1",
             "http://box.local:8127/v1",
@@ -2463,7 +2463,7 @@ pub fn shutdown_tunnel(remote: &std::sync::Mutex<RemoteServer>) {
 /// user has to allow it once via an elevated prompt / manually) — but it
 /// auto-fixes per-machine / admin-run installs. Without ANY rule, Windows drops
 /// inbound on the port and the phone can't connect even though the QR points at
-/// the correct LAN IP (David 2026-06-15: no rule existed and LU never made one,
+/// the correct LAN IP (2026-06-15: no rule existed and LU never made one,
 /// so LAN access silently failed while the IP/QR were correct).
 #[cfg(target_os = "windows")]
 fn ensure_lan_firewall_rule(port: u16) {
@@ -2799,7 +2799,7 @@ async fn start_remote_server_inner(
         remote.handle = Some(handle);
     }
 
-    // #aldrich (Discord 2026-06-17, STILL "Error HTTP:503" on the phone after
+    // #a user (Discord 2026-06-17, STILL "Error HTTP:503" on the phone after
     // the 2.5.4 tunnel-readiness poll): that earlier poll only checks the
     // Cloudflare EDGE url, never the LOCAL origin. axum::serve binds inside the
     // spawned task above, which may not be listening yet when we return here —
@@ -3118,7 +3118,7 @@ pub async fn start_tunnel(
     // FOREVER (download only `if !exists`), but trycloudflare's quick-tunnel
     // API evolves and an old client then gets "500 / error code 1101"
     // unmarshal failures with NO public URL — the tunnel silently never comes
-    // up (David 2026-06-15: stuck on cloudflared 2026.3.0 from March → every
+    // up (2026-06-15: stuck on cloudflared 2026.3.0 from March → every
     // tunnel attempt 500'd). Re-pull the latest when the cached binary is more
     // than 30 days old so the tunnel self-heals without the user ever knowing
     // cloudflared exists.
@@ -3226,7 +3226,7 @@ pub async fn start_tunnel(
     // Windows, exactly like every other child this app spawns.
     let mut cmd = crate::process_util::foreign_system_command(&cf_path);
     // 127.0.0.1 (not "localhost") avoids a ~2 s IPv6 (::1) connect detour on
-    // some Windows boxes before cloudflared falls back to IPv4 (aldrich 2026-06).
+    // some Windows boxes before cloudflared falls back to IPv4 (a user 2026-06).
     cmd.args(["tunnel", "--url", &format!("http://127.0.0.1:{}", port)]);
     // Registered in the shared slot BY the spawn, not once the start is judged
     // successful — everything below this line can fail, and every one of those
@@ -3271,7 +3271,7 @@ pub async fn start_tunnel(
         if !url.is_empty() { break; }
     }
 
-    // #aldrich (Discord 2026-06-13, "Error HTTP:503" on the phone): a
+    // #a user (Discord 2026-06-13, "Error HTTP:503" on the phone): a
     // trycloudflare quick-tunnel PRINTS its public URL several seconds before
     // Cloudflare's edge↔origin path is actually ready to serve — so a phone
     // that scans the QR immediately gets a transient 503. Poll the public
@@ -3459,14 +3459,50 @@ mod memory_revocation_tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let router = Router::new().route("/", get(|| async { "fixture" }));
-        let server_task = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        // The served future owns the listener and one half of this witness.
+        let witness = Arc::new(());
+        let held = witness.clone();
+        let server_task = tokio::spawn(async move {
+            let _held = held;
+            axum::serve(listener, router).await.unwrap()
+        });
         remote.lock().unwrap().handle = Some(server_task);
         drop(startup);
         tokio::time::timeout(std::time::Duration::from_secs(2), stop).await.unwrap().unwrap();
         assert!(remote.lock().unwrap().handle.is_none());
         assert!(remote.lock().unwrap().memory_revoked.is_cancelled());
-        // Successful stop means the task was awaited, not merely told to abort.
-        assert!(tokio::net::TcpStream::connect(address).await.is_err());
+        // Successful stop means the task was awaited, not merely told to abort:
+        // the served future is gone, and with it this process's listener.
+        assert_eq!(Arc::strong_count(&witness), 1, "stop returned while the server task still owned its listener");
+        // The port itself may answer for a moment longer. A child process that
+        // another test is starting holds a copy of every open socket between
+        // fork and exec, so in a parallel run a connect right after the stop
+        // was accepted now and then (Linux: 1 of 11 full runs, 9 of 200 runs
+        // next to the tests that start processes, 0 of 300 alone).
+        //
+        // Each try is bounded. Windows does not refuse a connect to a closed
+        // local port at once, it tries again for about two seconds first, so
+        // one unbounded try used up the whole wait below and the test failed
+        // on every Windows run with the port long closed. A try that is not
+        // accepted in time is a port that no longer answers.
+        let accepted = || async {
+            matches!(
+                tokio::time::timeout(std::time::Duration::from_millis(250), tokio::net::TcpStream::connect(address)).await,
+                Ok(Ok(_))
+            )
+        };
+        let refused = async {
+            while accepted().await {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        };
+        // Windows takes 2.0 to 2.4 seconds to refuse a connection to a closed
+        // loopback port (it sends the request three times first), so the one
+        // refusal this waits for is already longer than two seconds there
+        // (box, 09.10.2026: red in both full runs, with and without load).
+        tokio::time::timeout(std::time::Duration::from_secs(10), refused)
+            .await
+            .expect("the port still answers ten seconds after the stop");
         let rebound = tokio::net::TcpListener::bind(address).await.unwrap();
         drop(rebound);
     }
@@ -4578,14 +4614,30 @@ mod remote_hardening_tests {
         std::fs::write(&script, "#!/bin/sh\nread ignored\n").expect("write the stand-in");
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("chmod");
 
-        let child = Command::new(&script)
-            .args(["tunnel", "--url", &format!("http://127.0.0.1:{port}")])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn the stand-in");
-        (dir, child)
+        // The same wait as in `live_cloudflared` below, for the same reason: a
+        // child another test thread is starting can still hold a copy of the
+        // script opened for writing above (Linux, 08.10.2026: "Text file
+        // busy" here in 1 of 40 full runs).
+        let mut child = None;
+        for _ in 0..200 {
+            match Command::new(&script)
+                .args(["tunnel", "--url", &format!("http://127.0.0.1:{port}")])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+            {
+                Ok(c) => {
+                    child = Some(c);
+                    break;
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy => {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(e) => panic!("spawn the stand-in: {e}"),
+            }
+        }
+        (dir, child.expect("spawn the stand-in: still text-file-busy after two seconds"))
     }
 
     /// A process table that has PROVEN itself, or the reason it could not.

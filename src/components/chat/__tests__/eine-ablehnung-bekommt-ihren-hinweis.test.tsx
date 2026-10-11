@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The notice under a refusing answer (David, 2026-10-05).
+ * The notice under a refusing answer (2026-10-05).
  *
  * Measured that day: a refusal in the history is copied by better models in
  * the same chat. The chat says so directly UNDER the refusing answer, with a
@@ -29,7 +29,7 @@ import type { Message } from '../../../types/chat'
 const LOCAL = 'openai::Qwen3-14B-Q4_K_M'
 const CLOUD = 'lu-cloud::llama-3.1-8b-turbo'
 const NOTICE =
-  'This model declined. A refusal stays in the chat history, and other models tend to copy it. Start a new chat and pick a model marked No refusals.'
+  'This model declined. A refusal stays in the chat history, and other models tend to copy it. Start a new chat and pick a model marked No Filter.'
 const REFUSAL = "I can't create explicit content. Is there anything else I can help you with?"
 
 const textModel = (name: string): AIModel => ({ name, type: 'text' } as AIModel)

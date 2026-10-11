@@ -2,6 +2,7 @@ import { defineConfig, parseAst, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve, dirname } from 'path'
+import { readFileSync } from 'fs'
 import { config } from 'dotenv'
 import { fileURLToPath } from 'url'
 import {
@@ -9,6 +10,7 @@ import {
   collectConsoleRemovals,
   isStrippableModule,
 } from './src/dev/console-strip'
+import { ABSENT_PACKAGES } from './src/dev/absent-packages'
 // ── Der Dev-Server steht nicht mehr hier ────────────────────────────────────
 //
 // Bis ZB-7 waren 2 120 der 2 536 Zeilen dieser Datei ein vollständiger
@@ -84,6 +86,33 @@ function stripConsolePlugin(): Plugin {
   }
 }
 
+// The app's own Content-Security-Policy on the dev server, opt-in (LU_E2E_CSP=1).
+//
+// The policy lives in src-tauri/tauri.conf.json and only the packaged app
+// enforces it, so a browser run against the plain dev server proves nothing
+// about what the policy blocks. That is how the voice session's audio worklets
+// passed every browser check and were then refused in the app: they came from
+// blob: URLs, and the policy allows scripts from 'self' only.
+//
+// With the switch on, index.html carries the exact policy as a meta tag (a
+// meta tag, not a response header rewritten in the browser: Chromium would
+// treat such a page as coming from an unknown network and refuse its loopback
+// requests, which is not what happens in the app). Hot reload is off in that
+// mode because its inline preamble is itself something the policy refuses.
+const E2E_CSP = process.env.LU_E2E_CSP === '1'
+
+function appCspPlugin(): Plugin {
+  return {
+    name: 'lu-app-csp',
+    apply: 'serve',
+    transformIndexHtml(html) {
+      const conf = JSON.parse(readFileSync(resolve(__dirname, 'src-tauri/tauri.conf.json'), 'utf8'))
+      const policy = String(conf.app.security.csp).replace(/"/g, '&quot;')
+      return html.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${policy}">`)
+    },
+  }
+}
+
 export default defineConfig({
   // §1.6: `stripConsolePlugin` (apply:'build') removes console.log/info/debug
   // from production output while keeping warn/error. It replaces the old
@@ -91,8 +120,12 @@ export default defineConfig({
   // Vite 8's oxc minifier (the build warned about exactly that) — so
   // console.* used to ship. See the plugin definition above for why oxc's
   // own dropConsole can't be used (all-or-nothing, no warn/error carve-out).
-  plugins: [react(), tailwindcss(), stripConsolePlugin(), devServerPlugin({ port: DEV_PORT })],
+  // Packages a dependency imports and LU must not ship (the Daily call client
+  // with Sentry). The same list is in vitest.config.ts.
+  resolve: { alias: ABSENT_PACKAGES },
+  plugins: [react(), tailwindcss(), stripConsolePlugin(), devServerPlugin({ port: DEV_PORT }), ...(E2E_CSP ? [appCspPlugin()] : [])],
   server: {
+    ...(E2E_CSP ? { hmr: false } : {}),
     // The Rust build tree churns thousands of files per `cargo build`; watching
     // it starves the dev server on a `tauri:dev` run.
     watch: { ignored: ['**/src-tauri/target/**'] },

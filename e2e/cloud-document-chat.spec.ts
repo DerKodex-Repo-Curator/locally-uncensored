@@ -7,7 +7,7 @@ import { pickChatModel } from './support/ui'
  * A9 in the shipped UI: the Docs button exists in Cloud mode.
  *
  * "There's no document tab in cloud chat to add documents and audio clips"
- * (aldrich_ironhart, Discord #general, 2026-09-01). It was hidden on
+ * (Discord #general, 2026-09-01). It was hidden on
  * `appMode === 'cloud'`, on the belief that Document Chat needs a local chat
  * backend. It needs a local EMBEDDING backend, a different sidecar, one the app
  * runs in Cloud mode too.

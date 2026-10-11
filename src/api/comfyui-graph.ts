@@ -19,7 +19,7 @@
 
 import type { ComfyApiGraph, ComfyApiNode, ComfyLinkRef } from '../types/comfy-graph'
 
-// ─── Output filename slug (David 2026-06-11) ───
+// ─── Output filename slug (2026-06-11) ───
 //
 // Generated media used to be `locally_uncensored_00123_.png` /
 // `locally_uncensored_vid_00011.mp4` — opaque. Now the ComfyUI SaveImage /
@@ -48,7 +48,7 @@ export function promptFilenamePrefix(prompt: string | undefined, isVideo: boolea
 }
 
 /**
- * Discord 2026-10-01 (theitalianstallion92): downloaded renders "mutated" into
+ * Discord 2026-10-01: downloaded renders "mutated" into
  * copies of other renders. ComfyUI numbers a file one past the highest it
  * still finds for the same prefix, and since 3.0.3 a gallery delete moves the
  * file to the Recycle Bin, so the next run with the same prompt took the freed
@@ -77,7 +77,7 @@ export function newRunTag(): string {
  *  A full-frame WanVAE decode next to a resident 14B UNet left 312 MB of VRAM
  *  on a 12 GB card; CUDA paged through the Windows driver instead of throwing,
  *  so ComfyUI's own OOM-then-tiled retry never fired and the decode ran 45+
- *  minutes at "GPU 100%" (live, David 2026-08-02). Tiles keep the working set
+ *  minutes at "GPU 100%" (live, 2026-08-02). Tiles keep the working set
  *  flat for a quality-neutral overlap cost.
  *
  *  ALL four tiling fields are sent. The live validator refuses a prompt that

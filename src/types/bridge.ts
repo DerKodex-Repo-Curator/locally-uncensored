@@ -98,6 +98,9 @@ export interface WebFetchResult {
   title: string
   text: string
   truncated: boolean
+  /** One sentence in place of the text: the body was a file (a PDF, an image,
+   *  an archive) or its packing could not be undone. `text` is empty then. */
+  notText?: string
 }
 
 /** `process_list` — one running process. */

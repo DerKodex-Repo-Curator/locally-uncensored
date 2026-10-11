@@ -1,15 +1,16 @@
-// Cloud twin of useCreate's generate/cancel — port of uselu's useCloudCreate
+// Cloud twin of useCreate's generate/cancel — port of the web app's useCloudCreate
 // onto the desktop cloud client (bearer auth via api/cloud/jobs). Submits the
 // current Create state to the hosted render queue instead of local ComfyUI,
 // then polls to completion. Store choreography (isGenerating, progress,
 // gallery) mirrors the local path so every downstream component works
 // unchanged. useCreate itself is untouched: the seam lives in CreateExpProvider.
 //
-// Desktop delta vs uselu: results keep remoteUrl + jobId in the persisted
+// Desktop delta vs the web app: results keep remoteUrl + jobId in the persisted
 // gallery — multi-MB base64 dataUrls would blow the localStorage quota and
 // kill all create-store persistence. Signed URLs expire ~1 h after the last
 // read, so playback surfaces re-sign lazily via refreshResultUrl().
 
+import { dataUrlToBlob } from '../lib/render/data-url'
 import { useCallback } from 'react'
 import { useCreateStore, type GalleryItem } from '../stores/createStore'
 import { intentToJob, galleryItemFromJob } from '../lib/render/cloud-jobs'
@@ -24,16 +25,7 @@ import {
   type CloudJobParams,
   type CloudJob,
 } from '../api/cloud/jobs'
-import {
-  defaultCloudModel,
-  editNeedsMask,
-  modelForOp,
-  utilityOpModel,
-  resolveOpPick,
-  cloudModelById,
-  cloudMediaLive,
-  resolveCharacterModel,
-} from '../stores/cloudCatalogStore'
+import { defaultCloudModel, editNeedsMask, modelForOp, utilityOpModel, resolveOpPick, cloudModelById, cloudMediaLive, resolveCharacterModel, lengthCredits, lengthPrice } from '../stores/cloudCatalogStore'
 import { checkPromptSafety, blockMessageFor, type SafetyVerdict } from '../lib/render/safety'
 import { contentPolicySnapshot, loadContentPolicy } from './useContentPolicy'
 import { signalCreditsExhausted } from '../lib/credits-exhausted'
@@ -57,12 +49,12 @@ import { MIN_TRAIN_IMAGES, maxTrainImages } from '../lib/train-image-cap'
 // tier, but the adult half of safety.ts (ADULT_SOFT_TERMS/ADULT_HARD_TERMS)
 // only ever fires on tier: 'cloud', which no caller passed until now, making
 // half the module unreachable. R5-9 exists precisely so "the rejection comes
-// before the upload" for the cloud path too, matching uselu's own
-// useCloudCreate (apps/web/hooks/useCloudCreate.ts, clientSafety()).
+// before the upload" for the cloud path too, matching the web app's own
+// useCloudCreate (the web app, clientSafety()).
 //
 // If the account policy has not loaded yet, this checks CSAM only ('off'):
 // never block on a guessed rule, the server is the authority for the rest,
-// same reasoning as uselu's own comment on clientSafety().
+// same reasoning as the web app's own comment on clientSafety().
 function clientSafety(text: string): SafetyVerdict {
   const policy = contentPolicySnapshot()
   if (!policy) void loadContentPolicy() // for the next run
@@ -111,7 +103,7 @@ function opProgressVerb(op: string): string {
 // throttle text, which points at a clock that never runs out (R5-50). So the
 // code the server sends decides, in that order, and the heuristic is gone: a
 // message is prose, a code is a decision. Wordings come from the web
-// (apps/web/hooks/useCloudCreate.ts), because the same refusal must not read
+// (the web app), because the same refusal must not read
 // differently depending on which of the two apps the customer happens to use.
 export function throttleMessage(err: CloudJobError): string {
   switch (err.code) {
@@ -134,7 +126,7 @@ export function throttleMessage(err: CloudJobError): string {
       // training the moment this fires, the server race between quota read
       // and submit is what triggers it. The old sentence only offered a plan
       // change and hid that path, so it now matches the web word for word
-      // (89055415, apps/web/hooks/useCloudCreate.ts).
+      // (89055415, the web app).
       return 'Your included character trainings are used up. Top-up credits keep training going, or upgrade your plan.'
   }
   const secs = err.retryAfterMs && err.retryAfterMs > 0 ? Math.ceil(err.retryAfterMs / 1000) : null
@@ -143,28 +135,8 @@ export function throttleMessage(err: CloudJobError): string {
     : 'Too many requests at once. Wait a moment and try again.'
 }
 
-// Decoded by hand instead of fetch(dataUrl): the webview CSP's connect-src
-// (rightly) has no data: entry, so fetching a data URL throws "Load failed"
-// and killed every source-needing op before the upload even started.
-export function dataUrlToBlob(dataUrl: string): Blob {
-  // A blob:/http(s) url here means an ImageRef broke the "url is always a data
-  // url" invariant. Parsing it as a data url silently yields a text blob the
-  // server 415s ("unsupported image format") — fail loudly at the source.
-  if (!dataUrl.startsWith('data:')) {
-    throw new Error(`dataUrlToBlob expects a data: URL, got "${dataUrl.slice(0, 16)}…"`)
-  }
-  const comma = dataUrl.indexOf(',')
-  const meta = dataUrl.slice(5, comma)
-  const data = dataUrl.slice(comma + 1)
-  const mime = meta.split(';')[0] || 'application/octet-stream'
-  if (meta.includes('base64')) {
-    const bin = atob(data)
-    const bytes = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-    return new Blob([bytes], { type: mime })
-  }
-  return new Blob([decodeURIComponent(data)], { type: mime })
-}
+// Lives in lib/render/data-url.ts; exported from here for the Create tab's own callers.
+export { dataUrlToBlob }
 
 // The in-flight job handle lives at module scope, matching the lifetime of the
 // generate() closure (which keeps polling across view switches). Instance refs
@@ -584,7 +556,7 @@ export function useCloudCreate(opts: { onQuotaChange?: () => void } = {}) {
       // stale live quote can never book either.
       //
       // Bewusste Abweichung von der Web-Referenz (Portplan Abschnitt 4/7):
-      // apps/web/hooks/useCloudCreate.ts sendet `max_credits` NIE aus dem
+      // the web app sendet `max_credits` NIE aus dem
       // normalen Create-Weg, nur die Preset-Werkstatt tut das
       // (PresetWorkshop.tsx:191). Das Web bucht also aus dem Create-Tab ohne
       // Deckel, genau das Risiko 1 des Portplans. Der Desktop weicht hier
@@ -624,6 +596,15 @@ export function useCloudCreate(opts: { onQuotaChange?: () => void } = {}) {
           )
         }
         params.max_credits = quote.credits
+      } else if (lengthPrice(model, op)) {
+        // A classic model the provider meters by the length of its input (lip
+        // sync, motion): the ceiling is the figure on the meter, the price of
+        // the length the Composer measured. The server measures itself; when
+        // its figure is higher it answers 409 quote_changed with the new
+        // price (the catch below shows it and asks for a second click), and
+        // a start without a ceiling only gets what the catalogue figure
+        // covers. A server from before length billing ignores the field.
+        params.max_credits = s.cloudStudioCredits ?? lengthCredits(model)
       }
 
       // Der Titel geht mit an den Server, sonst hiesse der Eintrag nach dem
@@ -674,7 +655,9 @@ export function useCloudCreate(opts: { onQuotaChange?: () => void } = {}) {
       const addResult = (job: CloudJob, index = 0) => useCreateStore.getState().addToGallery({
         ...galleryItemFromJob(job),
         model: galleryModel,
-        prompt: OP_GALLERY_LABEL[op] ?? runPrompt,
+        // The text that ran and nothing else: a lane without a prompt field
+        // leaves this empty, and the name of such a run stands in `label`.
+        prompt: runPrompt,
         promptOriginal,
         rewrittenBy,
         improveFailed: improveFailed || undefined,
@@ -880,6 +863,10 @@ export function useCloudCreate(opts: { onQuotaChange?: () => void } = {}) {
       try {
         const model = opts.mode === 'design' ? 'qwen3-tts-design' : 'qwen3-tts'
         const params: CloudJobParams = { op: 'tts', client_request_id: crypto.randomUUID() }
+        // The price on the button (SpecialIntentControls) is the price of
+        // these characters, and it goes along as the ceiling: without one the
+        // server starts only what the catalogue figure covers.
+        if (lengthPrice(model, 'tts')) params.max_credits = lengthCredits(model, Array.from(text).length)
         if (opts.mode === 'speak' && opts.voice) params.voice = opts.voice
         if (opts.mode === 'design' && opts.description) params.voice_description = opts.description
         const { id } = await submitCloudJob({ kind: 'audio', model, prompt: text, params })

@@ -117,7 +117,7 @@ describe('what the switch offers', () => {
   it('a new picture: both editions and the chat model', () => {
     expect(improveWriters(run({}))).toEqual([
       { id: 'official', label: 'Qwen enhancer' },
-      { id: 'unfiltered', label: 'Qwen enhancer, no refusals' },
+      { id: 'unfiltered', label: 'Qwen enhancer, No Filter' },
       { id: 'chat', label: 'Chat model' },
     ])
   })
@@ -185,7 +185,7 @@ describe('the answer becomes a prompt', () => {
 describe('the name the details give the writer', () => {
   it('an enhancer is named by its edition', () => {
     expect(rewrittenByName('official', 'lu-cloud::glm-5.3')).toBe('Qwen enhancer')
-    expect(rewrittenByName('unfiltered', null)).toBe('Qwen enhancer, no refusals')
+    expect(rewrittenByName('unfiltered', null)).toBe('Qwen enhancer, No Filter')
   })
 
   it('the chat model is named by its own name, without the provider prefix', () => {

@@ -25,7 +25,7 @@ import { NOCT_Q_MODEL } from './qwen21-weights'
 
 const all = getImageBundles()
 const official = all.find((b) => b.name === 'Qwen-Image 2.1 (Generate and Edit)')!
-const noRefusals = all.find((b) => b.name === 'Qwen-Image 2.1 (No Refusals)')!
+const noRefusals = all.find((b) => b.name === 'Qwen-Image 2.1 (No Filter)')!
 const bundle = all.find((b) => b.name === 'Noct Q (Qwen-Image 2.1, Unfiltered)')!
 const file = (b: typeof bundle, folder: string) => b.files.find((f) => f.subfolder === folder)!
 

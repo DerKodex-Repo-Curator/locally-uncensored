@@ -39,7 +39,7 @@ const AGENT_COMPATIBLE = [
   'mistral', 'mistral-nemo', 'mistral-small', 'mistral-large',
   // Ministral (Mistral's 3B/8B edge line) has native tool calling like its
   // bigger siblings but the name isn't a substring of 'mistral', so it was
-  // wrongly rejected from Agent Mode (AnonN10, GitHub #65 — custom
+  // wrongly rejected from Agent Mode (GitHub #65 — custom
   // ministral-8b GGUF, "incompatible with agent mode even though it supports
   // tool calls"). normalizeFamily keeps the leading 'ministral' token intact.
   'ministral',
@@ -61,7 +61,7 @@ const AGENT_COMPATIBLE = [
  * The Ollama / HuggingFace ecosystem ships the same base under wildly
  * different cosmetic surface forms — `gemma4:e4b`, `gemma-4-it-uncensored`,
  * `huihui_ai/gemma-4-26b-a4b-heretic`, `mradermacher/Gemma-4-31B-it-abliterated-GGUF`.
- * leonsk29 (Discord 2026-05-24) reported Thinking + Agent both grayed out on
+ * A user (Discord 2026-05-24) reported Thinking + Agent both grayed out on
  * community uncensored Gemma 4 variants because the previous normalizer only
  * handled the dash-less family form (`gemma4`) and missed the dashed form
  * (`gemma-4`) that mradermacher / TrevorJS / Stabhappy / LiconStudio repos
@@ -174,7 +174,7 @@ const THINKING_COMPATIBLE = [
   'gemma4',
   // Families below all take Ollama's `think` param (they shipped after the
   // list above was written and the Think toggle stayed wrongly grayed out —
-  // David 2026-07-12: "guck, dass jedes Schema von den Models gedeckt ist").
+  // 2026-07-12: "guck, dass jedes Schema von den Models gedeckt ist").
   // A false positive is caught by the retry-without-think fallback in
   // useChat, so listing errs on the side of enabling the toggle.
   'gpt-oss',            // OpenAI gpt-oss 20b/120b — thinking levels

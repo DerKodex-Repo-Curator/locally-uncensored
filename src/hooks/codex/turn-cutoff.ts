@@ -3,7 +3,7 @@ import type { PlanGap } from '../../lib/plan-reconcile'
 /**
  * Ein Zug, den das Modell nicht selbst beendet hat, und der Satz dafuer.
  *
- * Fehler D, Symptom 2 (aldrich_ironhart, Discord 08.09.2026, Ollama, Code
+ * Fehler D, Symptom 2 (Discord 08.09.2026, Ollama, Code
  * Reiter): "the plan hangs at step 2". Laeuft ein Zug in die Token Grenze,
  * kommt er OHNE Werkzeugaufruf zurueck, und die Schleife in useCodex.ts kann
  * ihn von einem Modell, das fertig ist, nicht unterscheiden: sie faellt durch

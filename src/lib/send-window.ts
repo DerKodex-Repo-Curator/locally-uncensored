@@ -41,10 +41,9 @@ export const PAID_PROVIDER_IDS: ReadonlySet<string> = new Set(['lu-cloud', 'open
 /**
  * Default ceiling for one sent step, in tokens. Power users may raise it.
  *
- * 64k until 3.0.4. Customer case 30.09.2026: a Code-tab run on LU Cloud rode
- * that ceiling for two days, 38k tokens per request on average and up to 77k,
- * and 65 % of the credits went to models without an upstream prompt cache,
- * where every one of those tokens is billed again on every step. With the age
+ * 64k until 3.0.4. A long Code-tab run rides that ceiling on every step, and
+ * on a model without a prompt cache every one of those tokens is sent, and
+ * paid for, again on every step. With the age
  * decay capping old results and the run ledger keeping the dropped steps
  * known, 32k carries a coding run at half the price per step.
  */
@@ -118,4 +117,19 @@ export function effectiveSendWindow(input: SendWindowInput): number {
       ? Math.floor(input.sendWindowTokens)
       : DEFAULT_SEND_WINDOW_TOKENS
   return Math.min(base, cap)
+}
+
+/** What the messages of a step are left with at the very least, however large the catalogue is. */
+export const MIN_MESSAGE_BUDGET = 4096
+
+/**
+ * The budget of the messages once the tool catalogue has its place. The
+ * catalogue is sent as a field of its own, so the estimate of the messages
+ * never sees it; without this a full history plus the catalogue is more than
+ * the window. Never below `MIN_MESSAGE_BUDGET`, and never above the budget
+ * that came in.
+ */
+export function budgetBesideTheCatalog(sendWindow: number, catalogTokens: number): number {
+  const catalog = Number.isFinite(catalogTokens) && catalogTokens > 0 ? Math.ceil(catalogTokens) : 0
+  return Math.min(sendWindow, Math.max(MIN_MESSAGE_BUDGET, sendWindow - catalog))
 }

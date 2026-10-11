@@ -110,7 +110,7 @@ const fullWire = () => JSON.stringify(wireTools(codingCatalog()))
  * gleich. Das ist der Grund, warum das Tor existiert.
  *
  * ── 30.09.2026: file_edit bekommt `edits` und `replace_all` ───────────────
- * Kundenfall swift_maple90: jede Aenderung an derselben Datei war ein eigener
+ * Kundenfall ein Nutzer: jede Aenderung an derselben Datei war ein eigener
  * Roundtrip mit vollem Kontext. `edits` buendelt sie in einen Aufruf. Die
  * Beschreibung ist dafuer gekuerzt, der codierende Zug bleibt unter 7600;
  * der volle Katalog steht bei 17.946 Zeichen, Deckel gemessen plus Rand.

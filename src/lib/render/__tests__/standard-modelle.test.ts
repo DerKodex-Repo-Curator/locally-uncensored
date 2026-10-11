@@ -1,4 +1,4 @@
-// Standardmodelle fuer eine NEUE Auswahl (02.10.2026, Entscheid David):
+// Standardmodelle fuer eine NEUE Auswahl (02.10.2026, Entscheid des Inhabers):
 // Bild z-image-turbo, Bearbeiten qwen-image-2.1-edit, Video minimax-h3-t2v,
 // Animate minimax-h3. Eine gespeicherte Wahl eines Kunden bleibt, wie sie ist.
 //

@@ -528,7 +528,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
 /**
  * Visibility rule for the one-time "new" dot on the Composer's workflow
- * button (David 2026-08-02: a minimal marker, not a banner), kept pure so it
+ * button (2026-08-02: a minimal marker, not a banner), kept pure so it
  * is unit-testable. Local backend only — a custom ComfyUI workflow has
  * nothing to run on in cloud mode — and gone for good after the first click.
  * 'workflow-store' is in the AppShell backup key list, so that click survives

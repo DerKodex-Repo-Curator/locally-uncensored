@@ -6,7 +6,12 @@ import { getComfyHost, getComfyPort, downloadComfyFile } from '../../api/backend
 import { useModelPickStore } from '../../stores/modelPickStore'
 import { useGenerationStore } from '../../stores/generationStore'
 import { ModelPickerCard, ChangeModelInline, pickKindForToolCall } from './ModelPickerCard'
+import { CopyText } from '../create/experimental/CopyText'
 import { DiffView } from './DiffView'
+import { ScreenTaskSteps } from './ScreenTaskSteps'
+import { ScreenShotStrip } from '../computer/ScreenShotStrip'
+import { ComputerChatPermission, useComputerChatAsk } from '../computer/ComputerChatPermission'
+import { useChatStore } from '../../stores/chatStore'
 import { commandIcon } from '../../lib/shell-command-classify'
 import { requestGenerationCancel } from '../../api/vram-handoff'
 import { fileUrlToPath, readLocalFileAsBlobUrl, displayableMedia, type MediaRead } from '../../lib/local-media-url'
@@ -20,9 +25,9 @@ import { HINWEIS_TEXT } from '../../lib/hinweis'
 // ComfyUI /view URL whose exact form depends on the runtime:
 //   - packaged desktop (Tauri):     http://localhost:8188/view?filename=…
 //   - custom / remote ComfyUI host: http://<host>:<port>/view?filename=…
-//   - browser / dev (Vite proxy):   /comfyui/view?filename=…   ← konata's case
+//   - browser / dev (Vite proxy):   /comfyui/view?filename=…   ← a user's case
 // The original localhost-only regex silently failed on the latter two, so
-// konata (running the web build behind the /comfyui proxy) saw the raw
+// A user (running the web build behind the /comfyui proxy) saw the raw
 // "/comfyui/view?…" text and NO image. comfyViewUrlFromResult() now accepts any
 // of those forms, but ONLY when the URL points at OUR ComfyUI — a relative
 // proxy path, a loopback host, or the user-configured comfy host — and carries
@@ -59,7 +64,7 @@ export function isInlineVideoUrl(url: string): boolean {
   }
 }
 
-// David 2026-06-12 ("alle tools in chat, mit download"): pull the ComfyUI
+// 2026-06-12 ("alle tools in chat, mit download"): pull the ComfyUI
 // filename/subfolder/type back out of a /view URL so the inline image/video
 // gets a Download button (downloadComfyFile fetches the real bytes → native
 // Save-As in Tauri / anchor download in the browser). Returns null if the URL
@@ -166,6 +171,8 @@ const TOOL_ICONS: Record<string, typeof Search> = {
   shell_execute: Terminal,
   pr_resume: GitPullRequest,
   screenshot: Monitor,
+  computer_use: Monitor,
+  computer_task: Monitor,
   image_generate: Image,
   video_generate: Film,
   run_workflow: GitBranch,
@@ -242,16 +249,19 @@ function ToolCallBlockImpl({ toolCall, onApprove, onReject }: Props) {
   const isRunning = toolCall.status === 'running'
   const isPending = toolCall.status === 'pending_approval'
   const isFailed = toolCall.status === 'failed' || toolCall.status === 'rejected'
-  // Real cancel (David 2026-06-16): only image/video generation supports a true
+  // The first use of computer control in a chat waits here for the user's yes.
+  const chatAsk = useComputerChatAsk(toolCall.toolName, isRunning, useChatStore((s) => s.activeConversationId))
+  // Real cancel (2026-06-16): only image/video generation supports a true
   // abort (ComfyUI /interrupt + loop abort). Local "cancelling" state flips the
   // mini button to a "stopping…" indicator the moment it's clicked.
   const isGenTool = toolCall.toolName === 'image_generate' || toolCall.toolName === 'video_generate'
   const [cancelling, setCancelling] = useState(false)
+  const genPrompt = isGenTool && typeof toolCall.args?.prompt === 'string' ? toolCall.args.prompt.trim() : ''
 
   // Inline media preview URL (image_generate / video_generate / screenshot).
   // Computed once; rendered ALWAYS-visible below the header (even while the
   // tool block is collapsed) so an auto-approved generation shows its picture
-  // without the user having to expand the block — konata's "and no image".
+  // without the user having to expand the block — a user's "and no image".
   // Two possible sources: a ComfyUI /view URL (Windows/Linux), or a local
   // blob:/data: URL from the Mac MLX path (executeImageGenerateMlx /
   // executeVideoGenerateMlx in api/mcp/builtin-tools.ts — no ComfyUI /view
@@ -271,7 +281,7 @@ function ToolCallBlockImpl({ toolCall, onApprove, onReject }: Props) {
   const genKind = pickKindForToolCall(toolCall)
   const showPicker = !!genKind && !!pendingPick && pendingPick.kind === genKind && isRunning
 
-  // Proxy-independent loading (konata 2026-06-08). In browser/dev the tool
+  // Proxy-independent loading (a user 2026-06-08). In browser/dev the tool
   // result carries the RELATIVE `/comfyui/view?…` Vite-proxy path, which loads
   // fine under `npm run dev` (verified E2E). But a built frontend served
   // WITHOUT that dev proxy (e.g. `vite preview` or a static host) would 404 the
@@ -301,7 +311,7 @@ function ToolCallBlockImpl({ toolCall, onApprove, onReject }: Props) {
     : !!effectivePreviewUrl && isInlineVideoUrl(effectivePreviewUrl)
 
   return (
-    <div className="mb-0.5">
+    <div className="mb-0.5" data-tool={toolCall.toolName} data-status={toolCall.status}>
       {/* Header line — monochrome, only status icon has subtle color */}
       <div className="flex items-center gap-1">
         <button
@@ -309,7 +319,7 @@ function ToolCallBlockImpl({ toolCall, onApprove, onReject }: Props) {
           className="flex items-center gap-1.5 py-0.5 text-left hover:opacity-80 transition-opacity flex-1 min-w-0"
         >
           <ToolIcon size={10} className="text-gray-500 dark:text-gray-500 shrink-0" />
-          <span className={`t-micro ${isRunning ? 'lu-tool-shimmer' : 'text-gray-600 dark:text-gray-400'}`}>{toolCall.toolName}</span>
+          <span className={`t-micro italic pr-0.5 ${isRunning ? 'lu-tool-shimmer' : 'text-gray-600 dark:text-gray-400'}`}>{toolCall.toolName}</span>
           {isRunning && (
             <span className="flex items-center gap-[3px] shrink-0" aria-hidden>
               {[0, 1, 2].map((i) => (
@@ -339,7 +349,7 @@ function ToolCallBlockImpl({ toolCall, onApprove, onReject }: Props) {
             </span>
           )}
         </button>
-        {/* Real abort (David 2026-06-16): stop a running image/video generation.
+        {/* Real abort (2026-06-16): stop a running image/video generation.
             Fires ComfyUI /interrupt AND aborts the agent loop so it won't
             auto-start a replacement. VRAM is restored by runHandoff's finally. */}
         {isRunning && isGenTool && (
@@ -365,6 +375,12 @@ function ToolCallBlockImpl({ toolCall, onApprove, onReject }: Props) {
         )}
       </div>
 
+      {chatAsk && <div className="ml-3.5 pl-2"><ComputerChatPermission ask={chatAsk} /></div>}
+      {isRunning && toolCall.toolName === 'computer_task' && <ScreenTaskSteps />}
+      {(toolCall.toolName === 'computer_task' || toolCall.toolName === 'computer_use') && (
+        <ScreenShotStrip callId={toolCall.id} className="ml-3.5 mb-1 pl-2" />
+      )}
+
       {/* Model-Picker (v2.5.3) — LU's own pre-VRAM-swap model choice, shown
           while the executor gate awaits the pick. Falls back to the mini
           "Change model" line once a preference is saved. */}
@@ -373,7 +389,7 @@ function ToolCallBlockImpl({ toolCall, onApprove, onReject }: Props) {
 
       {/* Inline media preview — ALWAYS visible for a completed image/video
           generation, even while the tool block stays collapsed. Before the
-          konata 2026-06-07 fix this lived inside the collapsed details, so a
+A user 2026-06-07 fix this lived inside the collapsed details, so a
           user with auto-approve (block closed) saw "Image generated: …" text
           and no picture. A .mp4/.webm output renders in a <video>; everything
           else — including animated .webp — in an <img>. URL is bounded to OUR
@@ -409,7 +425,16 @@ function ToolCallBlockImpl({ toolCall, onApprove, onReject }: Props) {
               />
             </a>
           )}
-          {/* Download (David 2026-06-12): generated media shows in the chat with
+          {/* The prompt the picture or the clip was made from, readable without
+              opening the tool block, with a button that copies it. Taken from
+              the call's own arguments, so a call without one shows no line. */}
+          {genPrompt && (
+            <div className="flex max-w-xl items-start gap-3 text-gray-500 dark:text-gray-400" data-testid="tool-media-prompt">
+              <span className="t-micro min-w-0 flex-1 max-h-20 overflow-y-auto scrollbar-thin select-text whitespace-pre-wrap break-words">{genPrompt}</span>
+              <CopyText text={genPrompt} label="Copy prompt" />
+            </div>
+          )}
+          {/* Download (2026-06-12): generated media shows in the chat with
               a Download button, ChatGPT-style — downloadComfyFile pulls the real
               bytes and saves via the native dialog. Mac MLX results have no
               ComfyUI /view route to re-fetch from, so a plain anchor download
@@ -468,7 +493,7 @@ function ToolCallBlockImpl({ toolCall, onApprove, onReject }: Props) {
               )}
 
               {/* Result (raw text). The inline media preview now renders
-                  always-visible above the collapsible (konata 2026-06-07). */}
+                  always-visible above the collapsible (a user 2026-06-07). */}
               {toolCall.result && !toolCall.diff && (
                 <pre className="text-[0.55rem] leading-relaxed text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-white/[0.02] rounded px-2 py-1 overflow-auto scrollbar-thin max-h-[300px]">
                   {toolCall.result}

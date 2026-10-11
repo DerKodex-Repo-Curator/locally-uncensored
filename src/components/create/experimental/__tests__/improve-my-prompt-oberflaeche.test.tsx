@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * "Improve my prompt" (02.10.2026, Paritaet zu apps/web/components/create/
- * experimental/__tests__/improve-my-prompt-oberflaeche.test.tsx): der Schalter
+ * "Improve my prompt" (02.10.2026, Paritaet zu the web app):
+ * der Schalter
  * in den erweiterten Einstellungen, nie im oder ueber dem Prompt-Fenster, und die
  * Details am Ergebnis.
  */
@@ -112,14 +112,14 @@ const ITEM = (extra: Partial<GalleryItem>): GalleryItem => ({
 describe('Details am Ergebnis (Desktop)', () => {
   it('zeigt Original und Fassung, die lief', () => {
     render(<PromptDetails item={ITEM({ promptOriginal: 'my own words' })} />)
-    expect(screen.getByText('You wrote').nextElementSibling?.textContent).toBe('my own words')
-    expect(screen.getByText('Sent to the model').nextElementSibling?.textContent).toBe('A rewritten prompt.')
+    expect(screen.getByText('You wrote').parentElement?.nextElementSibling?.textContent).toBe('my own words')
+    expect(screen.getByText('Sent to the model').parentElement?.nextElementSibling?.textContent).toBe('A rewritten prompt.')
   })
 
   // Box-Probe 03.10.2026: die Details sagten nicht, wer umgeschrieben hat.
   it('nennt, wer umgeschrieben hat', () => {
-    render(<PromptDetails item={ITEM({ promptOriginal: 'my own words', rewrittenBy: 'Qwen enhancer, no refusals' })} />)
-    expect(screen.getByText('Rewritten by').nextElementSibling?.textContent).toBe('Qwen enhancer, no refusals')
+    render(<PromptDetails item={ITEM({ promptOriginal: 'my own words', rewrittenBy: 'Qwen enhancer, No Filter' })} />)
+    expect(screen.getByText('Rewritten by').nextElementSibling?.textContent).toBe('Qwen enhancer, No Filter')
   })
 
   it('ein alter Eintrag ohne den Namen zeigt die Zeile nicht', () => {
@@ -131,10 +131,85 @@ describe('Details am Ergebnis (Desktop)', () => {
     render(<PromptDetails item={ITEM({ improveFailed: true, prompt: 'my own words' })} />)
     expect(screen.getByText(/rewrite did not work/i)).toBeTruthy()
     expect(screen.queryByText('You wrote')).toBeNull()
+    expect(screen.getByTestId('prompt-text').textContent).toBe('my own words')
+  })
+})
+
+// 10.10.2026: bei jedem Bild, das die App gemacht hat, muss der Prompt
+// zu sehen sein, mit einem Knopf zum Kopieren.
+describe('Der Prompt am Ergebnis (Desktop)', () => {
+  const clipboard = () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    return writeText
+  }
+
+  it('ein Lauf ohne Umschreiben zeigt seinen Prompt, ohne die Zeilen des Umschreibens', () => {
+    render(<PromptDetails item={ITEM({ prompt: 'a red apple on a plate' })} />)
+    expect(screen.getByText('Prompt')).toBeTruthy()
+    expect(screen.getByTestId('prompt-text').textContent).toBe('a red apple on a plate')
+    expect(screen.queryByText('You wrote')).toBeNull()
+    expect(screen.queryByText('Sent to the model')).toBeNull()
   })
 
-  it('zeigt nichts bei einem Lauf ohne Umschreiben', () => {
-    const { container } = render(<PromptDetails item={ITEM({})} />)
-    expect(container.firstChild).toBeNull()
+  it('unter der Buehne zugeklappt, in der Grossansicht aufgeklappt', () => {
+    const { unmount } = render(<PromptDetails item={ITEM({})} />)
+    expect((screen.getByTestId('prompt-details') as HTMLDetailsElement).open).toBe(false)
+    unmount()
+    render(<PromptDetails item={ITEM({})} open />)
+    expect((screen.getByTestId('prompt-details') as HTMLDetailsElement).open).toBe(true)
+  })
+
+  it('der Knopf legt genau den Text, der lief, in die Zwischenablage', async () => {
+    const writeText = clipboard()
+    render(<PromptDetails item={ITEM({ prompt: '  a red apple\non a plate ' })} open />)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy prompt' }))
+    expect(writeText).toHaveBeenCalledWith('a red apple\non a plate')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Copy prompt' }).textContent).toBe('Copied'))
+  })
+
+  it('nach einem Umschreiben hat jede der beiden Fassungen ihren Knopf', () => {
+    const writeText = clipboard()
+    render(<PromptDetails item={ITEM({ promptOriginal: 'my own words' })} open />)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy what you wrote' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy what was sent to the model' }))
+    expect(writeText.mock.calls).toEqual([['my own words'], ['A rewritten prompt.']])
+  })
+
+  it('eine verweigerte Zwischenablage meldet nichts und behauptet nichts', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) }, configurable: true })
+    render(<PromptDetails item={ITEM({})} open />)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy prompt' }))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.getByRole('button', { name: 'Copy prompt' }).textContent).toBe('Copy')
+  })
+
+  it('ein Eintrag ohne Prompt zeigt nichts, auch keinen erfundenen Text', () => {
+    for (const item of [
+      ITEM({ prompt: '' }),
+      ITEM({ prompt: '   ' }),
+      // Bis 3.0.6 schrieb der Cloud-Start den Namen des Laufs in das Feld.
+      ITEM({ prompt: 'Background removed', label: 'Background removed', intent: 'removebg' }),
+      ITEM({ prompt: 'Background removed', intent: 'removebg' }),
+      ITEM({ prompt: 'Talking character', label: 'Talking character', type: 'video' }),
+    ]) {
+      const { container, unmount } = render(<PromptDetails item={item} />)
+      expect(container.firstChild).toBeNull()
+      unmount()
+    }
+  })
+
+  it('ein Ergebnis aus dem Chat bringt nur den Prompt seines Laufs mit', () => {
+    render(<PromptDetails item={{ prompt: 'a red fox in the snow' }} open />)
+    expect(screen.getByTestId('prompt-text').textContent).toBe('a red fox in the snow')
+  })
+
+  it('ein Klick in den Kasten schliesst die Grossansicht nicht', () => {
+    clipboard()
+    const onClose = vi.fn()
+    render(<div onClick={onClose}><PromptDetails item={ITEM({})} open /></div>)
+    fireEvent.click(screen.getByTestId('prompt-text'))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy prompt' }))
+    expect(onClose).not.toHaveBeenCalled()
   })
 })

@@ -1,7 +1,7 @@
 /**
  * Wo die Freigabe-Entscheidung EINMAL faellt: vorne, fuer den ganzen Lauf.
  *
- * Auftrag 2.3, David am 04.09.2026: "hintergrund bzw multiagents sollen
+ * Auftrag 2.3, am 04.09.2026: "hintergrund bzw multiagents sollen
  * NIEMALS freigabe brauchen. ist bei claude code desktop auch nicht so
  * richtig?" Der Vergleich stimmt im Kern: dort stellt ein Unteragent keine
  * eigenen Freigabefragen, es gilt der Berechtigungsmodus der Sitzung, in der
@@ -44,7 +44,7 @@ import { CODEX_CONFIRM_TOOLS } from '../hooks/codexShellGate'
 
 /**
  * Die Werkzeuge, mit denen ein Lauf seine Hintergrundagenten startet und
- * steuert. Genau diese drei meint Davids Satz, und mehr steht hier nicht
+ * steuert. Genau diese drei meint der Satz des Inhabers, und mehr steht hier nicht
  * drin: ein Werkzeug, das selbst etwas anfasst, gehoert nie in diese Liste.
  */
 export const BACKGROUND_AGENT_TOOLS: ReadonlySet<string> = new Set([
@@ -65,6 +65,23 @@ export const WORKSPACE_READ_TOOLS: ReadonlySet<string> = new Set([
   'file_read',
   'file_list',
   'file_search',
+])
+
+/**
+ * Tools that carry their own, stricter gate (Astra computer use, 06.10.2026).
+ *
+ * The approval card decides once per call and by tool name. computer_use
+ * decides per action and per app, in Rust: a screenshot asks nothing, the
+ * first action in an app asks for that app, every action is confirmed unless
+ * the session is autonomous, and sending, buying, deleting and permission
+ * changes are confirmed even then. A card on top would ask twice, and 'auto'
+ * on the category must not switch any of that off. So the card steps aside;
+ * 'blocked' and a read-only run still refuse, as for every tool.
+ */
+export const SELF_GATED_TOOLS: ReadonlySet<string> = new Set([
+  'computer_use',
+  // A screen task is a row of computer_use calls. Each of them asks itself.
+  'computer_task',
 ])
 
 /**
@@ -123,6 +140,9 @@ export function resolveApprovalLevel(toolName: string, d: FrontDecision): Permis
   //    Ausfuehrer und nicht der Name. Dieselbe Weiche wie in
   //    codexModeRuleset, damit die beiden nicht auseinanderlaufen.
   if (d.readOnlyRun && !allowedInReadOnlyTurn(toolName)) return 'blocked'
+
+  // 3. Ein Werkzeug mit eigenem Riegel fragt selbst (siehe SELF_GATED_TOOLS).
+  if (SELF_GATED_TOOLS.has(toolName)) return 'auto'
 
   if (d.codexMode !== null) {
     // Code-Oberflaeche: das Preset IST die Entscheidung von vorne. Der

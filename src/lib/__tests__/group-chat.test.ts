@@ -1,4 +1,4 @@
-// Group chat v1 (Nurse KillJoy): turn order, attribution tagging, and the
+// Group chat v1 (a user): turn order, attribution tagging, and the
 // store half. Component wiring is source-guarded (no render harness here).
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -158,7 +158,7 @@ describe('wiring (source guards)', () => {
   })
 })
 
-// ── 3.0.5, samvenice on Discord: a persona per participant ─────────────────
+// ── 3.0.5, a user on Discord: a persona per participant ─────────────────
 //
 // Every model in a group used to answer under the ONE persona of the chat, so
 // two models were both told they are the same character and spoke over each

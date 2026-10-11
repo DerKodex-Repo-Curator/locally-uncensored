@@ -52,11 +52,14 @@ function callFn(fn: string, ...args: string[]): { code: number; out: string } {
 }
 
 describe('build-llama.sh', () => {
-  it('exists and is executable', () => {
+  it('exists and is executable', (ctx) => {
     expect(existsSync(SCRIPT)).toBe(true)
     // owner-executable bit set - checked via the git index on Windows, where
     // NTFS has no unix mode bits (node only synthesizes X for .exe/.bat/.cmd)
     if (process.platform === 'win32') {
+      // An unpacked source archive has no index either, so on Windows the bit
+      // is recorded nowhere and there is nothing to read.
+      if (!existsSync(join(REPO_ROOT, '.git'))) return ctx.skip()
       const mode = execFileSync('git', ['ls-files', '-s', 'scripts/build-llama.sh'], {
         cwd: resolve(__dirname, '../../..'),
         encoding: 'utf8',
@@ -115,7 +118,9 @@ describe('build-llama.sh', () => {
 
   it('resource_llama_dir_for: one directory per triple under src-tauri/resources/llama', () => {
     const { out } = callFn('resource_llama_dir_for', 'x86_64-pc-windows-msvc')
-    expect(out.replace(/\\/g, '/')).toBe(
+    // Git for Windows' bash prints a drive as /c/..., node as C:\...
+    const printed = out.replace(/\\/g, '/').replace(/^\/([a-zA-Z])\//, (_, drive: string) => `${drive.toUpperCase()}:/`)
+    expect(printed).toBe(
       `${REPO_ROOT.replace(/\\/g, '/')}/src-tauri/resources/llama/x86_64-pc-windows-msvc`,
     )
   })
@@ -196,8 +201,12 @@ describe('build-llama.sh: staging the dynamic-ISA companion libraries', () => {
     const binOutDir = tmp('llama-bin-linux-')
     writeFileSync(join(binOutDir, 'llama-server'), 'exe')
     writeFileSync(join(binOutDir, 'libggml-base.so.1.2.3'), 'real-bytes')
-    execFileSync('ln', ['-s', 'libggml-base.so.1.2.3', join(binOutDir, 'libggml-base.so.1')])
-    execFileSync('ln', ['-s', 'libggml-base.so.1', join(binOutDir, 'libggml-base.so')])
+    // Through bash: Windows has no `ln` of its own. Git for Windows' `ln -s`
+    // writes a copy where it may not create a link, so there the staged file
+    // is checked all the same and only the dereferencing has nothing to do.
+    execFileSync(BASH, ['-c', 'ln -s libggml-base.so.1.2.3 libggml-base.so.1 && ln -s libggml-base.so.1 libggml-base.so'], {
+      cwd: binOutDir,
+    })
     writeFileSync(join(binOutDir, 'libggml-cpu-haswell.so'), 'cpu-kernel')
     const { code, repoRoot } = stage('x86_64-unknown-linux-gnu', binOutDir, join(binOutDir, 'llama-server'))
     expect(code).toBe(0)

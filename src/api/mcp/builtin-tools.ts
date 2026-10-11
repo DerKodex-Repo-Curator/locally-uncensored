@@ -6,8 +6,9 @@ import type {
   WebSearchResult, WebFetchResult, ProcessListResult, ScreenshotResult, CurrentTimeResult,
 } from '../../types/bridge'
 import type { ToolRegistry } from './tool-registry'
+import { reserveCreateTools } from './create-tools'
 import { v4 as uuid } from 'uuid'
-import { backendCall, fetchExternal } from '../backend'
+import { backendCall, isTauri } from '../backend'
 import { getActiveChatId, getActiveConversationId, getActiveWorkspace, isChatArtifactMode, captureChatArtifact, isReadOnlyShellTurn } from '../agent-context'
 import type { AgentRunContext } from '../agent-context'
 import { useAgentWorkflowStore } from '../../stores/agentWorkflowStore'
@@ -568,6 +569,43 @@ async function executeWebSearch(args: ToolArgs): Promise<string> {
   return JSON.stringify(data)
 }
 
+/** The body limit of `web_fetch`, as in src-tauri/src/commands/web_reach.rs (`MAX_BODY`). */
+const WEB_FETCH_MAX_BODY = 8 * 1024 * 1024
+/** Word for word the sentence the Rust side gives for a page over the limit. */
+const WEB_FETCH_TOO_LARGE = 'Fetch failed: the page is larger than 8 MB, so it was not read. Use a different address.'
+
+/**
+ * A page through the dev server's proxy, for `web_fetch` without the app
+ * around it. Read piece by piece and stopped at `WEB_FETCH_MAX_BODY`: an
+ * announced length over the limit ends it before the first piece, a body
+ * without a length is counted as it arrives.
+ */
+async function fetchPageWithoutBackend(url: string): Promise<string> {
+  const res = await fetch(`/local-api/proxy-download?url=${encodeURIComponent(url)}`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const announced = Number(res.headers.get('content-length') ?? '')
+  if (Number.isFinite(announced) && announced > WEB_FETCH_MAX_BODY) {
+    void res.body?.cancel().catch(() => {})
+    throw new Error(WEB_FETCH_TOO_LARGE)
+  }
+  const reader = res.body?.getReader()
+  if (!reader) return ''
+  const decoder = new TextDecoder()
+  let text = ''
+  let seen = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    seen += value.byteLength
+    if (seen > WEB_FETCH_MAX_BODY) {
+      void reader.cancel().catch(() => {})
+      throw new Error(WEB_FETCH_TOO_LARGE)
+    }
+    text += decoder.decode(value, { stream: true })
+  }
+  return text + decoder.decode()
+}
+
 async function executeWebFetch(args: ToolArgs): Promise<string> {
   const url = argString(args, 'url')
   if (!url) return 'Error: No URL provided'
@@ -588,6 +626,12 @@ async function executeWebFetch(args: ToolArgs): Promise<string> {
     if (data.status < 200 || data.status >= 300) {
       return `Error: web_fetch got HTTP ${data.status} for ${url}${data.title ? ` (${data.title})` : ''}`
     }
+    // The address led to a file and not to a page, or to a page whose packing
+    // could not be undone. The Rust side says so in one sentence and sends no
+    // text, so bytes never reach the model as if they were a page.
+    if (data.notText) {
+      return `Error: ${data.notText}`
+    }
     if (!data.text) {
       return `Error: web_fetch got an empty body from ${url} (status ${data.status})`
     }
@@ -600,11 +644,23 @@ async function executeWebFetch(args: ToolArgs): Promise<string> {
     if (data.truncated) parts.push('\n…(truncated to 24 000 chars)')
     return parts.join('\n')
   } catch (e) {
-    // Fallback: legacy fetchExternal + htmlToText (used in browser / dev mode
-    // where the Rust command isn't reachable).
+    // Inside the app the Rust command is always there, so what it threw IS the
+    // answer: the address is closed to a model, the page is larger than the
+    // limit, the server did not answer. Fetching the same address a second
+    // time through `fetch_external` undid both guards at once. That command
+    // has the wider address list of the catalogue (no `closed_to_a_model`) and
+    // reads the whole body into one string: a link to a 100 MiB file came back
+    // through the bridge in one piece and the phone ran out of memory (N1,
+    // Android 8 GB, mobile-docs/r9/netz.md).
+    if (isTauri()) {
+      return `Error: ${e instanceof Error ? e.message : String(e)}`
+    }
+    // Fallback for the browser / dev mode only, where the Rust command does
+    // not exist: the dev server's proxy + htmlToText, read up to the same
+    // limit the Rust side has.
     try {
       const maxLength = argNumber(args, 'maxLength') || 24000
-      const html = await fetchExternal(url)
+      const html = await fetchPageWithoutBackend(url)
       const text = htmlToText(html)
       if (text.length > maxLength) return text.substring(0, maxLength) + '\n\n[...truncated]'
       return text || 'Error: Page returned empty content'
@@ -681,7 +737,7 @@ async function executeFileWrite(args: ToolArgs, run?: AgentRunContext): Promise<
       + 'Pass "" only if you really mean an empty file. Nothing was written; call file_write again with it set.'
   }
   const content = args.content
-  // Plain-chat artifact mode (ChatGPT-style, David 2026-06-12): in the NORMAL
+  // Plain-chat artifact mode (ChatGPT-style, 2026-06-12): in the NORMAL
   // chat, a "file write" must NOT touch disk — capture it so it renders inline
   // with a preview + Download button. The Coding Agent / full Agent leave
   // artifact mode OFF and fall through to the real fs_write below.
@@ -1524,7 +1580,7 @@ async function executeVideoGenerateMlx(prompt: string, merged: VramHandoffArgs):
     return `Error: Could not query MLX video status — ${e instanceof Error ? e.message : String(e)}.`
   }
   if (!status.available) return 'Error: MLX video is Apple Silicon only.'
-  if (!status.mlxInstalled) return 'Error: the local video engine is not set up on this Mac yet (a one-time setup is needed before local video works).'
+  if (!status.mlxInstalled && !status.ltx2MlxInstalled) return 'Error: the local video engine is not set up on this Mac yet (a one-time setup is needed before local video works).'
 
   let catalog: VideoModel[]
   try {
@@ -1536,6 +1592,7 @@ async function executeVideoGenerateMlx(prompt: string, merged: VramHandoffArgs):
     return 'Error: No local video model is installed yet. The on-device video engine needs a one-time setup before local generation works.'
   }
   const requested = typeof merged.model === 'string' && merged.model ? merged.model : undefined
+  const inputImage = typeof merged.inputImage === 'string' && merged.inputImage ? merged.inputImage : undefined
   let model: VideoModel
   if (requested) {
     const resolved = resolveMlxModel(requested, catalog)
@@ -1544,15 +1601,21 @@ async function executeVideoGenerateMlx(prompt: string, merged: VramHandoffArgs):
     }
     model = resolved
   } else {
-    model = catalog[0]
+    // Without a start image the default must be a model that runs from text.
+    model = catalog.find((m) => inputImage || !m.requiresImage) ?? catalog[0]
+  }
+  if (model.requiresImage && !inputImage) {
+    const fromText = catalog.filter((m) => !m.requiresImage).map((m) => m.name)
+    return `Error: ${model.name} turns a start image into video and cannot run from text alone. Pass inputImage as the absolute path of an image file${fromText.length ? `, or use a text to video model: ${fromText.join(', ')}` : ''}.`
   }
 
   const fps = typeof merged.fps === 'number' ? merged.fps : undefined
   let seconds: number | undefined = typeof merged.seconds === 'number' ? merged.seconds : undefined
   if (seconds == null && typeof merged.frames === 'number' && merged.frames > 0) {
-    seconds = merged.frames / (fps ?? 24)
+    // Rust counts with the rate of the model, whatever `fps` says.
+    seconds = merged.frames / model.fps
   }
-  const inputImage = typeof merged.inputImage === 'string' && merged.inputImage ? merged.inputImage : undefined
+  const negative = model.negativePrompt && typeof merged.negativePrompt === 'string' ? merged.negativePrompt : undefined
 
   let job: Awaited<ReturnType<typeof generateMlxVideo>>
   try {
@@ -1563,6 +1626,7 @@ async function executeVideoGenerateMlx(prompt: string, merged: VramHandoffArgs):
       fps,
       seed: typeof merged.seed === 'number' ? merged.seed : undefined,
       initImage: inputImage,
+      negativePrompt: negative,
     })
   } catch (e) {
     return `Video generation failed: ${e instanceof Error ? e.message : String(e)}`
@@ -1888,6 +1952,10 @@ export function registerBuiltinTools(registry: ToolRegistry) {
   // Muster, das M7 anprangert. Die Richtung stimmt jetzt: die konkreten Tools
   // kennen die Registry, nicht umgekehrt.
   registry.setRetiredRunner(runRetiredTool)
+  // Create in chat: the two names are the app's from the start, and off until
+  // the chat switches them on for a turn (hooks/useChat.ts). They live in
+  // create-tools.ts: they are not part of the agent's catalogue above.
+  reserveCreateTools(registry)
 }
 
 // ── Retired tools (2.6.6 merge, plan E5) ────────────────────────
@@ -1896,7 +1964,7 @@ export function registerBuiltinTools(registry: ToolRegistry) {
 // each per step while every executor ended in runShell anyway. But a running
 // chat, a restored session and every model that saw the old names in its
 // context still CALLS them, and "Error: Unknown tool" burns that step. Same
-// cure as uselu's RETIRED_MODELS: the old call still runs (through the kept
+// cure as the web app's RETIRED_MODELS: the old call still runs (through the kept
 // executors), and the reply names the new way once.
 
 const RETIRED_HINT: Record<string, string> = {

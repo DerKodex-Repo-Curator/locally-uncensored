@@ -2,7 +2,7 @@
 /**
  * LM Studio in the local model list is one slim line.
  *
- * David, 05.10.2026: the box with three text blocks and a full-width button
+ * 05.10.2026: the box with three text blocks and a full-width button
  * (about 145 px, as tall as five model rows) becomes a single line: a state
  * dot, a short sentence, a small "Start" button. That starting it makes LM
  * Studio the local chat backend is said in the tooltip of the button only.

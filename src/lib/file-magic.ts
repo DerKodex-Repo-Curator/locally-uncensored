@@ -34,7 +34,7 @@ const GB_LOGO = [0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b]
  * with a more specific format comes after it.
  */
 const SIGNATURES: readonly Signature[] = [
-  // Console ROMs first, the request that started this (applejames, Discord).
+  // Console ROMs first, the request that started this (Discord).
   { at: 0, bytes: [...text('NES'), 0x1a], label: 'NES ROM (iNES)' },
   { at: 4, bytes: GBA_LOGO, label: 'Game Boy Advance ROM' },
   { at: 0xc0, bytes: GBA_LOGO, label: 'Nintendo DS ROM' },

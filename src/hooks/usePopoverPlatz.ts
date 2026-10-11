@@ -1,5 +1,6 @@
 import { useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react'
 import {
+  ankerInSicht,
   festeLage,
   lokaleMasse,
   platzFuerPopover,
@@ -11,7 +12,7 @@ import {
 /**
  * Die EINE Platzlogik fuer alles, was in dieser App aufklappt.
  *
- * GitHub #149 (nexd3v, Hyprland, AppImage): die Modellauswahl in Create lag
+ * GitHub #149 (Hyprland, AppImage): die Modellauswahl in Create lag
  * unter dem Fensterrand, kein Modell war waehlbar. Jedes Aufklappmenue hatte
  * bis dahin seine eigene Vorstellung vom Platz: eine feste Richtung, eine
  * Mindesthoehe, das Fenster statt der abschneidenden Flaeche, oder gar keine.
@@ -98,6 +99,42 @@ function abschneidendeFlaeche(anker: Element, fenster: Kasten, kasten: (k: Kaste
   return g
 }
 
+/**
+ * The area in which a trigger can be scrolled out of sight: the boxes of all
+ * its ancestors that scroll, cut with each other. Only scrolling counts. A
+ * trigger that the window or a plain `overflow: hidden` cuts off (the pane in
+ * a window that got very short) keeps its popover, as it always did, and
+ * without a scrolling ancestor the area has no edge at all.
+ *
+ * Unlike `abschneidendeFlaeche` this follows the containing blocks, because a
+ * trigger may sit in a positioned layer that leaves its scroller, and a
+ * trigger in plain sight must never count as gone. An ancestor skipped by
+ * mistake only keeps a popover shown, which is the old behaviour.
+ */
+function scrollFlaeche(anker: Element, kasten: (k: Kasten) => Kasten): Kasten {
+  const scrollt = (overflow: string) => overflow === 'auto' || overflow === 'scroll'
+  let g: Kasten = { top: -Infinity, bottom: Infinity, left: -Infinity, right: Infinity }
+  let lage = getComputedStyle(anker).position
+  for (let p = anker.parentElement; p && p !== document.body; p = p.parentElement) {
+    if (lage === 'fixed') break
+    const cs = getComputedStyle(p)
+    // An absolute box is clipped only from its containing block upward.
+    if (lage === 'absolute' && cs.position === 'static') continue
+    lage = cs.position
+    const senkrecht = scrollt(cs.overflowY)
+    const waagerecht = scrollt(cs.overflowX)
+    if (!senkrecht && !waagerecht) continue
+    const r = kasten(p.getBoundingClientRect())
+    g = {
+      top: senkrecht ? Math.max(g.top, r.top) : g.top,
+      bottom: senkrecht ? Math.min(g.bottom, r.bottom) : g.bottom,
+      left: waagerecht ? Math.max(g.left, r.left) : g.left,
+      right: waagerecht ? Math.min(g.right, r.right) : g.right,
+    }
+  }
+  return g
+}
+
 function gleich(a: PopoverLage | null, b: PopoverLage): boolean {
   return a !== null && a.nachOben === b.nachOben && JSON.stringify(a.style) === JSON.stringify(b.style)
 }
@@ -172,6 +209,15 @@ export function usePopoverPlatz(
             ...(schub === 0 ? {} : { marginLeft: schub, marginRight: -schub }),
           },
         }
+      }
+      // A trigger scrolled out of its panel takes its popover out of sight
+      // with it. Hidden and not pinned to the edge: every rule here places a
+      // popover on its trigger, and one held at an edge would sit on nothing
+      // and cover what the user scrolled to. Hidden and not closed: the hook
+      // only places, opening and closing belong to the component, and so the
+      // popover is back on its trigger as soon as that is scrolled into view.
+      if (!ankerInSicht(a, scrollFlaeche(anker, masse.kasten))) {
+        neu = { nachOben: neu.nachOben, style: { ...neu.style, visibility: 'hidden' } }
       }
       setLage((vorher) => (gleich(vorher, neu) ? vorher : neu))
     }

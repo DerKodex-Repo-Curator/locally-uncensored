@@ -20,7 +20,7 @@ import type { ToolCall } from '../../api/providers/types'
  *
  *  3. WAS UEBRIG BLEIBT, IST ANTWORT. Das ist die Regel, die man am leichtesten
  *     falsch macht: die Prosa um das JSON herum wird BEHALTEN, damit die
- *     Zwischenantworten in der Zeitleiste stehen bleiben (David 2026-06-02 r2:
+ *     Zwischenantworten in der Zeitleiste stehen bleiben (2026-06-02 r2:
  *     "antworten zwischen drin verschwinden immer, darf nicht sein"). Geleert
  *     wird nur, wenn nach dem Schnitt nichts als Satzzeichen und Leerraum
  *     dasteht.
@@ -78,7 +78,7 @@ export function recoverToolCallsFromContent(toolCalls: ToolCall[], content: stri
   // stripRanges above. Keeping it (instead of clearing) is what makes
   // every between-tool answer survive so the renderer can interleave
   // them chronologically: tool → answer → tool → tool → answer …
-  // (David 2026-06-02 r2: "antworten zwischen drin verschwinden immer,
+  // (2026-06-02 r2: "antworten zwischen drin verschwinden immer,
   // darf nicht sein"). Older answers auto-collapse in the UI, so the
   // old "stack of duplicated I'm-about-to paragraphs" problem is gone.
   // Only drop it when nothing but punctuation/whitespace remains.

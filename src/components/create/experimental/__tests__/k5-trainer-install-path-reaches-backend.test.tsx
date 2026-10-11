@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * K5 (DIE-301-LISTE.md, Discord "Storage", x_guestieco_x, Rang B, 13.09.2026):
+ * K5 (DIE-301-LISTE.md, Discord "Storage", Rang B, 13.09.2026):
  * "everytime I try to force the app to go to my E drive it always takes up
  * space on my C drive". Opus Gesamtabnahme (review-gesamt.md, Abschnitt 7.3,
  * Auflage 3) measured the actual gap: `trainer_root` already redirects

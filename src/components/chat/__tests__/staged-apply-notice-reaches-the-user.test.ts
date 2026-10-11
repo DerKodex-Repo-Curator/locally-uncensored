@@ -66,7 +66,7 @@ describe('the coding view renders it as a notice, not as the model talking', () 
   it('a warn notice looks different from a confirmation', () => {
     // Hier stand einmal `toContain('amber')`. Das war schon vorher der
     // schwaechere Test: er nagelte eine Farbe fest statt der Aussage, und die
-    // Farbe hat David am 04.09.2026 aus der ganzen Oberflaeche geworfen
+    // Farbe hat am 04.09.2026 aus der ganzen Oberflaeche geworfen
     // ("kein gelb mehr ohne farbe"). Seitdem gibt es zwei Toene und keinen
     // dritten (`lib/hinweis.ts`), und welcher der beiden hier steht, ist eine
     // Frage der Regel, nicht dieses Tests. Was der Test schuldet, ist die

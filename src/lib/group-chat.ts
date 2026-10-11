@@ -1,4 +1,4 @@
-// Group chat v1 (Nurse KillJoy, Discord 2026-08-07): two to four models
+// Group chat v1 (a user, Discord 2026-08-07): two to four models
 // answer in turn inside ONE conversation, SillyTavern-style turn order.
 // Plain conversation only by design: the agent path and the chat-tools
 // router stay out, a group round is talk, never a tool run.
@@ -36,7 +36,7 @@ export function isGroupChat(groupModels: string[] | undefined): groupModels is s
 }
 
 /**
- * Who sits at the table, and as whom (3.0.5, samvenice on Discord).
+ * Who sits at the table, and as whom (3.0.5, a user on Discord).
  *
  * Until now every model in a group answered under the ONE persona of the
  * chat, so two models were both told "You are Sherlock" and promptly spoke

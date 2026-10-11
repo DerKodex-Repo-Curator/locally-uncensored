@@ -18,7 +18,7 @@ export function PersonaPanel() {
       {/* Master switch — controls whether any persona system prompt is
           applied at all. When off, every new chat runs the raw model. The
           picker below stays interactive so the user can pre-select a persona
-          for the moment they flip the switch on. (Ported from uselu web.)
+          for the moment they flip the switch on. (Ported from the web app.)
           The line under the switch names the per-chat toggle on purpose:
           chatStore creates every new conversation with `personaEnabled:
           false`, so a globally chosen persona is prepared, never applied

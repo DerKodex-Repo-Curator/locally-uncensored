@@ -31,7 +31,7 @@ use crate::python::{venv_python_path, venv_python_path_named};
 use crate::state::AppState;
 
 
-// ── PEP 668 / venv helpers (Bug E — rzgrozt Arch externally-managed) ─────────
+// ── PEP 668 / venv helpers (Bug E — a user Arch externally-managed) ─────────
 
 /// Python one-liner behind [`probe_python_site`]. Prints two flags, marker
 /// and venv, e.g. `1 0`. The marker is looked up in `sysconfig`'s stdlib dir,
@@ -653,7 +653,7 @@ pub(crate) fn detect_venv_passengers(venv_dir: &Path) -> Vec<&'static VenvPassen
         .collect()
 }
 
-// ── Piper neural TTS installer (David 2026-06-06 — local neural TTS) ──────────
+// ── Piper neural TTS installer (2026-06-06 — local neural TTS) ──────────
 
 /// Resolve the Python LU's tooling uses: the ComfyUI venv when present, else
 /// the resolved system Python. Shared by the faster-whisper + Piper-TTS
@@ -782,7 +782,7 @@ mod tests {
         assert!(venv_site_packages(plain.path()).is_empty());
     }
 
-    // ── Bug E (rzgrozt — Arch PEP 668 externally-managed) ─────────────────
+    // ── Bug E (a user — Arch PEP 668 externally-managed) ─────────────────
     //
     // The detection function spawns a Python subprocess, so we can't unit
     // test it without a Python install. We DO test the safety guarantees:
@@ -865,10 +865,7 @@ mod tests {
         #[cfg(not(windows))]
         {
             let path = dir.join(format!("{name}.sh"));
-            std::fs::write(&path, format!("#!/bin/sh\necho {answer}\n")).unwrap();
-            let mut perms = std::fs::metadata(&path).unwrap().permissions();
-            std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
-            std::fs::set_permissions(&path, perms).unwrap();
+            crate::test_support::write_script(&path, format!("#!/bin/sh\necho {answer}\n"));
             path.to_string_lossy().to_string()
         }
         #[cfg(windows)]
@@ -1009,17 +1006,13 @@ mod tests {
     #[cfg(not(windows))]
     fn write_fake_python_eng14_stdout_only(dir: &std::path::Path) -> String {
         let path = dir.join("fake-python-eng14.sh");
-        std::fs::write(
+        crate::test_support::write_script(
             &path,
             format!(
                 "#!/bin/sh\ncat <<'EOF'\n{}EOF\nexit 1\n",
                 ENG14_REAL_UBUNTU_STDOUT
             ),
-        )
-        .unwrap();
-        let mut perms = std::fs::metadata(&path).unwrap().permissions();
-        std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
-        std::fs::set_permissions(&path, perms).unwrap();
+        );
         path.to_string_lossy().to_string()
     }
 
@@ -1096,10 +1089,7 @@ mod tests {
         #[cfg(not(windows))]
         let fake_python = {
             let path = tmp.path().join("fake-python-silent.sh");
-            std::fs::write(&path, "#!/bin/sh\nexit 3\n").unwrap();
-            let mut perms = std::fs::metadata(&path).unwrap().permissions();
-            std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
-            std::fs::set_permissions(&path, perms).unwrap();
+            crate::test_support::write_script(&path, "#!/bin/sh\nexit 3\n");
             path.to_string_lossy().to_string()
         };
         #[cfg(windows)]
@@ -1216,7 +1206,7 @@ mod tests {
 
     #[test]
     fn a_venv_held_by_another_process_is_reported_in_our_words() {
-        let dir = PathBuf::from("C:\\Users\\ddrob\\ComfyUI\\venv");
+        let dir = PathBuf::from("C:\\Users\\alice\\ComfyUI\\venv");
         let e = std::io::Error::from_raw_os_error(32);
         let msg = venv_removal_error(&dir, &e);
         assert_eq!(
@@ -1655,7 +1645,7 @@ mod tests {
     /// instead of claiming a Windows-only cause.
     #[test]
     fn a_locked_old_venv_gets_a_close_comfyui_message_on_windows_only() {
-        let dir = PathBuf::from("C:\\Users\\ddrob\\ComfyUI\\venv");
+        let dir = PathBuf::from("C:\\Users\\alice\\ComfyUI\\venv");
         for code in [5, 32] {
             let e = std::io::Error::from_raw_os_error(code);
             let msg = windows_lock_aware_retire_error(&dir, &e);

@@ -86,6 +86,9 @@ pub(crate) use self::{
     voice::*,
     custom_nodes::*,
 };
+// The voice loop setup verifies its downloads with the same digest code the
+// installer downloads use.
+pub(crate) use self::download::{digest_matches, sha256_file};
 
 #[cfg(test)]
 mod tests {
@@ -236,7 +239,7 @@ mod tests {
             venv_at < build_at,
             "an existing venv is only considered after a new one is built"
         );
-        // nosferatue412 (Discord 2026-09-22, Windows 11, RX 9060 XT): without a
+        // A user (Discord 2026-09-22, Windows 11, RX 9060 XT): without a
         // venv the packages went into the system Python next to another
         // install's ROCm DLLs, and the environment check died on "Bad Image".
         // The venv is built on every platform, not only behind PEP 668.
@@ -282,7 +285,7 @@ mod tests {
 
     #[test]
     fn every_python_start_in_this_tree_goes_through_python_command() {
-        // anglefire (Ticket 003, 03.09.): sein Windows-Benutzer heisst
+        // A user (Ticket 003, 03.09.): sein Windows-Benutzer heisst
         // "1 בוגר", also stehen in jedem Pfad, den ein Kind druckt, Zeichen
         // ausserhalb der alten Codepage. Genau eine Startstelle hat sich davor
         // geschuetzt, run_import_probe_bounded, und ihre Begruendung gilt

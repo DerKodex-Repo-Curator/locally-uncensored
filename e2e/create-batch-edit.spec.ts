@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { routeCloud, seedOnboardingDone, signInViaGate, cloudSwitch } from './support/cloud-mock'
 
 /**
- * Several source images, one edit (Discord, cazwhin): pick several images in
+ * Several source images, one edit (Discord): pick several images in
  * Remove Background on the cloud, see the sum before the run, watch the queue,
  * and get one result per image. One image fails on the server, the others
  * still land and the failed file is named. Every image is its own upload and
@@ -47,7 +47,7 @@ async function routeJobs(page: Page, opts: { failNth?: number; refuseFrom?: numb
     const failed = opts.failNth !== undefined && id === `job-batch-${opts.failNth}`
     return route.fulfill(json(200, {
       job: {
-        id, kind: 'image', model: 'flux-schnell', provider: 'wavespeed',
+        id, kind: 'image', model: 'flux-schnell', provider: 'upstream',
         status: failed ? 'failed' : 'succeeded',
         result_url: failed ? null : `https://lu-labs.ai/e2e/${id}.png`,
         attestation: null, cost_units: 300, created_at: new Date().toISOString(), completed_at: new Date().toISOString(),

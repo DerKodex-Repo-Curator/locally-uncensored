@@ -148,7 +148,7 @@ describe('seitlich bleibt das Popover in der Flaeche', () => {
 })
 
 describe('GitHub #149: eine Einheit, egal wie die Engine misst', () => {
-  /* Die Bilder von nexd3v, nachgerechnet. Fenster 1242x1410 sichtbare Pixel,
+  /* Die Bilder von a user, nachgerechnet. Fenster 1242x1410 sichtbare Pixel,
    * App unter zoom 1,15, der Ausloeser der Modellauswahl sichtbar von
    * y=1333 bis y=1363 und x=592 bis x=840.
    *

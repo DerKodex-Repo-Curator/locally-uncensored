@@ -209,7 +209,7 @@ describe('decideUnload', () => {
   })
 })
 
-// ── resolveClip: video length from seconds/frames/fps (David: "video nur 1s") ──
+// ── resolveClip: video length from seconds/frames/fps (the owner: "video nur 1s") ──
 
 describe('resolveClip', () => {
   const SVD = { defFps: 8, defFrames: 25, maxFrames: 25 }
@@ -243,7 +243,7 @@ describe('resolveClip', () => {
   })
 
   // FramePack packs long video, so its I2V branch uses a high ceiling instead of
-  // SVD's 25 (David 2026-06-04: "FramePacks frame cap anheben durch input von uns").
+  // SVD's 25 (2026-06-04: "FramePacks frame cap anheben durch input von uns").
   const FRAMEPACK = { defFps: 16, defFrames: 49, maxFrames: 600 }
 
   it('FramePack default → 49 frames @ 16fps (model default)', () => {
@@ -259,7 +259,7 @@ describe('resolveClip', () => {
   })
 })
 
-// ── resolveI2VResolution: pick native res from source aspect (David 2026-06-11:
+// ── resolveI2VResolution: pick native res from source aspect (2026-06-11:
 //    "I2V results are never what the source image showed" — portrait stills came
 //    back as squished 768×448 landscape) ──
 describe('resolveI2VResolution', () => {
@@ -314,6 +314,35 @@ describe('comfyErrorHint', () => {
     expect(h).toMatch(/not an LU bug/i)
     // matches on the bare os-error code too, regardless of node
     expect(comfyErrorHint(undefined, undefined, 'os error 1455')).toMatch(/virtual memory/i)
+  })
+
+  // GH discussion 130: the verbatim text a user got from Create.
+  it('CUDA "unknown error" → points at the graphics driver, not the model', () => {
+    const RAW = "CUDA error: unknown error Search for `cudaErrorUnknown' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information."
+    const h = comfyErrorHint('CLIPTextEncode', 'RuntimeError', RAW)
+    expect(h).toMatch(/graphics driver/i)
+    expect(h).toMatch(/not from the model/i)
+    expect(h).toMatch(/restarting ComfyUI or the computer/i)
+    expect(h).toMatch(/update the graphics driver/i)
+    // either half of the message is enough, torch does not always print both
+    expect(comfyErrorHint(undefined, undefined, 'CUDA error: unknown error')).toBe(h)
+    expect(comfyErrorHint(undefined, undefined, "Search for `cudaErrorUnknown' in the docs")).toBe(h)
+  })
+
+  it('NEGATIVE CONTROL: the driver hint and the out-of-memory hint stay apart', () => {
+    const driver = comfyErrorHint(undefined, undefined, 'CUDA error: unknown error')
+    for (const oom of [
+      comfyErrorHint(undefined, undefined, 'CUDA out of memory'),
+      comfyErrorHint(undefined, undefined, 'CUDA error: out of memory'),
+      comfyErrorHint('KSampler', 'torch.OutOfMemoryError', 'Allocation on device'),
+    ]) {
+      expect(oom).toMatch(/GPU memory/i)
+      expect(oom).not.toMatch(/graphics driver/i)
+    }
+    expect(driver).not.toMatch(/GPU memory/i)
+    // other named CUDA errors keep standing alone
+    expect(comfyErrorHint('KSampler', 'RuntimeError', 'CUDA error: device-side assert triggered')).toBe('')
+    expect(comfyErrorHint('KSampler', 'RuntimeError', 'CUDA error: invalid argument')).toBe('')
   })
 
   it('unknown error → no hint (verbatim error stands alone)', () => {
@@ -522,7 +551,7 @@ describe('vramHandoffGenerate — finally always restores the text model', () =>
     await vramHandoffGenerate('image', { prompt: 'a fox' })
     // 5GB + ~4GB sd15 = 9GB < 24GB → fits → no eviction.
     expect(unloadModel).not.toHaveBeenCalled()
-    // Bug C (David 2026-06-16): when nothing was evicted we now SKIP the ComfyUI
+    // Bug C (2026-06-16): when nothing was evicted we now SKIP the ComfyUI
     // freeMemory in the finally so the checkpoint stays resident and the NEXT
     // generation reuses it warm instead of cold-loading every time. Nothing
     // evicted → no reload either.
@@ -794,7 +823,7 @@ describe('pollAndExtract — a dead ComfyUI ends the wait, with the reason', () 
   }, 20_000)
 })
 
-describe('resolveModelName — fuzzy model match (David 2026-06-04: "FramePack" must be enough)', () => {
+describe('resolveModelName — fuzzy model match (2026-06-04: "FramePack" must be enough)', () => {
   const installed = [
     { name: 'FramePackI2V_HY_fp8_e4m3fn.safetensors' },
     { name: 'svd_xt_1_1.safetensors' },
@@ -974,7 +1003,7 @@ describe('vramHandoffGenerate — Stop / cancel gating', () => {
   })
 })
 
-// ── Per-model auto-settings (David 2026-06-22: "setze die settings für jedes
+// ── Per-model auto-settings (2026-06-22: "setze die settings für jedes
 //    image+video modell"). Two layers: resolveTunables must honor the MODEL
 //    default over ComfyUI's generic KSampler caps default (20 steps / cfg 8.0),
 //    and the chat-gen IMAGE path must use per-architecture defaults (Flux cfg 1,

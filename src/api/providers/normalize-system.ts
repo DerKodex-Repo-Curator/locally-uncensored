@@ -3,9 +3,9 @@
  * every request passes through, right before the body is serialized.
  *
  * Why this exists (bug B3, 2.6.7). Discord #bug-reports 2026-08-21:
- * helpslowlydying diagnosed it as "the system instructions or tools are being
+ * A user diagnosed it as "the system instructions or tools are being
  * injected in the wrong order, causing the Jinja template engine to crash with
- * System message must be at the beginning", and platorius, who was hitting it,
+ * System message must be at the beginning", and a user, who was hitting it,
  * added "the problem is only in LU" with the same model and the same prompts
  * working in other frontends.
  *

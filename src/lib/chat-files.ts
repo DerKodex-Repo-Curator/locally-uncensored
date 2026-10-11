@@ -1,5 +1,5 @@
 /**
- * Any file as a chat attachment (3.0.5, applejames on Discord: "let me give
+ * Any file as a chat attachment (3.0.5, a user on Discord: "let me give
  * the model a ROM file").
  *
  * WHAT A MODEL CAN DO WITH A BINARY. Nothing with the bytes themselves: a

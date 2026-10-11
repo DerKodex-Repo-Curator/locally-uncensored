@@ -124,7 +124,7 @@ describe('parseJsonText — Claude', () => {
 
 // Modern Claude export: the body lives in a typed content[] block array and the
 // flat `text` field is empty. The old m.text-only read imported these as
-// 0-message conversations and dropped them entirely (aldrich, Discord
+// 0-message conversations and dropped them entirely (Discord
 // 2026-06-20 "how do i import chats from claude"). Also exercises an
 // attachment + non-text blocks (thinking / tool_use) that must be skipped.
 const claudeContentBlocksFixture = JSON.stringify([
@@ -246,7 +246,7 @@ describe('parseJsonText — robustness', () => {
   })
 })
 
-// ── Regression: real-world ChatGPT export shapes (mikes_pp, Discord 2026-06-07)
+// ── Regression: real-world ChatGPT export shapes (Discord 2026-06-07)
 // The old parser used "first parent==null node, then children[0] forever",
 // which lands on the abandoned branch after a regenerate/edit and frequently
 // produced 0 messages → the whole import failed with "no conversation file
@@ -368,7 +368,7 @@ describe('parseExportFile — ChatGPT .zip with dated top-level folder', () => {
   it('merges every conversations-NNN.json shard (large export split at 100 chats)', async () => {
     // ChatGPT splits big histories into conversations-000.json,
     // conversations-001.json, … We must import ALL of them, not just the first
-    // (mikes_pp, Discord 2026-06-17: "only the 100 in conversations-000.json
+    // (Discord 2026-06-17: "only the 100 in conversations-000.json
     // imported, none from conversations-001.json").
     const folder = '1716800000-shard'
     const oneChat = (title: string, part: string) => JSON.stringify([{

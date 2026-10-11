@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
  * Mehrere Bilder pro Lauf und die Referenzleiste (02.10.2026, Web-Paritaet;
- * Vorlage: apps/web/components/create/experimental/__tests__/
- * mehrere-bilder-oberflaeche.test.tsx): was der Kunde sieht und was der
+ * Vorlage: the web app):
+ * was der Kunde sieht und was der
  * Startknopf daraus rechnet.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'

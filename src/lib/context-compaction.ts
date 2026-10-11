@@ -91,7 +91,7 @@ export const KEEP_RECENT = 4 // Always keep at least the last N messages untouch
  * tokens. The LU Cloud proxy rejects anything above 400 messages, and a chat
  * of many SHORT turns sits under every token budget while the count keeps
  * growing — the token-only compaction never fired and the chat hard-400ed on
- * every send, permanently (yaserrieh, 2026-08-21: "[network] HTTP 400 too
+ * every send, permanently (2026-08-21: "[network] HTTP 400 too
  * many messages" after ~7 coding tasks in one chat). 380 mirrors the web
  * app's MAX_SEND_MESSAGES and leaves room for the pin and the trim notice. */
 export const MAX_SEND_MESSAGES = 380
@@ -168,7 +168,7 @@ function isToolResultMessage(msg: OllamaChatMessage): boolean {
  * is instruction-shaped, so `role: 'system'` is the obvious home, and
  * `role: 'system'` is exactly what it may not be. A system message anywhere
  * but index 0 is refused outright by strict Jinja chat templates — "System
- * message must be at the beginning" (platorius, Discord #bug-reports
+ * message must be at the beginning" (Discord #bug-reports
  * 2026-08-21, and the reason it only showed up in LU was that compaction only
  * fires once a history is long).
  *
@@ -393,7 +393,7 @@ export function compactMessages(
     // walked steps 1 to 18, compaction fired, and the very next call was
     // todo_write followed by get_current_time, system_info, process_list,
     // file_list. It had started the plan over from the top, because the only
-    // thing it could still see was the plan itself. David watching it: "es
+    // thing it could still see was the plan itself. The owner watching it: "es
     // wiederholt sich die ganze Zeit ... und er sagt immer dasselbe."
     //
     // So the notice carries the trail. Names only, no arguments and no

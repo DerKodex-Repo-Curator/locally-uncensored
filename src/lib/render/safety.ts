@@ -58,7 +58,7 @@ const ADULT_HARD_TERMS_RUN = new RegExp(ADULT_HARD_ALT, 'i')
 export type AdultPolicy = 'strict' | 'soft' | 'off'
 
 /** Desktop has no per-deployment policy knob (Web's RENDER_ADULT_POLICY is a
- *  server env var for a droplet rollback switch; there is no equivalent
+ *  server env var for a server rollback switch; there is no equivalent
  *  concept in the shipped app). The default matches Web's shipped default so
  *  an untagged call never disagrees between the two copies. */
 export function adultPolicy(): AdultPolicy {

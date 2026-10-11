@@ -13,16 +13,36 @@ repo — unified memory can't hold two big pipelines at once.
 
 import base64
 import gc
+import inspect
 import io
 import os
+import socket
 import sys
 import threading
 import time
 from typing import Optional
 
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+
+
+def _fatal(message: str, code: int):
+    """Say in one line why the server cannot run, then leave.
+
+    The app reads this line from the log when the process ends and shows it,
+    instead of waiting a minute on a port nobody listens on. Without it the
+    reason was a traceback only the log file ever saw.
+    """
+    print(f"LU_MLX_FATAL: {message}", file=sys.stderr, flush=True)
+    sys.exit(code)
+
+
+try:
+    import uvicorn
+    from fastapi import FastAPI, HTTPException
+    from pydantic import BaseModel
+except ImportError as exc:
+    # A venv whose pip run never finished. Exit code 4 and the words
+    # "missing package" are what the app keys on to offer the setup again.
+    _fatal(f"missing package: {exc.name or exc}", 4)
 
 
 # Lazy: importing torch + diffusers takes ~3 s on a cold start. We defer
@@ -35,6 +55,38 @@ _pipe_repo = None
 # and two concurrent requests can't both trigger a load.
 _pipe_lock = threading.RLock()
 _last_activity = time.monotonic()
+
+# Cancel. A request cannot be taken back, so the app asks over /cancel and
+# the generation looks at this mark after every step. It is set only while
+# an image is under way and cleared when the last one has left, so a cancel
+# that arrives late never ends the image after it.
+_cancel = threading.Event()
+_active = 0
+_active_lock = threading.Lock()
+
+
+class _Cancelled(Exception):
+    """Raised from the step callback to leave the pipeline between two steps."""
+
+
+def _stop_if_cancelled(pipe, step, timestep, callback_kwargs):
+    # diffusers calls this at the end of each denoising step and takes back
+    # the tensors it handed over. Raising is the one way out that every
+    # pipeline with this hook shares: `pipe._interrupt` exists on some only,
+    # and those still decode what they have.
+    if _cancel.is_set():
+        raise _Cancelled()
+    return callback_kwargs
+
+
+def _takes_step_callback(pipe) -> bool:
+    """Whether this pipeline calls back after a step. One that does not runs
+    to its end, and the app drops what it returns."""
+    try:
+        return "callback_on_step_end" in inspect.signature(pipe.__call__).parameters
+    except (TypeError, ValueError):
+        return False
+
 
 # A resident image pipeline pins multiple GB of unified memory. On a local
 # machine that must not linger forever after the user walks away, so a
@@ -155,12 +207,44 @@ def unload():
     return {"ok": True, "was_loaded": was_loaded}
 
 
+@app.post("/cancel")
+def cancel():
+    """End the image that is being generated, at the end of the step it is
+    in. `cancelled` is false when there is none: nothing is remembered then."""
+    with _active_lock:
+        running = _active > 0
+        if running:
+            _cancel.set()
+    return {"ok": True, "cancelled": running}
+
+
+def _cancelled_answer():
+    # 409 and this word are what the app reads as "ended because it was asked to".
+    return HTTPException(status_code=409, detail="cancelled")
+
+
 @app.post("/generate")
 def generate(req: GenerateRequest):
+    global _active
+    with _active_lock:
+        _active += 1
+    try:
+        return _generate(req)
+    finally:
+        with _active_lock:
+            _active -= 1
+            if _active == 0:
+                _cancel.clear()
+
+
+def _generate(req: GenerateRequest):
     global _last_activity
     import torch
 
     with _pipe_lock:
+        # Cancelled while it waited for the image before it.
+        if _cancel.is_set():
+            raise _cancelled_answer()
         try:
             pipe = _ensure_pipe(
                 req.model_repo,
@@ -191,9 +275,16 @@ def generate(req: GenerateRequest):
         }
         if req.negative_prompt:
             gen_kwargs["negative_prompt"] = req.negative_prompt
+        if _takes_step_callback(pipe):
+            gen_kwargs["callback_on_step_end"] = _stop_if_cancelled
 
+        # Cancelled while the model loaded: no step is run for it.
+        if _cancel.is_set():
+            raise _cancelled_answer()
         try:
             result = pipe(**gen_kwargs)
+        except _Cancelled:
+            raise _cancelled_answer() from None
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"generate: {exc}") from exc
         finally:
@@ -215,8 +306,21 @@ def generate(req: GenerateRequest):
 
 if __name__ == "__main__":
     port = int(os.environ.get("LU_MLX_PORT", "47712"))
+    # uvicorn answers an occupied port with a log line and its own
+    # sys.exit(1), which no except clause here would see. Asking first turns
+    # that into a sentence.
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        probe.bind(("127.0.0.1", port))
+    except OSError:
+        _fatal(f"port {port} is already in use", 3)
+    finally:
+        probe.close()
     threading.Thread(target=_idle_unload_loop, daemon=True).start()
     try:
         uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
     except KeyboardInterrupt:
         sys.exit(0)
+    except Exception as exc:  # noqa: BLE001 - the last word before the process ends
+        _fatal(f"server stopped: {exc}", 1)

@@ -1,3 +1,4 @@
+import { UNFILTERED_MARK_LABEL } from './unfiltered-mark'
 import type { Conversation, Message } from '../types/chat'
 
 /**
@@ -16,10 +17,11 @@ import type { Conversation, Message } from '../types/chat'
  */
 
 /** The notice under the refusing answer. Agreed word for word with the web
- *  app, and "No refusals" is the mark in the model picker (ModelRowMarks). */
+ *  app; the mark it names is the measured one of the model picker
+ *  (ModelRowMarks), read from the one place that holds its word. */
 export const REFUSAL_NOTICE =
   'This model declined. A refusal stays in the chat history, and other models tend to copy it. ' +
-  'Start a new chat and pick a model marked No refusals.'
+  `Start a new chat and pick a model marked ${UNFILTERED_MARK_LABEL}.`
 
 /** Below this many words an answer counts as short. */
 const SHORT_ANSWER_WORDS = 60

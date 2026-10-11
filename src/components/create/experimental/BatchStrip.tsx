@@ -1,4 +1,4 @@
-// Several source images, one edit (Discord, cazwhin): the list sits at the
+// Several source images, one edit (Discord): the list sits at the
 // source image, never at the prompt. Under the large image: the further images
 // as small tiles, "Add more images", "Add a folder", and in the cloud the price
 // of the whole list as one sum. While it runs, the same tiles are the queue.
@@ -106,7 +106,10 @@ export function BatchStrip() {
           ))}
         </div>
       )}
-      <div className="flex items-center gap-2">
+      {/* Beside the picture the strip is one column wide (FitStage): three
+          buttons do not fit one line there, so the line breaks between two
+          buttons and never inside a label. */}
+      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
         <Button variant="ghost" icon={ImagePlus} loading={loading} disabled={full} onClick={pickFiles}>Add more images</Button>
         <Button variant="ghost" icon={FolderOpen} disabled={loading || full} onClick={pickFolder}>Add a folder</Button>
         {on && <Button variant="ghost" icon={X} onClick={clearBatch}>Clear list</Button>}

@@ -78,7 +78,7 @@ test('ops start EMPTY and adopt a gallery image only on explicit pick', async ({
   await page.getByRole('button', { name: /^Create$/ }).last().click()
   await expect(page.locator('img[src*="/e2e/result.png"]').first()).toBeVisible({ timeout: 30_000 })
 
-  // Switching to Edit must NOT auto-adopt the gallery image (David 2026-07-10):
+  // Switching to Edit must NOT auto-adopt the gallery image (2026-07-10):
   // the stage shows the empty input slot with the explicit gallery pick strip.
   // (2.6.0 label: "Edit / Image to Image".)
   await page.getByRole('radio', { name: /Edit \/ Image to Image/i }).click()

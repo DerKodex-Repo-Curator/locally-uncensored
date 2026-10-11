@@ -323,7 +323,7 @@ export interface SubAgentGates {
  * Fail closed: with no conversation to ask in, a 'confirm' tool is refused
  * rather than run.
  *
- * Auftrag 2.3 (David, 04.09.2026): WELCHE Stufe gilt, sagt jetzt
+ * Auftrag 2.3 (04.09.2026): WELCHE Stufe gilt, sagt jetzt
  * resolveApprovalLevel, und zwar fuer beide Agentenwege dieselbe Tabelle. Zwei
  * Dinge aendern sich dadurch hier. Erstens fragt der Hintergrundbetrieb selbst
  * nicht mehr nach. Zweitens folgt ein Unterauftrag aus dem Code-Tab dem Preset
@@ -641,7 +641,7 @@ export async function defaultSubAgentRunner(
     // so zipping by index gives every tool message the correct tool_call_id,
     // even when the turn fired the same tool twice. The previous find-by-name
     // matched the FIRST call for both duplicates, leaving the second call's id
-    // with no result; strict OpenAI-compatible providers (lu-cloud/DeepInfra,
+    // with no result; strict OpenAI-compatible providers (lu-cloud,
     // openai, anthropic) then 400/422'd on the next turn and delegate_task
     // aborted. The main loop already handles this the same way (useCodex.ts).
     results.forEach((r, i) => {

@@ -1,7 +1,7 @@
 /**
  * The Code composer is ONE row, in both states.
  *
- * David, live test of the Code surface, 2026-08-22:
+ * The owner, live test of the Code surface, 2026-08-22:
  *
  *   "das promptfenster ist ueberfuellt, der stop knopf oeffnet eine weitere
  *    zeile, alles sieht asymmetrisch aus"
@@ -15,7 +15,7 @@
  *   2. The bar was `flex-wrap`, so the moment it ran out of width the tail
  *      (model picker, Send) dropped onto a second line.
  *   3. Starting a run WIDENS that bar: the mode trigger gains a run dot, or a
- *      parked "then bypass" label. That was the trigger David actually hit, so
+ *      parked "then bypass" label. That was the trigger the owner actually hit, so
  *      the composer looked one height standing still and another one working,
  *      and Stop appeared to open a line of its own.
  *

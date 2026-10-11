@@ -1,5 +1,5 @@
 // A renewal payment that failed (license.pastDue in /api/me), in the words the
-// web account page uses (apps/web/lib/billing/past-due.ts). The sentences are
+// web account page uses (the web app). The sentences are
 // copied, not rephrased, and a parity test holds them to the web source.
 //
 // House rule: none of this is rendered in or above a prompt field. A failed
@@ -7,7 +7,7 @@
 
 import type { CloudMe } from '../api/cloud/jobs'
 
-/** Plan names as the web writes them (TIERS in apps/web/lib/pricing.ts), which
+/** Plan names as the web writes them (TIERS in the web app), which
  *  is also how they stand on the invoice. */
 export const PLAN_NAMES: Record<string, string> = {
   hosted: 'Hosted',

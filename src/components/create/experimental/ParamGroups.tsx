@@ -1,4 +1,4 @@
-import { Gauge, Boxes, FlaskConical, RotateCcw, HelpCircle, RectangleHorizontal, RectangleVertical, X } from 'lucide-react'
+import { Gauge, Boxes, FlaskConical, RotateCcw, HelpCircle, RectangleHorizontal, RectangleVertical, X, FolderOpen } from 'lucide-react'
 import { VIDEO_RES_PRESETS, ASPECT_RATIOS, applyAspect, presetForOrientation, matchesPreset } from '../../../lib/create-resolution'
 import { useCreateStore } from '../../../stores/createStore'
 import { useCreateExp } from './CreateContext'
@@ -6,6 +6,10 @@ import { cloudModelById, defaultCloudModel } from '../../../stores/cloudCatalogS
 import { classifyModel } from '../../../api/comfyui'
 import { nativeHiresFinalSize, type HiresUpscaleMethod } from '../../../api/hires-fix'
 import { isMlxImageHost } from '../../../api/mlx-image'
+import { MAC_EDIT_DEAD_SIDE, laneImageModel, macEditSide, runsAtOwnSampling, takesMlxLoras } from '../../../lib/image-engines'
+import { qwenEditResolution } from '../../../api/dynamic-workflow'
+import { openMlxLoraFolder, mlxLoraAlphaNote, mlxLoraRefusal } from '../../../api/mlx-loras'
+import { MLX_VIDEO_MIN_FRAMES, mlxFramesOnGrid, mlxVideoLaneEntry, mlxVideoMaxFrames } from '../../../api/mlx-video'
 import { INTENT_MAP } from './intents'
 import { SAMPLERS as SAMPLERS_FALLBACK, SCHEDULERS as SCHEDULERS_FALLBACK } from './badges'
 import { Section } from '../ui/Section'
@@ -34,7 +38,7 @@ const VIDEO_LORA_FAMILIES = new Set(['wan', 'wan22', 'hunyuan', 'ltx', 'mochi', 
 // falling back to the standard node names until they load.
 export function ParamGroups() {
   const s = useCreateStore()
-  const { samplerList, schedulerList, loraList, vaeList, refreshModelLists } = useCreateExp()
+  const { samplerList, schedulerList, loraList, loraKeys, loraAlpha, vaeList, refreshModelLists } = useCreateExp()
   const meta = INTENT_MAP[s.intent()]
   const isVideo = meta.isVideo
   const isEdit = meta.id === 'edit'
@@ -50,7 +54,7 @@ export function ParamGroups() {
   // silently dropped, so the whole Expert section is dead on the local Mac.
   // Keep it on Mac-cloud and on the ComfyUI hosts (Windows/Linux).
   const isMlxLocal = !isCloud && isMlxImageHost()
-  // R2-28, Entscheid David 12.09.2026: auf der LOKALEN Musikbahn waren fuenf
+  // R2-28, Entscheid vom 12.09.2026: auf der LOKALEN Musikbahn waren fuenf
   // Expert-Regler sichtbar und alle fuenf tot. `dynamic-workflow.ts` nagelt
   // sampler_name, scheduler und denoise fuer Audio fest, `LocalOpParams`
   // traegt weder `loras` noch `selectedVae` noch `clipSkip`, und VAEDecodeAudio
@@ -58,12 +62,21 @@ export function ParamGroups() {
   // hoeher fuer den MLX-Mac steht; sie war nur nie auf diese Bahn angewandt.
   // Die Wolken-Musikbahn bleibt unberuehrt.
   const isLocalAudio = isAudio && !isCloud
-  const showExpert = !isMlxLocal && !isLocalAudio && (!isCloud || isEdit)
+  // The image model the tab runs: on the Mac, Edit lists the models that take
+  // an image; on a ComfyUI host this is the stored pick, as before.
+  const laneModel = isVideo ? s.videoModel : laneImageModel(s.imageModelList, s.imageModel, meta.id)
+  // The one Expert control the Mac has: the LoRA stack, for a model of its
+  // second image engine (mflux takes `--lora`), in Image and in Edit. The
+  // first engine (diffusers) has no place for a LoRA, and the Mac's video
+  // engine takes none either, so there the section stays away as before.
+  const macLoras = isMlxLocal && (meta.id === 'image' || meta.id === 'edit') && takesMlxLoras(s.imageModelList, laneModel)
+  const showExpert = (!isMlxLocal || macLoras) && !isLocalAudio && (!isCloud || isEdit)
   // LoRA is a local-only knob; for video it's offered only on families whose
   // builder actually applies it (see VIDEO_LORA_FAMILIES). Image always qualifies.
-  const loraSupported = !isCloud && (!isVideo || VIDEO_LORA_FAMILIES.has(classifyModel(s.videoModel)))
+  const loraSupported = isMlxLocal
+    ? macLoras
+    : !isCloud && (!isVideo || VIDEO_LORA_FAMILIES.has(classifyModel(s.videoModel)))
   // GH #146: the count is what a run sends, the same rule useCreate applies.
-  const laneModel = isVideo ? s.videoModel : s.imageModel
   const laneType = (isVideo ? s.videoModelList : s.imageModelList).find((m) => m.name === laneModel)?.type ?? classifyModel(laneModel)
   const activeLoras = lorasForRun(s.selectedLoras, loraList, laneType).use.length
   const stackRows = loraRows(loraList, s.selectedLoras, laneType)
@@ -74,8 +87,26 @@ export function ParamGroups() {
   // all (useCloudCreate never sends them), so they're local-only knobs.
   const cloudModelId =
     (isVideo ? s.cloudVideoModel : s.cloudImageModel) || defaultCloudModel(isVideo ? 'video' : 'image')?.id || ''
-  const showSteps = !(isCloud && isVideo)
-  const showCfg = isCloud ? cloudModelById(cloudModelId)?.cfg === true : true
+  // A pack of the Mac's second image engine that is tuned to one count (a
+  // distilled model, Qwen-Image 2.1 with its Turbo adapter) runs at its own
+  // steps and guidance. Neither slider reaches it, so neither is shown.
+  const ownSampling = isMlxLocal && !isVideo && runsAtOwnSampling(s.imageModelList, laneModel)
+  // The Mac's video engines take a length and nothing else: steps, guidance
+  // and size are the model's own, and its rate is fixed (api/mlx-video.ts).
+  // So the Mac's video lane shows the length, on the model's grid, and none
+  // of the sliders that set nothing. Without an installed model not even
+  // that: the values would belong to no model.
+  const macVideo = isMlxLocal && isVideo
+  // The Mac's Edit scales its images to the pixel budget of the canvas, and
+  // never to 1024: the model does not edit there, so the run takes 1056
+  // (lib/image-engines). Where the canvas works out to 1024, the settings
+  // say which size runs.
+  const macEditRuns = isMlxLocal && meta.id === 'edit' && qwenEditResolution(s.width, s.height) === MAC_EDIT_DEAD_SIDE
+    ? macEditSide(MAC_EDIT_DEAD_SIDE)
+    : null
+  const macClip = macVideo ? mlxVideoLaneEntry(s.videoModelList, s.videoModel, meta.id)?.mlxVideo : undefined
+  const showSteps = !(isCloud && isVideo) && !ownSampling && !macVideo
+  const showCfg = isCloud ? cloudModelById(cloudModelId)?.cfg === true : !ownSampling && !macVideo
   // Native HiRes rewrites the local ComfyUI text-to-image graph. It has no
   // cloud, video, Edit or MLX path, so keep the control honest and scoped to
   // the one lane that can execute it.
@@ -92,7 +123,9 @@ export function ParamGroups() {
 
   // Transparent background: local Qwen-Image 2.1 text-to-image only, the one
   // model family whose VAE writes an alpha channel (lib/transparent-image.ts).
-  const showTransparent = !isCloud && !isVideo && meta.id === 'image' && !isMlxLocal && supportsTransparent(laneType)
+  // On the Mac too: the second image engine keeps the alpha channel, and the
+  // switch is the same prompt wrapper (hooks/useCreate.ts).
+  const showTransparent = !isCloud && !isVideo && meta.id === 'image' && supportsTransparent(laneType)
 
   // Text encoder: a local Qwen-Image 2.1 with both editions of its encoder
   // installed, the official one and the one without refusals. Here, in the
@@ -112,6 +145,7 @@ export function ParamGroups() {
   return (
     <div className="py-1">
       {/* QUALITY */}
+      {!macVideo && (
       <Section title="Quality" icon={Gauge} defaultOpen
         right={<Button variant="ghost" size="sm" icon={RotateCcw} iconOnly title="Reset to model defaults" onClick={s.resetParamsToModelDefaults} />}
       >
@@ -122,6 +156,11 @@ export function ParamGroups() {
           <NumberField label="Width" value={s.width} min={64} max={4096} step={64} mono onChange={(v) => s.setSize(v, s.height)} suffix="px" />
           <NumberField label="Height" value={s.height} min={64} max={4096} step={64} mono onChange={(v) => s.setSize(s.width, v)} suffix="px" />
         </div>
+        )}
+        {macEditRuns && (
+          <p className="t-micro text-gray-500" data-testid="mac-edit-runs-at">
+            This edit runs at {macEditRuns} px, not {MAC_EDIT_DEAD_SIDE}: the model does not edit on a {MAC_EDIT_DEAD_SIDE} px canvas.
+          </p>
         )}
         {/* D#93 (stasicby): Wan's native sizes as one-click chips, an
             orientation flip, and ratio chips that respend the current pixel
@@ -216,6 +255,7 @@ export function ParamGroups() {
           </div>
         )}
       </Section>
+      )}
 
       {/* OUTPUT */}
       <Section title="Output" icon={Boxes} defaultOpen>
@@ -264,21 +304,38 @@ export function ParamGroups() {
             </p>
           </div>
         )}
-        {isVideo && (
+        {isVideo && !macVideo && (
           <div className="grid grid-cols-2 gap-2">
             <Slider label="Frames" min={1} max={120} step={1} value={s.frames} onChange={s.setFrames} />
             <Slider label="FPS" min={1} max={60} step={1} value={s.fps} onChange={s.setFps} />
           </div>
+        )}
+        {macClip && (
+          <Slider
+            label="Length"
+            min={MLX_VIDEO_MIN_FRAMES}
+            max={mlxVideoMaxFrames(macClip.frameStep)}
+            step={macClip.frameStep}
+            value={mlxFramesOnGrid(s.frames, macClip.frameStep)}
+            onChange={s.setFrames}
+            format={(v) => `${v} frames · ${(v / macClip.fps).toFixed(1)}s at ${macClip.fps} fps`}
+          />
+        )}
+        {macClip && (
+          // The size is the model's own: the engine takes none from Create.
+          <p className="t-micro text-gray-500" data-testid="mac-video-size">
+            <span className="t-mono">{macClip.width}×{macClip.height}</span> px, the size this model runs at.
+          </p>
         )}
       </Section>
 
       {/* Only render a section with controls the selected backend can use. */}
       {showExpert && (
       <Section title="Expert" icon={FlaskConical} open={s.expertOpen} onOpenChange={s.setExpertOpen}>
-        {/* Sampler/Scheduler are ComfyUI-only knobs — the hosted WaveSpeed
+        {/* Sampler/Scheduler are ComfyUI-only knobs — the hosted
             endpoints don't accept them, so hide them on the cloud backend
             rather than let the user tune a control that's silently dropped. */}
-        {!isCloud && (
+        {!isCloud && !isMlxLocal && (
           <>
             <Field label="Sampler" help="The algorithm that turns noise into your image. dpmpp_2m / euler are safe all-rounders.">
               <Select size="sm" options={samplers.map((x) => ({ value: x, label: x }))} value={s.sampler} onChange={s.setSampler} />
@@ -289,17 +346,21 @@ export function ParamGroups() {
           </>
         )}
 
-        {isEdit && (
+        {isEdit && !isMlxLocal && (
           <Slider label="Denoise (raw)" min={0.05} max={1} step={0.05} value={s.denoise} onChange={s.setDenoise} format={(v) => v.toFixed(2)} />
         )}
-        {meta.allowsMask && !isCloud && (
+        {meta.allowsMask && !isCloud && !isMlxLocal && (
           <Slider label="Mask edge feather" min={0} max={64} step={1} value={s.growMaskBy} onChange={s.setGrowMaskBy} unit="px" />
         )}
 
         {loraSupported && (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="t-control text-gray-400">LoRA stack {activeLoras > 0 && <span className="t-mono text-gray-600">· {activeLoras} active</span>}</div>
+            {/* The Mac has a third action, Open folder. In the drawer's width
+                the title and the three did not fit on one line: "4 active"
+                and "Open folder" each broke in two. There the actions take
+                the next line when they have to, and no label breaks. */}
+            <div className={cn('flex items-center justify-between', isMlxLocal && 'flex-wrap gap-x-3 gap-y-1 [&_button]:whitespace-nowrap')}>
+              <div className={cn('t-control text-gray-400', isMlxLocal && 'whitespace-nowrap')}>LoRA stack {activeLoras > 0 && <span className="t-mono text-gray-600">· {activeLoras} active</span>}</div>
               <div className="flex items-center gap-3">
               {s.selectedLoras.length > 0 && (
                 <button onClick={s.clearLoras} title="Turn every LoRA off" className="t-control text-gray-500 hover:text-gray-300 inline-flex items-center gap-1">
@@ -310,15 +371,24 @@ export function ParamGroups() {
                   into models/loras later never appeared — and with an empty
                   list the whole section was invisible, which read as "no LoRA
                   support at all". Always show it, let the user re-scan. */}
-              <button onClick={() => { void refreshModelLists() }} title="Re-scan ComfyUI's models/loras folder" className="t-control text-gray-500 hover:text-gray-300 inline-flex items-center gap-1">
+              {/* The Mac's LoRAs are files in a folder of the app. The way
+                  to put one there is the folder itself. */}
+              {isMlxLocal && (
+                <button onClick={() => { void openMlxLoraFolder().catch(() => null) }} title="Show the LoRA folder in Finder" className="t-control text-gray-500 hover:text-gray-300 inline-flex items-center gap-1">
+                  <FolderOpen className="w-3 h-3" /> Open folder
+                </button>
+              )}
+              <button onClick={() => { void refreshModelLists() }} title={isMlxLocal ? 'Read the LoRA folder again' : "Re-scan ComfyUI's models/loras folder"} className="t-control text-gray-500 hover:text-gray-300 inline-flex items-center gap-1">
                 <RotateCcw className="w-3 h-3" /> Rescan
               </button>
               </div>
             </div>
             {loraList.length === 0 ? (
-              <div className="t-control text-gray-600">No LoRAs found yet. Drop .safetensors files into ComfyUI&apos;s models/loras folder and hit Rescan. Characters trained in Character Studio land there automatically.</div>
+              isMlxLocal
+                ? <div className="t-control text-gray-600">No LoRAs found yet. Put .safetensors files into the LoRA folder (Open folder) and hit Rescan, or get one under Models, LoRAs.</div>
+                : <div className="t-control text-gray-600">No LoRAs found yet. Drop .safetensors files into ComfyUI&apos;s models/loras folder and hit Rescan. Characters trained in Character Studio land there automatically.</div>
             ) : stackRows.length === 0 ? (
-              <div className="t-control text-gray-600">The LoRAs in models/loras are made for other models. Pick the model they belong to, or drop in a LoRA for this one and hit Rescan.</div>
+              <div className="t-control text-gray-600">The LoRAs in {isMlxLocal ? 'the LoRA folder' : 'models/loras'} are made for other models. Pick the model they belong to, or drop in a LoRA for this one and hit Rescan.</div>
             ) : (
             <div className="space-y-1 max-h-44 overflow-y-auto scrollbar-thin">
               {/* Gegenprobe 8 (02.10.): "Z-Image only" showed only after a
@@ -326,18 +396,47 @@ export function ParamGroups() {
                   03.10.: the H3 turbo LoRA was offered on an image model, and
                   its file name was cut off. A LoRA from the catalogue is
                   listed where its family runs, under its catalogue name, with
-                  the file name as the tooltip (lib/lora-stack.ts). */}
+                  the file name as the tooltip (lib/lora-stack.ts).
+                  GitHub discussion #150: a long name was cut off at the
+                  drawer's width, so two LoRAs that start alike read the
+                  same. A name takes as many lines as it needs. */}
               {stackRows.map(({ name, label, file, fits, familyLabel }) => {
                 const active = s.selectedLoras.find((l) => l.name === name)
+                // The Mac knows from the folder listing what the run would
+                // refuse after the click (a Kohya file on Qwen-Image 2.1, a
+                // file that is no safetensors). Such a row says so and cannot
+                // be turned on; one that is still on can be turned off, and
+                // reads in the error tone, because its run will fail.
+                const refused = isMlxLocal ? mlxLoraRefusal(loraKeys?.[name], laneType === 'qwenimage') : null
+                if (refused) {
+                  return (
+                    <div key={name} data-testid="lora-stack-refused" className={cn('rounded-md border transition-colors', active ? 'border-white/15 bg-white/[0.06]' : 'border-white/[0.06]')}>
+                      <button
+                        onClick={() => { if (active) s.toggleLora(name) }}
+                        aria-disabled={!active}
+                        title={active ? `${refused.title} Click to turn it off.` : refused.title}
+                        className={cn('w-full flex items-center justify-between gap-2 px-2.5 py-1.5 t-control text-left', active ? 'text-gray-300' : 'text-gray-500 cursor-default')}
+                      >
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
+                        <span className={cn('t-mono shrink-0', active ? HINWEIS_TEXT.fehler : 'text-gray-600')}>{active ? `on, ${refused.label}` : refused.label}</span>
+                      </button>
+                    </div>
+                  )
+                }
+                // The Mac: a file whose layers carry different alphas runs at
+                // the strength set here on Qwen-Image 2.1, and says so where
+                // the strength is set.
+                const alphaNote = isMlxLocal && laneType === 'qwenimage' ? mlxLoraAlphaNote(loraAlpha?.[name]) : null
                 return (
                   <div key={name} className={cn('rounded-md border transition-colors', active ? 'border-white/15 bg-white/[0.06]' : 'border-white/[0.06]')}>
                     <button onClick={() => s.toggleLora(name)} title={file} className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 t-control text-left text-gray-300">
-                      <span className="truncate">{label}</span>
-                      <span className={cn('t-mono shrink-0', active && fits ? 'text-emerald-400' : 'text-gray-600')}>{fits ? (active ? 'on' : 'off') : `${familyLabel} only`}</span>
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
+                      <span className={cn('t-mono shrink-0', active && fits ? (isMlxLocal ? 'text-emerald-600 dark:text-emerald-400' : 'text-emerald-400') : 'text-gray-600')}>{fits ? (active ? 'on' : 'off') : `${familyLabel} only`}</span>
                     </button>
                     {active && fits && (
                       <div className="px-2.5 pb-2">
                         <LoraStrength name={label} value={active.strength} onChange={(v) => s.setLoraStrengthFor(name, v)} />
+                        {alphaNote && <p className="mt-1.5 t-micro text-gray-500" data-testid="lora-alpha-note">{alphaNote}</p>}
                       </div>
                     )}
                   </div>
@@ -348,7 +447,7 @@ export function ParamGroups() {
           </div>
         )}
 
-        {!isCloud && !isVideo && (
+        {!isCloud && !isVideo && !isMlxLocal && (
           <Field label="VAE" help="Override the checkpoint's built-in VAE. 'auto' lets the checkpoint decide.">
             <Select size="sm" options={vaes.map((v) => ({ value: v, label: v }))} value={s.selectedVae} onChange={s.setSelectedVae} />
           </Field>
@@ -358,7 +457,7 @@ export function ParamGroups() {
             <Select size="sm" ariaLabel="Text encoder" options={encoderOptions.map((o) => ({ value: o.id, label: o.label }))} value={activeEncoder} onChange={(v) => s.setQwenTextEncoder(v as QwenEncoderVariant)} />
           </Field>
         )}
-        {!isCloud && !isVideo && (
+        {!isCloud && !isVideo && !isMlxLocal && (
           <Slider label="Skip CLIP layers" min={0} max={12} step={1} value={s.clipSkip} onChange={s.setClipSkip} />
         )}
       </Section>

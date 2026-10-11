@@ -14,8 +14,7 @@ import { resolve } from 'path'
 import {
   effectiveSendWindow,
   isPaidProvider,
-  DEFAULT_SEND_WINDOW_TOKENS,
-} from '../send-window'
+  DEFAULT_SEND_WINDOW_TOKENS, budgetBesideTheCatalog, MIN_MESSAGE_BUDGET } from '../send-window'
 import { computeContextFill } from '../token-usage'
 import { DEFAULT_SETTINGS } from '../constants'
 import { useSendSizeStore } from '../../stores/sendSizeStore'
@@ -207,5 +206,23 @@ describe('sendWindowFor: the per-model pick from the context dropdown', () => {
     expect(sendWindowFor(settings, 'lu-cloud::Kimi')).toBe(131072)
     expect(sendWindowFor(settings, 'lu-cloud::GLM')).toBe(32768)
     expect(sendWindowFor({ codexSendWindowTokens: 32768 }, 'lu-cloud::Kimi')).toBe(32768)
+  })
+})
+
+describe('the tool catalogue has its place in the window', () => {
+  it('box, 09.10.2026: 80 % of a 32K window for the messages plus a 7K catalogue was more than the window', () => {
+    const messages = effectiveSendWindow({ providerId: 'openai', modelWindow: 32768, localBackend: true })
+    expect(messages).toBe(26214)
+    const beside = budgetBesideTheCatalog(messages, 6955)
+    expect(beside).toBe(26214 - 6955)
+    // Even at the point where compaction starts (15 % over), messages and catalogue fit.
+    expect(beside * 1.15 + 6955).toBeLessThan(32768)
+  })
+
+  it('never takes the messages below their minimum and never adds to the budget', () => {
+    expect(budgetBesideTheCatalog(8000, 7000)).toBe(MIN_MESSAGE_BUDGET)
+    expect(budgetBesideTheCatalog(3000, 7000)).toBe(3000)
+    expect(budgetBesideTheCatalog(26214, 0)).toBe(26214)
+    expect(budgetBesideTheCatalog(26214, Number.NaN)).toBe(26214)
   })
 })

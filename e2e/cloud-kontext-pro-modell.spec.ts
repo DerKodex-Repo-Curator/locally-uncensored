@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { routeCloud, seedOnboardingDone, signInViaGate, cloudSwitch } from './support/cloud-mock'
 
 /**
- * David 01.10.2026: "Kann man das Kontextfenster nicht bei jedem Cloud-Modell
+ * 01.10.2026: "Kann man das Kontextfenster nicht bei jedem Cloud-Modell
  * aendern?" The model's own window is fixed on LU Cloud, the lever is how much
  * of the chat each step sends. The header dropdown sets it per model and the
  * next request really sends within it.
@@ -41,7 +41,7 @@ test('a cloud model gets its own context pick from the header dropdown', async (
   await expect(knob).toBeVisible({ timeout: 15_000 })
   // Default: the fill over the 32K send window, not over the model's 256K.
   await expect(knob).toContainText('/32K')
-  // No warning on the default (David 30.09.2026: only once it was raised).
+  // No warning on the default (30.09.2026: only once it was raised).
   await expect(page.getByLabel('Larger context costs more')).toHaveCount(0)
 
   await knob.click()

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ComputerControlHost } from '../computer/ComputerControlHost'
 import { Header } from './Header'
 import { StaleModelsBanner } from './StaleModelsBanner'
 import { BackgroundShutdownBanner } from './BackgroundShutdownBanner'
@@ -14,6 +15,7 @@ import {
   ModelManagerSkeleton,
   OnboardingSkeleton,
   SettingsSkeleton,
+  VoiceSkeleton,
 } from './ViewSkeletons'
 import { useUIStore } from '../../stores/uiStore'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -115,6 +117,7 @@ const loadModelManager = () => import('../models/ModelManager').then((m) => ({ d
 const loadBenchmarkView = () => import('../models/BenchmarkView').then((m) => ({ default: m.BenchmarkView }))
 const loadSettingsPage = () => import('../settings/SettingsPage').then((m) => ({ default: m.SettingsPage }))
 const loadCreateExperimental = () => import('../create/experimental/CreateExperimental').then((m) => ({ default: m.CreateExperimental }))
+const loadVoiceView = () => import('../voice/VoiceView').then((m) => ({ default: m.VoiceView }))
 const loadOnboarding = () => import('../onboarding/Onboarding').then((m) => ({ default: m.Onboarding }))
 
 /**
@@ -136,7 +139,7 @@ export function AppShell() {
   const settings = useSettingsStore((s) => s.settings)
   const updateSettings = useSettingsStore((s) => s.updateSettings)
   // A/B Compare takes over the chat area; hide the left chat sidebar entirely
-  // while comparing (David 2026-06-06) so the two model columns get full width.
+  // while comparing (2026-06-06) so the two model columns get full width.
   const isComparing = useCompareStore((s) => s.isComparing)
   const onboardingDone = useSettingsStore((s) => s.settings.onboardingDone)
   const [restoring, setRestoring] = useState(false)
@@ -213,7 +216,7 @@ export function AppShell() {
     // holds the empty list harmless, and it clears rather than leaves an
     // out-of-mode model active when the new mode has nothing to offer: a
     // lu-cloud model left active in Local mode kept billing credits after the
-    // switch said Local (Discord 2026-08-09, helpslowlydying).
+    // switch said Local (Discord 2026-08-09).
     //
     // The fourth argument is the model the user NAMED on the way in, by
     // clicking its row in the local-mode LU Cloud strip. Without it every one
@@ -248,17 +251,20 @@ export function AppShell() {
     if (pick.usedRequest) setPendingCloudModel(null)
   }, [appMode, allModels])
 
-  // Local-hardware views (Models/Benchmark) don't exist in cloud mode — the
-  // header hides them, this guard covers a view that was already open.
+  // Local-hardware views (Voice/Models/Benchmark) don't exist in cloud mode —
+  // the header hides them, this guard covers a view that was already open.
+  // Voice has no cloud service yet. Leaving its view is also what ends a
+  // running session and lets go of the microphone (VoiceSessionPanel stops on
+  // unmount), so there is no second stop here.
   useEffect(() => {
     const ui = useUIStore.getState()
-    if (appMode === 'cloud' && (ui.currentView === 'models' || ui.currentView === 'benchmark')) {
+    if (appMode === 'cloud' && (ui.currentView === 'voice' || ui.currentView === 'models' || ui.currentView === 'benchmark')) {
       ui.setView('chat')
     }
   }, [appMode])
 
   // ── Cloud = cloud-only: release every LOCAL model backend so nothing sits
-  // in RAM/VRAM while inference runs in the cloud (David 2026-07-11). Whisper
+  // in RAM/VRAM while inference runs in the cloud (2026-07-11). Whisper
   // STT, the bundled llama.cpp sidecar + embeddings, Ollama-loaded models and
   // ComfyUI VRAM are freed by offload_local_models; LM Studio via its own JIT
   // unload (`lms unload --all`). Local mode reloads LAZILY on first use
@@ -303,6 +309,10 @@ export function AppShell() {
         // it: the backend panel in Settings.
         backendCall('offload_local_models').catch(() => {})
         backendCall('lmstudio_unload_model', { model: '--all' }).catch(() => {})
+        // The Voice engine is a local model process like the others (about
+        // 1.2 GB), and Voice is not reachable in Cloud. Stopping an engine
+        // that is not running is a no-op.
+        backendCall('voice_loop_stop').catch(() => {})
       })
       return cancelDeferredOffload
     }
@@ -374,7 +384,7 @@ export function AppShell() {
           // what a self update is, can leave Chromium discarding the whole
           // IndexedDB database while localStorage comes back whole, and this
           // branch IS that boot: every localStorage store answers, so the full
-          // restore below never runs. aldrich_ironhart lost a 230k token
+          // restore below never runs. A user lost a 230k token
           // coding chat that way on 2.6.5 with a good copy of it sitting in
           // store_backup.json the entire time.
           try {
@@ -490,7 +500,7 @@ export function AppShell() {
               if (restored > 0) {
                 // Pull RAG chunks from %APPDATA% before the reload so the new
                 // localStorage references find their embeddings in IndexedDB
-                // (Bug V, kj103x 2026-05-23). Best-effort: missing backup =
+                // (Bug V, a user 2026-05-23). Best-effort: missing backup =
                 // chunks need to be re-indexed by re-uploading docs.
                 try {
                   const ragData = await backendCall<string | null>('restore_rag_chunks')
@@ -606,7 +616,7 @@ export function AppShell() {
         backupInflight = false
       }
 
-      // Separate, debounced backup for RAG IndexedDB chunks (Bug V, kj103x
+      // Separate, debounced backup for RAG IndexedDB chunks (Bug V, a user
       // 2026-05-23). These are heavy (768-float embedding vectors per chunk,
       // sometimes thousands per doc) so we don't bundle them into the chat
       // snapshot — the chat-store backup must stay fast for the 1 s debounce
@@ -925,6 +935,9 @@ export function AppShell() {
               extractMemoriesFromPair(userMsg, content, dispatchedConversationId, {
                 scope: useChatStore.getState().conversations
                   .find((c) => c.id === dispatchedConversationId)?.memoryScope,
+                // The remote client talks to the backend through the bridge
+                // and names no context window, so this call names none either.
+                window: 'backend-default',
               }).catch(() => {})
             }
           }
@@ -986,7 +999,7 @@ export function AppShell() {
       // from the built-in engine (slot not managed). When the built-in engine
       // is the active default, detected externals stay opt-in via the selector
       // modal below and Settings → Providers ("use another engine").
-      // (Pre-2.5.7 rationale — Discord #help-chat, djoks.exe 2026-04-21: without
+      // (Pre-2.5.7 rationale — Discord #help-chat 2026-04-21: without
       //  auto-enable, dismissing the selector left LM Studio disabled and its
       //  models never appeared. Still true for users who left the built-in slot.)
       //
@@ -1143,6 +1156,7 @@ export function AppShell() {
             {currentView === 'benchmark' && <LazyView load={loadBenchmarkView} fallback={<BenchmarkSkeleton />} />}
             {currentView === 'settings' && <LazyView load={loadSettingsPage} fallback={<SettingsSkeleton />} />}
             {currentView === 'create' && <LazyView load={loadCreateExperimental} fallback={<CreateSkeleton />} />}
+            {currentView === 'voice' && <LazyView load={loadVoiceView} fallback={<VoiceSkeleton />} />}
           </main>
         </div>
       </div>
@@ -1173,6 +1187,9 @@ export function AppShell() {
           local render, from Create and from the agent's tool in Chat, so it
           lives here and not inside Create. */}
       <RenderFixupModal />
+      {/* Computer control: its status bar and its two questions. Asked from
+          the agent chat and from Voice alike, so it lives here. */}
+      <ComputerControlHost />
     </div>
   )
 }

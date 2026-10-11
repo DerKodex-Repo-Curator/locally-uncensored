@@ -13,7 +13,7 @@
  * Dieser Waechter laeuft bei jedem Commit und haelt die vier Stellen an
  * `CLOUD_PITCH.openVideoModels`.
  *
- * 22.09.2026, Entscheid David: die Zaehlregel nimmt den Create-Studio-Katalog
+ * 22.09.2026, Entscheid des Inhabers: die Zaehlregel nimmt den Create-Studio-Katalog
  * auf. Gezaehlt wird jeder Katalogeintrag mit `adult: true` und der passenden
  * Gattung, auch der mit `ops: ['studio']`; heraus fallen die Werkzeuge, die
  * einen vorhandenen Clip fortsetzen, und die Studio-Zwillinge, die denselben

@@ -31,6 +31,11 @@ pnpm-lock.yaml
 # Rust build artifacts
 src-tauri/target/
 
+# The Linux build writes its own permission schema here, next to the macOS and
+# Windows ones that are checked in. It can only be produced by a build on Linux,
+# so it stays out of the tree until one is committed from there on purpose.
+src-tauri/gen/schemas/linux-schema.json
+
 # Written by scripts/windows-signing-setup.ps1 during a signed release build:
 # the Tauri overlay that names the sign command. Never part of the tree.
 src-tauri/tauri.signing.conf.json
@@ -87,3 +92,35 @@ SETUP_REPORT.md
 # Teaser raw takes + render scratch (scripts/teasers) - only the encoded
 # webm/poster assets in public/teasers ship
 /assets-src/
+
+# Working notes, proofs and hand-overs of the people who build this. They
+# live next to the tree while a release is made and are never part of it.
+BAUBUCH*.md
+STAND-*.md
+LISTE-*.md
+PLAN-*.md
+UEBERGABE*.md
+READY-ABLAUF*.md
+DEPLOY*.md
+INTEGRATION*.md
+MAIL-ENTWURF*.md
+*-BEFUND.md
+*-HANDOFF.md
+*-PLAN.md
+*-SYSTEM-PROMPT.txt
+/AUDIT-*.md
+/GOAL-*.md
+/EXPERIMENT-*.md
+/showcase/
+/PROOF/
+/proof/
+/belege/
+/notes/
+/.wave/
+# Build helpers for the Windows test machine
+/a[0-9]*-build.ps1
+/*-box-*.ps1
+# Screenshots taken while checking a build
+/.*.png
+/*-proof.png
+/*-beweis.png

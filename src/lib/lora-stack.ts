@@ -1,4 +1,4 @@
-// GH #146 (joshmichael, 2026-10-01): two LoRAs deleted from models/loras stayed
+// GH #146 (2026-10-01): two LoRAs deleted from models/loras stayed
 // in the persisted stack. The picker showed "2 active" with nothing ticked,
 // every run sent them, and ComfyUI refused the graph with "Value not in list".
 // One of them was a Z-Image character LoRA riding into the Animate lane.

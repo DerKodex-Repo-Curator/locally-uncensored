@@ -5,7 +5,7 @@
  * `scripts/check-cloud-sales.mjs` haelt die sieben Zahlen gegen den Katalog im
  * Web-Repo, steht aber in keinem Workflow, in keiner `ci.yml` und in keinem
  * npm-Skript, weil es einen zweiten Checkout als Argument braucht. Es wird vor
- * einem Release von Hand gefahren, und ob es ins CI kommt, ist Entscheid David.
+ * einem Release von Hand gefahren, und ob es ins CI kommt, ist Entscheid des Inhabers.
  *
  * Bis dahin haelt diese Datei die Stelle: dasselbe Muster wie die Reissleine
  * unter den Preisen (`pricing-page.test.ts`). Die Werte sind ausgeschrieben,
@@ -196,7 +196,7 @@ describe('die Zahlen des Wolkentors', () => {
   })
 
   /**
-   * Nachtrag a, Entscheid David vom 13.09.2026.
+   * Nachtrag a, Entscheid vom 13.09.2026.
    *
    * Bis heute stand hier das Gegenteil: KEIN Kundentext durfte eine Quote
    * nennen, weil keine beschlossen war. Beschlossen ist sie jetzt, also wird

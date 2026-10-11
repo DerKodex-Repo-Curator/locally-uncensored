@@ -1,7 +1,7 @@
 /**
  * Schema-shape guard for every registered tool, on every transport (2026-08-05).
  *
- * David's bar: a tool is only finished when its schema arrives intact on every
+ * The owner's bar: a tool is only finished when its schema arrives intact on every
  * transport, for every model and every provider. The parity test compares
  * desktop against mobile and the roster test compares prompt against registry.
  * Neither one ever asks the simpler question: is the schema itself something

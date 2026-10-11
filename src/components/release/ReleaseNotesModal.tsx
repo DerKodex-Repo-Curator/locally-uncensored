@@ -1,4 +1,4 @@
-// "What's new" sheet, shown once after an update (B4, David 2026-08-04), and
+// "What's new" sheet, shown once after an update (B4, 2026-08-04), and
 // again whenever the user asks for it under Settings, Updates.
 //
 // Redesign (Bauer, 19.09.2026): the borrowed pulsing gradient square and the
@@ -128,12 +128,12 @@ export function ReleaseNoteBody({ note, onClose, onTurnOnCloud }: ReleaseNoteBod
   }
 
   return (
-    <div className="flex flex-col max-h-[85vh] rounded-2xl overflow-hidden bg-lu-base">
+    <div className="flex flex-col max-h-[calc(85vh/var(--ui-scale))] rounded-2xl overflow-hidden">
       {/* Header: the real monogram, never a Sparkles icon or a demo shape.
           Stays put while the body below scrolls, on the same near-black
           ground as the body, separated by one hairline rather than a
           visibly different panel. */}
-      <div className="shrink-0 flex items-center gap-3 pl-5 pr-12 py-4 bg-lu-base border-b border-white/[0.08]">
+      <div className="shrink-0 flex items-center gap-3 pl-5 pr-12 py-4 border-b border-white/[0.08]">
         <img
           src={MONOGRAM}
           alt=""
@@ -147,7 +147,7 @@ export function ReleaseNoteBody({ note, onClose, onTurnOnCloud }: ReleaseNoteBod
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-        {/* Vor allem anderen und fetter als der Rest (David, 13.09.2026):
+        {/* Vor allem anderen und fetter als der Rest (13.09.2026):
             wer aktualisiert, liest dieses Blatt einmal, und das Angebot
             gehoert an dessen Anfang statt zwischen die Fehlerbehebungen.
             Die drei Zeilen und der Satz kommen aus lib/cloud-pitch.ts,
@@ -171,7 +171,7 @@ export function ReleaseNoteBody({ note, onClose, onTurnOnCloud }: ReleaseNoteBod
             <p className="text-[0.62rem] leading-relaxed text-gray-300">{note.cloud.note}</p>
             <button
               onClick={onTurnOnCloud}
-              className="w-full flex items-center justify-center h-8 rounded-lg bg-white text-black text-[0.7rem] font-semibold hover:bg-gray-200 transition-colors"
+              className="w-full flex items-center justify-center h-8 rounded-lg bg-gray-900 !text-white hover:bg-gray-700 dark:bg-white dark:!text-black dark:hover:bg-gray-200 text-[0.7rem] font-semibold transition-colors"
             >
               Turn on Cloud
             </button>
@@ -194,7 +194,7 @@ export function ReleaseNoteBody({ note, onClose, onTurnOnCloud }: ReleaseNoteBod
         {expandableKeys.length > 0 && (
           <button
             onClick={toggleAll}
-            className="-mx-1.5 rounded-md px-1.5 py-0.5 text-[0.62rem] text-lu-accent hover:text-lu-accent-hover transition-colors"
+            className="-mx-1.5 rounded-md px-1.5 py-0.5 text-[0.62rem] text-purple-700 hover:text-purple-900 dark:text-lu-accent dark:hover:text-lu-accent-hover transition-colors"
           >
             {allExpanded ? 'Collapse all' : 'Expand all'}
           </button>
@@ -224,7 +224,7 @@ export function ReleaseNoteBody({ note, onClose, onTurnOnCloud }: ReleaseNoteBod
                     die Groesse ist jetzt die vom Eigner verlangte Untergrenze
                     von 0.75rem.
                     Auflage 3 (Bauer, 21.09.2026): die Rubrik-Ueberschrift
-                    hervorgehoben, David wollte sie in Lila sehen. Derselbe
+                    hervorgehoben, der Inhaber wollte sie in Lila sehen. Derselbe
                     Hausakzent wie die Cloud-Pille und der primaere
                     Create-Knopf (`text-lu-accent`, schon zwei Zeilen weiter
                     oben in diesem Blatt am "Expand all"-Knopf im Einsatz),
@@ -236,7 +236,7 @@ export function ReleaseNoteBody({ note, onClose, onTurnOnCloud }: ReleaseNoteBod
                     Fliesstext. Die Punkt-Titel darunter (ReleaseNoteRow)
                     bleiben unveraendert grau, nur die Rubrik selbst faerbt
                     um. */}
-                <p className="text-xs font-semibold uppercase tracking-wide text-lu-accent">
+                <p className="text-xs font-semibold uppercase tracking-wide text-purple-700 dark:text-lu-accent">
                   {section.title}
                 </p>
                 <ul className="space-y-1.5">
@@ -271,7 +271,7 @@ export function ReleaseNoteBody({ note, onClose, onTurnOnCloud }: ReleaseNoteBod
         <button
           data-autofocus
           onClick={onClose}
-          className="flex-1 flex items-center justify-center h-9 rounded-lg bg-white text-black text-[0.72rem] font-semibold hover:bg-gray-200 transition-colors"
+          className="flex-1 flex items-center justify-center h-9 rounded-lg bg-gray-900 !text-white hover:bg-gray-700 dark:bg-white dark:!text-black dark:hover:bg-gray-200 text-[0.72rem] font-semibold transition-colors"
         >
           Got it
         </button>

@@ -292,7 +292,7 @@ describe('matchAgentCommands (autocomplete)', () => {
 describe('/loop interval', () => {
   // The interval is the PAUSE BETWEEN PASSES, not a deadline. An earlier build
   // treated it as a time limit and Qwen3-32B then tried to cram the whole task
-  // into 30 seconds (David, 2026-07-25).
+  // into 30 seconds (2026-07-25).
   it('reads the compact forms', () => {
     expect(parseLoopSpec('30s fix the tests').intervalMs).toBe(30_000)
     expect(parseLoopSpec('20m fix the tests').intervalMs).toBe(20 * 60_000)

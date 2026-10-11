@@ -1,5 +1,5 @@
 /**
- * GH #122 (zrmdsxa, 2026-08-28): "Custom location not detecting my models".
+ * GH #122 (2026-08-28): "Custom location not detecting my models".
  *
  * The folder under Settings → Model Storage was a download TARGET and nothing
  * else. `hfDownloadPathOverride` was read by the downloader and by onboarding,

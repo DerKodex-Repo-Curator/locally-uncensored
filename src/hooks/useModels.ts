@@ -312,7 +312,7 @@ export function useModels() {
       // LU Engine model list (the downloaded GGUFs and the user's own folder).
       //
       // A14 (2.6.8): asked whether or not the LU Engine is the active chat
-      // backend. It used to be asked only while it was, so on David's Mac with
+      // backend. It used to be asked only while it was, so on the owner's Mac with
       // Ollama in front, the GGUF in his own model folder existed on disk,
       // Model Storage promised in writing that the folder is read, and the
       // file appeared nowhere. The command answering at all IS the presence
@@ -572,7 +572,7 @@ export function useModels() {
           // Auto-dismiss after 5s
           setTimeout(() => dismissPull(name), 5000)
         } catch (err) {
-          // Bug Z/a v2.5.0 — leonsk29 GH #48. Pre-v2.5.0 this catch was
+          // Bug Z/a v2.5.0 — GH #48. Pre-v2.5.0 this catch was
           // silent ("card stays visible"), which combined with the Rust-
           // side Ok(()) on stream-ended-without-success made LU flip the
           // badge to "Completed" even when Ollama returned a 400 or the
@@ -595,7 +595,7 @@ export function useModels() {
         for await (const chunk of parseNDJSONStream<PullProgress>(response)) {
           updatePullProgress(name, chunk)
           // Surface an error the NDJSON stream reports mid-pull instead of
-          // falsely flipping the card to "complete" (adhney; mirrors the
+          // falsely flipping the card to "complete" (mirrors the
           // Tauri-path Bug Z/a handling above).
           if (chunk.error) { streamError = chunk.error; break }
         }

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  *
  * Runde 5 Nachtrag (review-lanes.md Runde 2, Grep-Audit dieser Runde,
- * David's Nachtrag danach): useChat.ts's `/compact` branch fired a genuine
+ * The owner's addendum after it): useChat.ts's `/compact` branch fired a genuine
  * inference call (`runCompactForConversation` -> `compact-run.ts`'s
  * `provider.chatStream`) entirely BEFORE `sendMessage`'s own `runInLane`
  * call for the normal turn. A local `/compact` could stream from the

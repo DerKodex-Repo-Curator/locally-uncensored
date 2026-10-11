@@ -18,10 +18,12 @@ export class CloudJobError extends Error {
   /** What `retry-after` asked for, in ms, the burst guard's window is fixed
    *  and up to a minute long, so the number is worth showing. */
   readonly retryAfterMs?: number
+  /** With `code: 'quote_changed'` (409): the price the server quotes now. */
+  readonly credits?: number
   constructor(
     message: string,
     status: number,
-    meta?: { code?: string; retryAfterMs?: number; cause?: unknown },
+    meta?: { code?: string; retryAfterMs?: number; cause?: unknown; credits?: number },
   ) {
     // Opus-Review Nachbesserung 7 (3.0.1, D2): the reworded network-failure
     // message below intentionally loses the engine's own text, `cause`
@@ -33,6 +35,7 @@ export class CloudJobError extends Error {
     this.status = status
     this.code = meta?.code
     this.retryAfterMs = meta?.retryAfterMs
+    this.credits = meta?.credits
   }
 }
 

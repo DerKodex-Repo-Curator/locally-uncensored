@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { openNewChat, oeffneSeitenleiste } from './support/ui'
 
 /**
- * Deleting a chat has to be findable (sweenscapehub, Discord 2026-07-30):
+ * Deleting a chat has to be findable (Discord 2026-07-30):
  * "I have searched the whole app and right clicked the chats, checked github
  * readme faq — there doesn't seem to be a intuitive way to delete a chat".
  *
@@ -124,7 +124,7 @@ test('escape closes the menu without deleting anything', async ({ page }) => {
 test('the row buttons carry names, so they are findable without guessing', async ({ page }) => {
   await bootWithTwoChats(page)
   // Named for a screen reader and tooltipped for everyone else — the 10 px
-  // unlabelled icon is what sent sweenscapehub to Discord.
+  // unlabelled icon is what sent a user to Discord.
   await expect(page.getByRole('button', { name: 'Delete chat' }).first()).toHaveAttribute('title', 'Delete chat')
   await expect(page.getByRole('button', { name: 'Rename chat' }).first()).toHaveAttribute('title', 'Rename chat')
 })
@@ -305,7 +305,7 @@ test('KF-8: die Zeile heisst „New Chat" und ist trotzdem kein Knopf', async ({
  * Tastaturnutzer nicht einmal, DASS es passiert ist.
  *
  * Ob es zusaetzlich eine Rueckfrage oder ein Rueckgaengig geben soll, ist eine
- * Produktentscheidung und steht auf Davids Liste. Die Ansage ist keine: sie
+ * Produktentscheidung und steht auf der Liste des Inhabers. Die Ansage ist keine: sie
  * ist die Mindestauskunft darueber, dass die eigene Handlung gewirkt hat.
  */
 test('nach dem Loeschen sagt eine Vorlesehilfe, welcher Chat weg ist', async ({ page }) => {

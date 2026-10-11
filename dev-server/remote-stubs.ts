@@ -4,7 +4,7 @@ import type { RouteMount } from './routes'
 /** Die zwölf Remote-Access-Endpunkte, die es im reinen Vite-Prozess nicht gibt. */
 export function registerRemoteStubs(routes: RouteMount): void {
   // ─── Remote Access stubs (dev mode) ───────────────────────────
-  // Reported by @phantomderp on v2.4.2: clicking LAN/Internet from
+  // Reported by a user on v2.4.2: clicking LAN/Internet from
   // `npm run dev` returned an HTML 404 page that the frontend then
   // tried to JSON.parse, producing a cryptic
   // "SyntaxError: unexpected character at line 1 column 1" stacktrace.

@@ -4,7 +4,7 @@ import { seedOnboardingDone } from './support/cloud-mock'
 import { openNewChat } from './support/ui'
 
 /**
- * Every participant of a group chat can speak as its own persona (samvenice,
+ * Every participant of a group chat can speak as its own persona (a user,
  * Discord).
  *
  * Before this a group had one persona for everyone, the chat's own, so two

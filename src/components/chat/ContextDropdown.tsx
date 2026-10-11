@@ -1,15 +1,16 @@
-import { useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useDismissOnEscape } from '../../hooks/useDismissOnEscape'
 import { ChevronDown, Check, Loader2, AlertTriangle } from 'lucide-react'
 import { useModelStore } from '../../stores/modelStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { getProviderIdFromModel, displayModelName } from '../../api/providers'
-import { getModelContextCached, warmupOllamaContext } from '../../api/ollama'
+import { readLoadedModels, reloadOllamaWithWindow } from '../../api/ollama'
+import { loadedOnCpuSentence } from '../../lib/ollama-window-fit'
 import { loadLmStudioModel } from '../../api/lmstudio'
 import { bundledEngineStatus, swapBundledModel } from '../../api/engine'
-import { effectiveContextWindow } from '../../lib/context-window'
-import { useActiveContextWindow } from '../../hooks/useActiveContextWindow'
+import { ollamaWindowFor } from '../../lib/context-window'
+import { useActiveContextWindow, useActiveWindowUse } from '../../hooks/useActiveContextWindow'
 // Eine Schreibweise fuer alle Kontextfenster, in lib/formatters. Vorher stand
 // hier eine eigene Rechnung und im Fuellstand daneben eine zweite, und beide
 // zeigten denselben Wert verschieden (Gegenprobe G2, 04.09.2026).
@@ -92,6 +93,26 @@ export function ContextDropdown({ children }: { children?: ReactNode }) {
   const [applyError, setApplyError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
   const ctx = useActiveContextWindow(tick)
+  const windowUse = useActiveWindowUse()
+  // What Ollama reports about the model as it is loaded right now, read when
+  // the list opens and again after a change of the window has reloaded the
+  // model. Said in the list, below the choices: this is where the window is
+  // set, so this is where its price is shown. Never in or above the composer.
+  const [cpuNote, setCpuNote] = useState<{ model: string; text: string } | null>(null)
+  const ollamaModel = open && activeModel && ctx.provider === 'ollama' ? activeModel : null
+  useEffect(() => {
+    if (!ollamaModel) return
+    let cancelled = false
+    readLoadedModels()
+      .then((loaded) => {
+        if (cancelled) return
+        const text = loadedOnCpuSentence(loaded.find((m) => m.name === ollamaModel))
+        setCpuNote(text ? { model: ollamaModel, text } : null)
+      })
+      // Ollama did not answer: nothing is known, so nothing is said.
+      .catch(() => { if (!cancelled) setCpuNote(null) })
+    return () => { cancelled = true }
+  }, [ollamaModel, tick])
   const builtinCtx = useSettingsStore((s) => s.settings.builtinEngine.ctx)
   // The check-mark anchor: built-in reads its own tuning field, not the
   // Ollama/LM Studio override.
@@ -122,7 +143,7 @@ export function ContextDropdown({ children }: { children?: ReactNode }) {
   if (!activeModel || !ctx.adjustable) return <>{children}</>
 
   // Hinweis erst, wenn der Nutzer ueber den Standard gegangen ist, vorher
-  // nicht (David 30.09.2026). Grau, kein Gelb (Regel vom 04.09.).
+  // nicht (30.09.2026). Grau, kein Gelb (Regel vom 04.09.).
   const raised = cloud && ctx.sendWindow > DEFAULT_SEND_WINDOW_TOKENS
 
   /*
@@ -214,10 +235,9 @@ export function ContextDropdown({ children }: { children?: ReactNode }) {
     try {
       const providerId = getProviderIdFromModel(activeModel)
       if (providerId === 'ollama') {
-        const target = value > 0
-          ? value
-          : effectiveContextWindow(await getModelContextCached(activeModel).catch(() => 0), 0)
-        await warmupOllamaContext(activeModel, target)
+        // The setting is saved above, so this loads the model with exactly
+        // the window the next message on this surface sends.
+        await reloadOllamaWithWindow(activeModel, windowUse)
       } else if (ctx.provider === 'lmstudio') {
         // value 0 (Auto) -> reload without -c so LM Studio picks its default.
         await loadLmStudioModel(displayModelName(activeModel), value > 0 ? value : undefined)
@@ -294,7 +314,7 @@ export function ContextDropdown({ children }: { children?: ReactNode }) {
         <div
           onClick={() => setApplyError(null)}
           title="Click to dismiss"
-          className="absolute right-0 top-full mt-1 z-50 w-64 p-2 rounded-md border border-red-500/25 bg-white dark:bg-lu-overlay shadow-xl cursor-pointer"
+          className="absolute right-0 top-full mt-1 z-50 w-64 p-2 rounded-md border border-red-500/25 bg-white dark:bg-lu-sheet shadow-xl cursor-pointer"
         >
           <div className="flex items-start gap-1.5 text-red-500 dark:text-red-300">
             <AlertTriangle size={10} className="mt-0.5 shrink-0" />
@@ -319,7 +339,7 @@ export function ContextDropdown({ children }: { children?: ReactNode }) {
             }`}
           >
             <button onClick={() => apply(0)} className={rowCls(selectedNow === 0)}>
-              <span>Auto{ctx.provider === 'ollama' ? ` · ${formatContextWindow(effectiveContextWindow(ctx.modelMax, 0))}` : ctx.provider === 'builtin' ? ` · ${formatContextWindow(ENGINE_DEFAULT_CTX)}` : ctx.provider === 'custom' && ctx.source !== 'user' ? ` · ${formatContextWindow(ctx.contextWindow)}` : cloud ? ` · ${formatContextWindow(globalSendWindow)}` : ''}</span>
+              <span>Auto{ctx.provider === 'ollama' ? ` · ${formatContextWindow(ollamaWindowFor(windowUse, ctx.modelMax))}` : ctx.provider === 'builtin' ? ` · ${formatContextWindow(ENGINE_DEFAULT_CTX)}` : ctx.provider === 'custom' && ctx.source !== 'user' ? ` · ${formatContextWindow(ctx.contextWindow)}` : cloud ? ` · ${formatContextWindow(globalSendWindow)}` : ''}</span>
               {selectedNow === 0 && <Check size={10} />}
             </button>
             {options.map((p) => (
@@ -333,6 +353,15 @@ export function ContextDropdown({ children }: { children?: ReactNode }) {
                 <span>{formatContextWindow(ctx.modelMax)} · max</span>
                 {selectedNow === ctx.modelMax && <Check size={10} />}
               </button>
+            )}
+            {cpuNote && cpuNote.model === ollamaModel && (
+              <div
+                data-testid="context-cpu-note"
+                className="mt-0.5 px-2 pt-1 border-t border-gray-100 dark:border-white/[0.06] text-[0.5rem] text-gray-500 dark:text-gray-300 leading-snug flex items-start gap-1 max-w-[220px]"
+              >
+                <AlertTriangle size={9} className="shrink-0 mt-px text-gray-400" />
+                <span>{cpuNote.text}</span>
+              </div>
             )}
             <div className="mt-0.5 px-2 pt-1 border-t border-gray-100 dark:border-white/[0.06] text-[0.5rem] text-gray-400 leading-snug">
               {raised

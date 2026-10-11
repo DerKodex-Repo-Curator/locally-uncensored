@@ -131,7 +131,7 @@ describe('the conversation displays read the conversation, not the picker', () =
   })
 
   it('THE FIX: the composer still knows what the open chat ran on when it differs', () => {
-    // David on 2026-09-02: "mach das woanders hin, versteckter bitte". The
+    // The owner on 2026-09-02: "mach das woanders hin, versteckter bitte". The
     // chip in the composer row is gone; the reader behind it is not. It hands
     // the picker the name, and the picker carries the dot and the sentence
     // (proved by rendering in

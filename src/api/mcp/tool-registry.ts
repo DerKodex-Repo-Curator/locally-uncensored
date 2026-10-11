@@ -99,6 +99,15 @@ export class ToolRegistry {
     this.tools.set(tool.name, { definition: tool, executor })
   }
 
+  /**
+   * Take an app tool out of the catalog while a setting has it switched off
+   * (computer control). The name stays reserved: an MCP server still cannot
+   * register under it, on or off.
+   */
+  withdrawBuiltin(name: string) {
+    if (this.builtinNames.has(name)) this.tools.delete(name)
+  }
+
   /** Is this name owned by the app (and thus off-limits to MCP servers)? */
   isBuiltinName(name: string): boolean {
     return this.builtinNames.has(name)

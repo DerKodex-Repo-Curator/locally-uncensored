@@ -1,4 +1,4 @@
-// "Save character from this video" (Discord, applejames): pause the clip on a
+// "Save character from this video" (Discord): pause the clip on a
 // clear view of the figure, add that frame, repeat for a few angles, name the
 // character. The frames are saved as photos on this machine
 // (lib/saved-characters) and can go straight on to the reference strip or to
@@ -13,6 +13,7 @@ import { MIN_TRAIN_IMAGES } from '../../../lib/train-image-cap'
 import { Modal } from '../../ui/Modal'
 import { Button } from '../ui/Button'
 import { fetchGalleryItemBlob, proxiedComfyBlobUrl } from './galleryUrl'
+import { blobFromUrl } from '../../../lib/render/data-url'
 import { isIntentAvailable } from './intents'
 import { loadPhotosAsReferences, sendPhotosToStudio } from './characterPhotos'
 
@@ -24,7 +25,7 @@ async function playableUrl(item: GalleryItem): Promise<string> {
   if (item.dataUrl?.startsWith('blob:')) {
     // A local MLX clip is one already. Copy it, so closing this window never
     // revokes the URL the gallery still plays.
-    return URL.createObjectURL(await (await fetch(item.dataUrl)).blob())
+    return URL.createObjectURL(await blobFromUrl(item.dataUrl))
   }
   try {
     return URL.createObjectURL(await fetchGalleryItemBlob(item))
@@ -132,7 +133,7 @@ function SaveCharacterBody({ item, onClose }: { item: GalleryItem; onClose: () =
       ) : !src ? (
         <div className="h-48 flex items-center justify-center t-control text-gray-400 gap-2"><Loader2 size={14} className="animate-spin" /> Loading the video…</div>
       ) : (
-        <video ref={videoRef} src={src} controls loop muted playsInline className="w-full max-h-[44vh] rounded-lg bg-black object-contain" />
+        <video ref={videoRef} src={src} controls loop muted playsInline className="w-full max-h-[calc(44vh/var(--ui-scale))] rounded-lg bg-black object-contain" />
       )}
 
       <div className="flex items-center gap-3">

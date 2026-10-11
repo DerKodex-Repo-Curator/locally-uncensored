@@ -48,7 +48,7 @@ export const INTENTS: IntentMeta[] = [
     // the SDXL/SD1.5 checkpoint path. Cloud keeps its hosted edit endpoint; both
     // share the MaskEditor. Renamed 2.5.9: "Edit" alone hid the i2i entry for
     // the r/SD crowd who search for "image to image" (GH D#86 jendrelele /
-    // the_mr_pickles / pnwpdr4519; David committed to making it clearer).
+    // A user / a user; the owner committed to making it clearer).
     id: 'edit', label: 'Edit / Image to Image', short: 'Edit', icon: Wand2,
     placeholder: 'Describe the new look. Leave the mask empty to restyle the whole image, or paint an area to change just that…',
     needsSource: true, needsPrompt: true, allowsMask: true, isVideo: false,
@@ -63,12 +63,12 @@ export const INTENTS: IntentMeta[] = [
     examples: [],
   },
   {
-    // R5-67: label/short renamed to match apps/web/components/create/
-    // experimental/intents.ts ("Enhance Image" / "Enhance"). The id stays
+    // R5-67: label/short renamed to match the web app
+    // ("Enhance Image" / "Enhance"). The id stays
     // 'upscale' on purpose, a saved gallery result or a stored createStore
     // state references intents by id, and renaming that too would strand
     // them. Web's separate 'video_upscale' intent is a feature decision for
-    // David (does the Desktop get video upscaling at all), not a text fix,
+    // The owner (does the Desktop get video upscaling at all), not a text fix,
     // and is out of scope here.
     id: 'upscale', label: 'Enhance Image', short: 'Enhance', icon: Maximize2,
     placeholder: '',
@@ -91,7 +91,7 @@ export const INTENTS: IntentMeta[] = [
     examples: ['a wave breaking on rocks in slow motion, cinematic', 'timelapse of clouds over a mountain range'],
   },
   {
-    // Local lane restored 2026-07-17 (David): the lu-labs port had marked
+    // Local lane restored 2026-07-17: the lu-labs port had marked
     // animate cloudOnly, which silently dropped the local I2V the old Create
     // tab always had. Local builds route through buildDynamicWorkflow's
     // family-specific I2V wiring (WAN/WAN2.2/Hunyuan/LTX/Cosmos/SVD/FramePack);
@@ -103,7 +103,7 @@ export const INTENTS: IntentMeta[] = [
     examples: ['slow zoom in, subtle parallax', 'hair and clothes moving in the wind'],
   },
 
-  // ── 2.5.8 specialized categories (2026-07-17 David). All have hosted
+  // ── 2.5.8 specialized categories (2026-07-17). All have hosted
   // endpoints (cloudOnly = cloud clip/teaser exists); music, lipsync, extend
   // and motion ALSO run locally (hasLocalLane) on core ComfyUI node families
   // (ACE audio, Wan S2V, I2V last-frame chain, Wan VACE/Animate). Their
@@ -186,13 +186,30 @@ export function intentTakesPrompt(intent: CreateIntent, characterUse = false): b
  * at all — its local media is the in-process MLX path (api/mlx-image.ts,
  * api/mlx-video.ts). MLX generate accepts prompt / steps / seed / size /
  * negative and nothing else, and there is no ComfyUI /upload/image to stage a
- * source through (loadImageRef's local branch uploads there), so plain
- * text-to-image and text-to-video are the only intents that actually run.
+ * source through, so plain text-to-image and text-to-video always run.
+ *
+ * Animate Image is the one lane with a source that MLX serves too: some video
+ * models start from an image (the catalogue in commands/video.rs says which),
+ * and the image is staged on disk instead of in ComfyUI (loadImageRef). It is
+ * a local tab only while such a model is installed, which is what the
+ * `mlxAnimate` argument below carries (api/mlx-video mlxTakesStartImage).
  *
  * Everything else must NOT look like a working local tab — see visibleIntents
  * / isIntentLocked below.
  */
 const MLX_LOCAL_INTENTS: ReadonlySet<CreateIntent> = new Set<CreateIntent>(['image', 'video'])
+
+/**
+ * Edit is the second lane with a source that the Mac serves: Qwen-Image 2.1
+ * on the second image engine edits one image or several from a prompt, as it
+ * does on Windows (commands/image_mflux.rs). It is a local tab only while such
+ * a model is installed, which is what `mlxEdit` carries (lib/image-engines
+ * mlxTakesEditImage). There is no mask on that lane: the model takes none on
+ * Windows either.
+ */
+function runsOnMlx(id: CreateIntent, mlxAnimate: boolean, mlxEdit: boolean): boolean {
+  return MLX_LOCAL_INTENTS.has(id) || (id === 'animate' && mlxAnimate) || (id === 'edit' && mlxEdit)
+}
 
 /**
  * The intents to surface for a given backend + host. Pure so the rule is unit
@@ -201,10 +218,11 @@ const MLX_LOCAL_INTENTS: ReadonlySet<CreateIntent> = new Set<CreateIntent>(['ima
  * Cloud shows everything. Local (ComfyUI, Windows/Linux) also shows
  * everything — the hosted-only tools render as locked cloud teasers rather
  * than disappearing. Local on an MLX Mac hides the intents that have neither a
- * local MLX path nor a hosted teaser sheet (edit, removebg, animate): they
- * need a ComfyUI node or a ComfyUI-staged source image, so leaving them
- * selectable is a dead affordance that either errors on submit or — worse, the
- * MLX case — silently drops the source and returns an unrelated fresh image.
+ * local MLX path nor a hosted teaser sheet (removebg, edit while no installed
+ * model takes an image, and animate while none starts from one): they need a ComfyUI node or a
+ * model that is not there, so leaving them selectable is a dead affordance
+ * that either errors on submit or, worse and the MLX case, silently drops the
+ * source and returns an unrelated fresh image.
  *
  * `cloudFeatures` is the setting "Show Cloud features in Local mode". Off, the
  * local bar carries no cloud teaser at all: a tool that cannot run on this
@@ -213,10 +231,10 @@ const MLX_LOCAL_INTENTS: ReadonlySet<CreateIntent> = new Set<CreateIntent>(['ima
  * pickers, and Enhance and Erase kept their cloud tag and kept opening the
  * Cloud sheet (the box, 04.10.2026).
  */
-export function visibleIntents(backend: CreateBackend, mlxHost: boolean, cloudFeatures: boolean): IntentMeta[] {
+export function visibleIntents(backend: CreateBackend, mlxHost: boolean, cloudFeatures: boolean, mlxAnimate = false, mlxEdit = false): IntentMeta[] {
   if (backend === 'cloud') return INTENTS
-  const shown = mlxHost ? INTENTS.filter((m) => MLX_LOCAL_INTENTS.has(m.id) || m.cloudOnly === true) : INTENTS
-  return cloudFeatures ? shown : shown.filter((m) => !isIntentLocked(m, backend, mlxHost))
+  const shown = mlxHost ? INTENTS.filter((m) => runsOnMlx(m.id, mlxAnimate, mlxEdit) || m.cloudOnly === true) : INTENTS
+  return cloudFeatures ? shown : shown.filter((m) => !isIntentLocked(m, backend, mlxHost, mlxAnimate, mlxEdit))
 }
 
 /**
@@ -227,9 +245,9 @@ export function visibleIntents(backend: CreateBackend, mlxHost: boolean, cloudFe
  * — those lanes' "local" implementation is a ComfyUI graph this host does not
  * have, so the honest state is the cloud teaser, not a working-looking pill.
  */
-export function isIntentLocked(meta: IntentMeta, backend: CreateBackend, mlxHost: boolean): boolean {
+export function isIntentLocked(meta: IntentMeta, backend: CreateBackend, mlxHost: boolean, mlxAnimate = false, mlxEdit = false): boolean {
   if (backend === 'cloud') return false
-  if (mlxHost) return !MLX_LOCAL_INTENTS.has(meta.id)
+  if (mlxHost) return !runsOnMlx(meta.id, mlxAnimate, mlxEdit)
   return meta.cloudOnly === true && !meta.hasLocalLane
 }
 
@@ -239,7 +257,7 @@ export function isIntentLocked(meta: IntentMeta, backend: CreateBackend, mlxHost
  * result actions that FORCE-switch to an intent — "Edit with mask" on a
  * finished image used to set 'edit' even where that lane cannot run.
  */
-export function isIntentAvailable(id: CreateIntent, backend: CreateBackend, mlxHost: boolean): boolean {
+export function isIntentAvailable(id: CreateIntent, backend: CreateBackend, mlxHost: boolean, mlxAnimate = false, mlxEdit = false): boolean {
   const meta = INTENT_MAP[id]
-  return visibleIntents(backend, mlxHost, true).includes(meta) && !isIntentLocked(meta, backend, mlxHost)
+  return visibleIntents(backend, mlxHost, true, mlxAnimate, mlxEdit).includes(meta) && !isIntentLocked(meta, backend, mlxHost, mlxAnimate, mlxEdit)
 }

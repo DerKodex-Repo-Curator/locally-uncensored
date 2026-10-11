@@ -1,6 +1,6 @@
 //! Where a model lives, asked of the engine that has to find it.
 //!
-//! .__nothing_ (Discord help-chat, 2026-09-02, Windows 11, LU 2.6.7): FramePack
+//! A user (Discord help-chat, 2026-09-02, Windows 11, LU 2.6.7): FramePack
 //! F1 and Wan 2.1 installed through our own Get button and never appeared in
 //! the Create picker. Moving the files into a different ComfyUI folder by hand
 //! fixed it.
@@ -19,7 +19,7 @@
 //!   * `--base-directory` does the same for anybody starting ComfyUI by hand.
 //!   * An `extra_model_paths.yaml` adds roots that are nowhere near `main.py`.
 //!     LU writes one itself for the Model Storage folder (see custom_models.rs).
-//!   * A second install on the box is the classic one (pnwpdr4519, 2026-07-27).
+//!   * A second install on the box is the classic one (2026-07-27).
 //!
 //! In every one of those the download lands in a tree nothing scans, the picker
 //! stays empty, and moving the file into the other ComfyUI folder fixes it.
@@ -375,7 +375,7 @@ mod tests {
         assert!(is_loopback("localhost"));
         assert!(is_loopback("::1"));
         assert!(is_loopback("[::1]"));
-        assert!(!is_loopback("192.168.0.54"));
+        assert!(!is_loopback("192.168.1.54"));
         assert!(!is_loopback("comfy.homelab"));
     }
 

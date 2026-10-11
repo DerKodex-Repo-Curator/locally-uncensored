@@ -41,8 +41,9 @@ import { IMPROVE_WITH, type ImproveWith } from '../lib/render/qwen-enhancer'
 import { QWEN_ENCODER_CHOICES, type QwenEncoderChoice } from '../lib/render/qwen-text-encoder'
 import { classifyModel, hidreamSampling } from '../api/comfyui'
 import type { HiresUpscaleMethod } from '../api/hires-fix'
-import { releaseVideoBlobUrl } from '../api/mlx-video'
+import { mlxTakesStartImage, mlxVideoLaneEntry, releaseVideoBlobUrl } from '../api/mlx-video'
 import { isMlxImageHost } from '../api/mlx-image'
+import { MAC_EDIT_DEAD_SIDE, MAC_EDIT_SIDE_INSTEAD, imageLaneModels, mlxTakesEditImage } from '../lib/image-engines'
 import { STUDIO_MODELS } from '../lib/render/studio-contract'
 import { cloudModelsFor } from './cloudCatalogStore'
 import { createRunModel } from '../lib/render/create-studio'
@@ -67,12 +68,12 @@ export type CreateIntent =
   | 'image' | 'edit' | 'removebg' | 'video' | 'animate' | 'upscale' | 'eraser'
   | CloudOp
 
-/** Cloud-only single-purpose WaveSpeed endpoints (2.5.7): super-resolution
+/** Cloud-only single-purpose hosted endpoints (2.5.7): super-resolution
  *  and masked object removal. Local backends have no lane for them, so the
  *  IntentBar only offers these while the cloud backend is active. */
 export type UtilityOp = 'upscale' | 'eraser'
 
-/** 2.5.8 specialized Create categories (2026-07-17 David):
+/** 2.5.8 specialized Create categories (2026-07-17):
  *  Character-Studio (LoRA training + generation), talking character (lipsync),
  *  music, video extend and motion control. Like `utilityOp`, an escape hatch
  *  over the image/video mode axis: when set it wins the intent derivation. */
@@ -261,7 +262,7 @@ export interface GalleryItem {
   remoteUrl?: string
   /** Cloud jobs: TEE attestation receipt (null on non-attested lanes). */
   attestation?: { quote: string; verify_url: string } | null
-  /** Cloud jobs: the render_jobs id, so the client can re-poll/re-sign. */
+  /** Cloud jobs: the server's job id, so the client can re-poll/re-sign. */
   jobId?: string
   /** Which redesign intent produced this item (gallery tagging). */
   intent?: CreateIntent
@@ -299,7 +300,7 @@ export interface GalleryItem {
    *  answered and the file is not in its output any more. */
   unavailableReason?: 'offline' | 'gone'
   /** Runtime-only: bumped when ComfyUI comes back, so a tile that errored
-   *  while it was down loads again (Discord 2026-09-26, tbjdrw: "why do I
+   *  while it was down loads again (Discord 2026-09-26: "why do I
    *  keep getting that?" — the flag never cleared until a restart). */
   reloadKey?: number
 }
@@ -706,6 +707,49 @@ function imageModelParams(state: { imageModel: string; imageModelType: ModelType
 
 type ImageLaneParams = ReturnType<typeof imageModelParams>
 
+/**
+ * The pick Edit takes on the Mac when the stored one cannot edit: the first
+ * model that takes an image, with its own values, so the sliders stand at
+ * what the run takes. Empty where the list is not narrowed (every ComfyUI
+ * host) and where the pick already edits.
+ */
+function editLanePick(s: Pick<CreateState, 'imageModelList' | 'imageModel'>): Partial<CreateState> {
+  const lane = imageLaneModels(s.imageModelList, 'edit')
+  if (lane === s.imageModelList || lane.length === 0 || lane.some((m) => m.name === s.imageModel)) return {}
+  const first = lane[0]
+  return { imageModel: first.name, imageModelType: first.type, ...imageModelParams({ imageModel: first.name, imageModelType: first.type }) }
+}
+
+/** True while the tab in this state is the Mac's local Edit with a model
+ *  that takes an image (Qwen-Image 2.1 on the second engine). */
+function onMacEdit(s: Pick<CreateState, 'backend' | 'imageModelList' | 'imageModel'> & Parameters<typeof deriveIntent>[0]): boolean {
+  return s.backend === 'local' && isMlxImageHost() && deriveIntent(s) === 'edit'
+    && (s.imageModelList.find((m) => m.name === s.imageModel)?.editImages ?? 0) > 0
+}
+
+/**
+ * The canvas the Mac's Edit starts on. Qwen-Image 2.1 does not edit on
+ * 1024 x 1024 (lib/image-engines, real run 09.10.2026) and the engine moves
+ * such a run to 1056, so Edit stands on 1056 where it would have stood on
+ * 1024: the number in the settings is the one that runs. Only that one
+ * square moves, every other size is the user's.
+ *
+ * On the way out the square goes back to the model's own 1024, also in what
+ * is put aside for the image lane, so Image does not inherit a canvas it
+ * never chose. Windows and every ComfyUI host never get here.
+ */
+function withMacEditCanvas(s: CreateState, patch: Partial<CreateState>): Partial<CreateState> {
+  const next = { ...s, ...patch }
+  const square = (v: { width: number; height: number }, side: number) => v.width === side && v.height === side
+  if (onMacEdit(next)) {
+    return square(next, MAC_EDIT_DEAD_SIDE) ? { ...patch, width: MAC_EDIT_SIDE_INSTEAD, height: MAC_EDIT_SIDE_INSTEAD } : patch
+  }
+  if (!onMacEdit(s) || !square(s, MAC_EDIT_SIDE_INSTEAD) || !square(imageModelParams(s), MAC_EDIT_DEAD_SIDE)) return patch
+  const own = { width: MAC_EDIT_DEAD_SIDE, height: MAC_EDIT_DEAD_SIDE }
+  if (patch.imageLaneKept && square(patch.imageLaneKept, MAC_EDIT_SIDE_INSTEAD)) return { ...patch, imageLaneKept: { ...patch.imageLaneKept, ...own } }
+  return onImageLane(next) && square(next, MAC_EDIT_SIDE_INSTEAD) ? { ...patch, ...own } : patch
+}
+
 export type ImageQuality = 'Draft' | 'Standard' | 'High'
 
 /**
@@ -753,16 +797,30 @@ function imageLaneParams(s: Pick<CreateState, 'imageModel' | 'imageModelType' | 
 /** The video model's own sampling values, for picking it and for every tab
  *  that runs it. Lightning/rapid merges are distilled to few steps at cfg 1,
  *  the architecture defaults (30 steps, cfg 5+) render them to mush. */
-function videoModelParams(model: string) {
+function videoModelParams(model: string, list: readonly ClassifiedModel[] | null = [], intent = 'video') {
   const defaults = MODEL_TYPE_DEFAULTS[classifyModel(model)] || MODEL_TYPE_DEFAULTS.unknown
   const lightning = /rapid|lightning|lightx2v/i.test(model)
+  // On the Mac the catalogue entry of the model the lane runs says how long
+  // a clip is, at what rate it plays and at what size it is made. The
+  // family table is ComfyUI's: it
+  // gave LTX-2.3 Distilled 97 frames where its entry says 49, and on Animate,
+  // where the lane runs another model than the stored pick, it left Wan's 16
+  // fps under an LTX (persona walk, 09.10.2026, Fund 19). A ComfyUI entry
+  // carries no `mlxVideo`, and nothing changes for it.
+  const clip = mlxVideoLaneEntry(list, model, intent)?.mlxVideo
   return {
     steps: lightning ? 6 : defaults.steps, cfgScale: lightning ? 1.0 : defaults.cfgScale,
     sampler: defaults.sampler, scheduler: defaults.scheduler,
     width: defaults.width, height: defaults.height,
     ...(defaults.frames ? { frames: defaults.frames } : {}),
     ...(defaults.fps ? { fps: defaults.fps } : {}),
+    ...(clip ? { frames: clip.frames, fps: clip.fps, width: clip.width, height: clip.height } : {}),
   }
+}
+
+/** The tab a video run is on, as the lanes name it. */
+function videoIntentOf(s: Pick<CreateState, 'videoSubMode' | 'cloudOp'>): string {
+  return s.cloudOp === 'extend' ? 'extend' : s.videoSubMode === 'i2v' ? 'animate' : 'video'
 }
 
 /**
@@ -773,7 +831,7 @@ function videoModelParams(model: string) {
  */
 function restartSampling(s: CreateState): Partial<CreateState> {
   if (s.cloudOp === 'music') return imageLaneParams(s)
-  if (s.cloudOp === 'lipsync' || s.cloudOp === 'motion') return videoModelParams(s.videoModel)
+  if (s.cloudOp === 'lipsync' || s.cloudOp === 'motion') return videoModelParams(s.videoModel, s.videoModelList, videoIntentOf(s))
   return {}
 }
 
@@ -895,18 +953,18 @@ export const useCreateStore = create<CreateState>()(
       setMode: (mode) => set((state) => {
         // Reset parameters to the correct defaults when switching modes
         // This prevents image resolution (1024x1024) leaking into video mode (causes HTTP 500)
-        if (mode === 'video' && state.videoModel) return { mode, ...videoModelParams(state.videoModel) }
+        if (mode === 'video' && state.videoModel) return { mode, ...videoModelParams(state.videoModel, state.videoModelList, videoIntentOf(state)) }
         if (mode === 'image' && state.imageModel) return { mode, ...imageModelParams(state) }
         return { mode }
       }),
       setImageSubMode: (subMode) => set({ imageSubMode: subMode }),
       setPrompt: (prompt) => set({ prompt }),
       setNegativePrompt: (negativePrompt) => set({ negativePrompt }),
-      setImageModel: (model, type) => set({
+      setImageModel: (model, type) => set((s) => withMacEditCanvas(s, {
         imageModel: model, imageModelType: type,
         ...imageModelParams({ imageModel: model, imageModelType: type }),
-      }),
-      setVideoModel: (model) => set({ videoModel: model, ...videoModelParams(model) }),
+      })),
+      setVideoModel: (model) => set((s) => ({ videoModel: model, ...videoModelParams(model, s.videoModelList, videoIntentOf(s)) })),
       setSampler: (sampler) => set({ sampler }),
       setScheduler: (scheduler) => set({ scheduler }),
       setSteps: (steps) => set({ steps: Math.max(1, Math.min(200, Math.floor(steps))) }),
@@ -958,7 +1016,7 @@ export const useCreateStore = create<CreateState>()(
       // je Endpunkt eine andere Auswahl.
       setIntent: (intent) => {
         const changed = get().intent() !== intent
-        set((s) => withOwnStudioOptions(s, ((): Partial<CreateState> => {
+        set((s) => withOwnStudioOptions(s, withMacEditCanvas(s, ((): Partial<CreateState> => {
         const patch = ((): Partial<CreateState> => {
         // Clear intent-incompatible inputs: intents without a source drop both;
         // removebg/animate keep the source but drop a stale mask. Video/animate
@@ -1003,7 +1061,7 @@ export const useCreateStore = create<CreateState>()(
             // The local lane continues from the picked clip's last frame —
             // regular I2V models, regular video defaults.
             return { ...base, cloudOp: 'extend' as const, mode: 'video' as const, videoSubMode: 't2v' as const, ...dropAll,
-              ...videoModelParams(s.videoModel) }
+              ...videoModelParams(s.videoModel, s.videoModelList, 'extend') }
           }
           case 'motion': {
             // Keeps the source slot (the character image the video drives).
@@ -1013,7 +1071,9 @@ export const useCreateStore = create<CreateState>()(
               width: d.width, height: d.height, ...(d.frames ? { frames: d.frames } : {}), ...(d.fps ? { fps: d.fps } : {}) }
           }
           case 'image':    return { ...base, mode: 'image' as const, imageSubMode: 'text2img' as const, ...dropAll }
-          case 'edit':     return { ...base, mode: 'image' as const, imageSubMode: 'img2img' as const }
+          // On the Mac, Edit lists the models that take an image, and a pick
+          // that cannot is replaced (editLanePick).
+          case 'edit':     return { ...base, mode: 'image' as const, imageSubMode: 'img2img' as const, ...(s.backend === 'local' ? editLanePick(s) : {}) }
           case 'removebg': return { ...base, removebg: true, mode: 'image' as const, imageSubMode: 'img2img' as const, mask: null }
           // Cloud-only utility endpoints: upscale keeps the source (no mask,
           // no prompt); eraser keeps source + mask (paint what to remove).
@@ -1021,10 +1081,10 @@ export const useCreateStore = create<CreateState>()(
           case 'eraser':   return { ...base, utilityOp: 'eraser' as const, mode: 'image' as const, imageSubMode: 'img2img' as const }
           case 'video':
             return { ...base, mode: 'video' as const, videoSubMode: 't2v' as const, ...dropAll,
-              ...videoModelParams(s.videoModel) }
+              ...videoModelParams(s.videoModel, s.videoModelList, 'video') }
           case 'animate':
             return { ...base, mode: 'video' as const, videoSubMode: 'i2v' as const, mask: null,
-              ...videoModelParams(s.videoModel) }
+              ...videoModelParams(s.videoModel, s.videoModelList, 'animate') }
         }
         })()
         // Leaving the image lane, its values are put aside under the model
@@ -1040,7 +1100,7 @@ export const useCreateStore = create<CreateState>()(
           }
         }
         return onImageLane(next) ? { ...patch, imageLaneKept: null } : patch
-        })()))
+        })())))
         // The list of further source images stays only where it can run.
         if (get().batchSources.length && (!get().source || !BATCH_INTENTS.has(intent))) get().setBatchSources([])
       },
@@ -1179,7 +1239,18 @@ export const useCreateStore = create<CreateState>()(
       // its RMBG lane, and animate keeps its i2v state since 2026-07-17 — the
       // local I2V lane is back (buildDynamicWorkflow wires the family's
       // image-to-video node).
-      setBackend: (backend) =>
+      setBackend: (backend) => {
+        // The lanes of LOCAL_LANE_OPS are ComfyUI graphs, and a Mac runs MLX.
+        // There the bar shows them as locked cloud teasers, so a flip from
+        // Cloud while Music (or Lipsync, Extend, Motion, Character) was open
+        // left the local composer of a lane this Mac cannot run, with no tab
+        // selected in the bar and an empty model picker (persona walk,
+        // 09.10.2026). The flip below keeps the lane as it does everywhere,
+        // and then the Mac leaves it the way a click on Image or Video does
+        // (setIntent), so the lane's own steps and inputs do not travel along:
+        // dropping the op alone sent the 50 steps of Music to SD Turbo.
+        const strandsOnMac = backend === 'local' && isMlxImageHost() && !!get().cloudOp
+        const heldMode = get().mode
         set((s) => withOwnStudioOptions(s, ((): Partial<CreateState> => {
           if (backend !== 'local') return { backend }
           const patch: Partial<CreateState> = { backend }
@@ -1192,8 +1263,9 @@ export const useCreateStore = create<CreateState>()(
             Object.assign(patch, { cloudOp: null, error: null })
           }
           // Und auf einem Mac laeuft lokal MLX, nicht ComfyUI. MLX kann weder
-          // Edit noch Cutout noch Animate, `visibleIntents` blendet die drei
-          // dort deshalb aus. Bleibt eine davon gewaehlt, findet die
+          // Edit noch Cutout, und Animate nur, solange ein installiertes
+          // Videomodell ein Startbild nimmt; `visibleIntents` blendet sie
+          // dort sonst aus. Bleibt eine davon gewaehlt, findet die
           // Werkzeugleiste ihren eigenen Eintrag nicht mehr und steht ohne
           // Auswahl da. Gemessen am 04.09.2026: erreichbar ohne einen einzigen
           // Klick in der Leiste, allein ueber den Backend-Schalter.
@@ -1206,14 +1278,23 @@ export const useCreateStore = create<CreateState>()(
             || ('utilityOp' in patch ? patch.utilityOp : s.utilityOp)
           if (isMlxImageHost() && !opBleibt) {
             if (s.removebg) Object.assign(patch, { removebg: false })
-            if (s.imageSubMode === 'img2img') Object.assign(patch, { imageSubMode: 'text2img' })
-            if (s.videoSubMode === 'i2v') Object.assign(patch, { videoSubMode: 't2v' })
+            // Edit bleibt, solange ein installiertes Bildmodell ein Bild
+            // nimmt (Qwen-Image 2.1 ueber die zweite Engine). Eine Maske
+            // gibt es dort nicht: was in der Cloud gemalt wurde, geht mit.
+            if (s.imageSubMode === 'img2img') {
+              if (s.removebg || !mlxTakesEditImage(s.imageModelList)) Object.assign(patch, { imageSubMode: 'text2img' })
+              else Object.assign(patch, editLanePick(s))
+            }
+            if (s.mask) Object.assign(patch, { mask: null })
+            if (s.videoSubMode === 'i2v' && !mlxTakesStartImage(s.videoModelList)) Object.assign(patch, { videoSubMode: 't2v' })
           }
           // A tab this flip closes takes its number of images with it, like
           // any other tab change (setIntent).
           if (deriveIntent({ ...s, ...patch }) !== deriveIntent(s)) Object.assign(patch, { cloudImageCount: 1 })
           return patch
-        })())),
+        })()))
+        if (strandsOnMac && get().cloudOp) get().setIntent(heldMode === 'video' ? 'video' : 'image')
+      },
       setCloudImageModel: (cloudImageModel) => set((s) => withOwnStudioOptions(s, { cloudImageModel })),
       setCloudVideoModel: (cloudVideoModel) => set((s) => withOwnStudioOptions(s, { cloudVideoModel })),
       setCaps: (caps) => set({ caps }),
@@ -1225,7 +1306,7 @@ export const useCreateStore = create<CreateState>()(
         // The picked model's own values where it has some: a distilled
         // checkpoint reset to its family's 25 or 30 steps renders to mush.
         // LU Cloud renders with its own model, there the family stays.
-        const own = s.backend === 'cloud' ? {} : s.mode === 'video' ? videoModelParams(s.videoModel) : imageModelParams(s)
+        const own = s.backend === 'cloud' ? {} : s.mode === 'video' ? videoModelParams(s.videoModel, s.videoModelList, videoIntentOf(s)) : imageModelParams(s)
         set({
           sampler: d.sampler,
           scheduler: d.scheduler,
@@ -1247,6 +1328,8 @@ export const useCreateStore = create<CreateState>()(
           selectedLoras: [],
           selectedCharacter: s.selectedCharacter?.id.startsWith('local:') ? null : s.selectedCharacter,
         })
+        // The Mac's Edit goes back to the canvas it starts on, not to 1024.
+        set((now) => withMacEditCanvas(now, {}))
       },
 
       setIsGenerating: (generating) => set({ isGenerating: generating, ...(generating ? {} : { progressPhase: 'idle' as ProgressPhase }) }),
@@ -1327,7 +1410,7 @@ export const useCreateStore = create<CreateState>()(
         const remaining = s.gallery.filter((g) => g.id !== id)
         if (gone) {
           releaseItemMedia(gone)
-          // The file goes too, into the Recycle Bin (lib/gallery-trash.ts).
+          // The file goes too, into the Recycle Bin or the Trash (lib/gallery-trash.ts).
           void import('../lib/gallery-trash')
             .then((m) => m.trashGalleryFile(gone, remaining))
             .then((problem) => { if (problem) useCreateStore.getState().setError(problem) })
@@ -1346,8 +1429,25 @@ export const useCreateStore = create<CreateState>()(
       removeFromPromptHistory: (prompt) =>
         set((s) => ({ promptHistory: s.promptHistory.filter((p) => p !== prompt) })),
       clearPromptHistory: () => set({ promptHistory: [] }),
-      setImageModelList: (list) => set({ imageModelList: list }),
-      setVideoModelList: (list) => set({ videoModelList: list }),
+      // On the Mac the Edit tab exists only while an installed model takes an
+      // image. When the last one goes, a selected Edit would stand in a bar
+      // that no longer shows it, so it falls back to Image, the way Animate
+      // falls back to Video below. A ComfyUI list is never touched.
+      setImageModelList: (list) => set((s) => {
+        const strands = isMlxImageHost() && s.backend === 'local' && !s.cloudOp && !s.utilityOp
+          && s.mode === 'image' && s.imageSubMode === 'img2img' && !s.removebg && !mlxTakesEditImage(list)
+        return strands ? { imageModelList: list, imageSubMode: 'text2img' } : { imageModelList: list }
+      }),
+      // On the Mac the Animate tab exists only while an installed model starts
+      // from an image. When the last one goes (removed in the Model Manager),
+      // a selected Animate would stand in a bar that no longer shows it, so it
+      // falls back to Video. Lists without the catalogue's word (ComfyUI) are
+      // never touched.
+      setVideoModelList: (list) => set((s) => {
+        const strands = isMlxImageHost() && s.backend === 'local' && !s.cloudOp && !s.utilityOp
+          && s.mode === 'video' && s.videoSubMode === 'i2v' && !mlxTakesStartImage(list)
+        return strands ? { videoModelList: list, videoSubMode: 't2v' } : { videoModelList: list }
+      }),
       setComfyRunning: (running) => set((s) => {
         if (!running || s.comfyRunning) return { comfyRunning: running }
         // ComfyUI is back: every local tile that failed while it was away

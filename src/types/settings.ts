@@ -61,7 +61,7 @@ export interface Settings {
    * you left. Auto-falls back to 'local' when the account signs out.
    */
   appMode: AppMode
-  /** One-time Cloud onboarding (David 2026-07-10): the FIRST successful flip
+  /** One-time Cloud onboarding (2026-07-10): the FIRST successful flip
    *  to Cloud shows a short what-changes walkthrough; after that the switch
    *  flips silently. Persisted so it never re-triggers. */
   /** Cloud discovery inside Local mode (2.5.8): locked Upscale/Erase tabs in
@@ -71,7 +71,7 @@ export interface Settings {
    *  the sheet's "Hide Cloud features" link and Settings both flip this. */
   cloudTeasersEnabled: boolean
   /** Master switch for personas. When off, new chats get no persona system
-   *  prompt (raw model). Default true. Ported from the uselu web companion. */
+   *  prompt (raw model). Default true. Ported from the web companion. */
   personasEnabled: boolean
   thinkingEnabled: boolean
   /**
@@ -99,7 +99,7 @@ export interface Settings {
    */
   smallModelMode: boolean
   /**
-   * Chat-Tools (v2.5.3, David 2026-06-11). When on (default), PLAIN chat can
+   * Chat-Tools (v2.5.3, 2026-06-11). When on (default), PLAIN chat can
    * use a curated set of five tools — web_search, web_fetch, file_write,
    * image_generate, video_generate — without the user flipping the full Agent
    * toggle. A lightweight intent detector routes only tool-worthy messages
@@ -108,6 +108,15 @@ export interface Settings {
    * pure text (the pre-v2.5.3 behaviour); the full Agent toggle still works.
    */
   chatToolsEnabled: boolean
+  /**
+   * Create in chat: the "Create" switch under Plugins. On = create_options and
+   * create_order ride along with every message in the cloud chat and in Agent
+   * mode; the model decides in context, every order still needs the customer's
+   * approval. Off = no Create tools. Optional on purpose: absent means OFF, so
+   * no default and no store migration is needed. Cloud mode only, and only for
+   * an account the server has released (lib/create/chat-switch.ts).
+   */
+  createEnabled?: boolean
   cavemanMode: CavemanMode
   searchProvider: SearchProvider
   braveApiKey: string
@@ -136,22 +145,22 @@ export interface Settings {
   /**
    * How many passes a `/loop` may run. 0 = unlimited, which is the default:
    * a loop the user asked to keep going should keep going until it is done or
-   * they stop it (David 2026-07-25). The stop button is the brake, not a cap.
+   * they stop it (2026-07-25). The stop button is the brake, not a cap.
    */
   loopMaxPasses: number
   /** Override for the HuggingFace GGUF download directory. Empty = auto-detect from active openai-compat provider (e.g. LM Studio models folder). */
   hfDownloadPathOverride: string
   /** Cap for the model files LU downloads itself, in MB/s, shared by all
-   *  downloads at once. 0 = no limit (Discord, boromirofgeo 2026-09-23). */
+   *  downloads at once. 0 = no limit (Discord 2026-09-23). */
   downloadLimitMBps: number
-  // Generation timeouts (Bug P v2.4.7 — ake0n_official Discord 2026-05-19,
+  // Generation timeouts (Bug P v2.4.7 — Discord 2026-05-19,
   // Intel UHD CPU-only setup hit the 20-min cap at sampling 9/25 on a 1024px
   // Juggernaut-XL gen).
   /** Image generation timeout in minutes. Default 20. */
   imageGenTimeoutMinutes: number
   /** Video generation timeout in minutes. Default 60. */
   videoGenTimeoutMinutes: number
-  // Bug AA v2.5.0 — Kj103x Discord 2026-05-27. Ollama defaults `num_ctx` to
+  // Bug AA v2.5.0 — Discord 2026-05-27. Ollama defaults `num_ctx` to
   // 2048, which silently caps RAG payloads and long-turn chats even on
   // models that support way more. This override is forwarded to Ollama
   // chat/chatWithTools as `options.num_ctx`. 0 = use Ollama default
@@ -236,11 +245,11 @@ export interface Settings {
   // the api/engine chokepoint. Defaults reproduce the pre-2.6.0 argv exactly.
   /** Expert settings for the bundled llama-server (chat engine only). */
   builtinEngine: BuiltinEngineTuning
-  // Bug BB v2.5.0 — BobbyT Discord 2026-05-26. GPU vendor + indices to
+  // Bug BB v2.5.0 — Discord 2026-05-26. GPU vendor + indices to
   // forward as CUDA_VISIBLE_DEVICES / HIP_VISIBLE_DEVICES /
   // ONEAPI_DEVICE_SELECTOR on next Ollama / ComfyUI spawn. "auto" + empty
   // = no env-var, runtime picks default (pre-v2.5.0 behaviour). Used on
-  // multi-vendor / multi-GPU systems (e.g. BobbyT's AMD RX 6800XT + Intel
+  // multi-vendor / multi-GPU systems (e.g. a user's AMD RX 6800XT + Intel
   // Arc Pro B60 where he wants to pin the Arc).
   /** Selected GPU vendor for env-var family ("auto" | "nvidia" | "amd" | "intel"). */
   gpuVendor: 'auto' | 'nvidia' | 'amd' | 'intel'
@@ -267,7 +276,7 @@ export interface Settings {
    *  'gpu'   — never force --cpu (for DirectML / setups the probe can't confirm).
    *  Desktop-only effect — the web build points at a remote ComfyUI. */
   comfyGpuMode: 'auto' | 'cpu' | 'gpu'
-  // ── v2.5.0 Codex sprint A/B/C settings (ported from uselu) ──────
+  // ── v2.5.0 Codex sprint A/B/C settings (ported from the web app) ──────
   /**
    * Codex Architect/Editor split. When on, a separate `codexArchitectModel`
    * runs first to produce a structured plan (no tools, plan only); the
@@ -331,7 +340,7 @@ export interface Settings {
    * `codexConfirmShell` is off. Governs BOTH surfaces (Code tab and Agent
    * mode), and rides on top of Agent's per-tool permission levels.
    *
-   * Default OFF (David 2026-08-22, replacing the ON default this carried as
+   * Default OFF (2026-08-22, replacing the ON default this carried as
    * `codexCloudConfirmShell` since 2.5.9 and the G15a decision of 2026-08-07):
    * a cloud model follows the same rule as a local one, so Bypass really
    * bypasses and permission level auto really runs unattended. The user who

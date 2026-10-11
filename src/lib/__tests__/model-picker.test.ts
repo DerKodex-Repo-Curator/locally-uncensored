@@ -17,7 +17,8 @@ import {
   searchTokens,
   type PickerFilter,
 } from '../model-picker'
-import { PICKER_FIXTURE, pickerFixtureModels } from './model-picker-fixture'
+import { DIRECT_FIXTURE, PICKER_FIXTURE, directFixtureModels, pickerFixtureModels } from './model-picker-fixture'
+import { STATEMENT_MARK_LABEL } from '../unfiltered-mark'
 import type { AIModel } from '../../types/models'
 
 const MODELS = pickerFixtureModels()
@@ -86,9 +87,64 @@ describe('rows', () => {
 
 describe('the marks on the rows', () => {
   it('give the mark to the models measured full and to no partial one', () => {
-    const marked = labels(ROWS.filter((r) => r.unfiltered))
+    const marked = labels(ROWS.filter((r) => r.mark === 'measured'))
     expect(marked).toEqual(PICKER_FIXTURE.filter((m) => m.unfiltered === 'full').map((m) => m.label))
-    expect(byLabel('Qwen3 30B A3B').unfiltered).toBe(false)
+    expect(byLabel('Qwen3 30B A3B').mark).toBeNull()
+    expect(ROWS.some((r) => r.mark === 'statement')).toBe(false)
+  })
+})
+
+describe('the models the cloud marks as released without a refusal layer', () => {
+  // 09.10.2026: they carry their word at the place of the measured
+  // mark, in the accent, and stand together under that word. The rows are in
+  // the shape the model store keeps them: the app shows the model's own
+  // published name (`native_name` of the listing), not the neutral name the
+  // web app prints on the payment domain.
+  const WITH_DIRECT = [...MODELS, ...directFixtureModels()]
+  const rows = pickerRows(WITH_DIRECT, true)
+  const direct = rows.filter((r) => r.mark === 'statement')
+
+  it('carry the statement, every one of them and nobody else', () => {
+    expect(labels(direct)).toEqual(DIRECT_FIXTURE.map((m) => m.nativeName ?? m.label))
+    expect(labels(rows.filter((r) => r.mark === 'measured'))).toEqual(labels(ROWS.filter((r) => r.mark === 'measured')))
+  })
+
+  it('show the real names, the neutral ones of the web app nowhere', () => {
+    expect(labels(direct)).toContain('Venice Uncensored 1.2')
+    expect(labels(direct)).toContain('Gemma 4 Uncensored')
+    expect(labels(rows).some((l) => /Unfiltered/.test(l))).toBe(false)
+  })
+
+  it('stand together under the one word, whatever lineage their names carry', () => {
+    expect(new Set(direct.map((r) => r.family))).toEqual(new Set([STATEMENT_MARK_LABEL]))
+    expect(STATEMENT_MARK_LABEL).toBe('Uncensored')
+  })
+
+  it('lead the list as one group, and the lineages follow in their old order', () => {
+    const groups = pickerGroups(rows, false)
+    expect(groups[0].family).toBe(STATEMENT_MARK_LABEL)
+    expect(groups[0].rows).toHaveLength(DIRECT_FIXTURE.length)
+    expect(groups.slice(1).map((g) => g.family)).toEqual(pickerGroups(ROWS, false).map((g) => g.family))
+    const flat = pickerGroups(rows, true)
+    expect(flat).toHaveLength(1)
+    expect(flat[0].rows.slice(0, DIRECT_FIXTURE.length).every((r) => r.mark === 'statement')).toBe(true)
+  })
+
+  it('pass the mark chip together with the measured models, and are counted on it', () => {
+    expect(filterCounts(rows).marked).toBe(filterCounts(ROWS).marked + DIRECT_FIXTURE.length)
+    expect(filterRows(rows, '', only('marked')).filter((r) => r.mark === 'statement')).toHaveLength(DIRECT_FIXTURE.length)
+  })
+
+  it('are found by the word of their group, and are never free of credits', () => {
+    expect(labels(filterRows(rows, 'uncensored', new Set())).sort()).toEqual(labels(direct).sort())
+    expect(direct.every((r) => r.free === null)).toBe(true)
+  })
+
+  it('never carry both marks: the statement goes first', () => {
+    const [row] = pickerRows([cloudModelRow({
+      id: 'direct/x', name: 'X', provider: 'lu-cloud', providerName: 'LU Cloud', unfiltered: 'full', unrestricted: true,
+    })], true)
+    expect(row.mark).toBe('statement')
   })
 })
 
@@ -107,10 +163,10 @@ describe('chips', () => {
   })
 
   it('narrow to the rows that pass, and two chips must both pass', () => {
-    expect(filterRows(ROWS, '', only('marked')).every((r) => r.unfiltered)).toBe(true)
+    expect(filterRows(ROWS, '', only('marked')).every((r) => r.mark === 'measured')).toBe(true)
     const both = filterRows(ROWS, '', only('marked', 'vision'))
     expect(both.length).toBeGreaterThan(0)
-    expect(both.every((r) => r.unfiltered && r.vision)).toBe(true)
+    expect(both.every((r) => r.mark === 'measured' && r.vision)).toBe(true)
     expect(both.length).toBeLessThan(filterRows(ROWS, '', only('marked')).length)
   })
 
@@ -140,7 +196,7 @@ describe('search', () => {
   it('works together with a chip', () => {
     const hits = filterRows(ROWS, 'qwen', only('marked'))
     expect(hits.length).toBeGreaterThan(0)
-    expect(hits.every((r) => r.unfiltered && r.label.toLowerCase().includes('qwen'))).toBe(true)
+    expect(hits.every((r) => r.mark === 'measured' && r.label.toLowerCase().includes('qwen'))).toBe(true)
   })
 })
 

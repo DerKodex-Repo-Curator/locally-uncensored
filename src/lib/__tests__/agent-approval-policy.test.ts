@@ -25,7 +25,7 @@ const code = (over: Partial<FrontDecision> = {}): FrontDecision => ({
 
 describe('Hintergrundagenten fragen nicht mehr nach', () => {
   it('delegate_task laeuft, obwohl seine Kategorie auf confirm steht', () => {
-    // Das ist Davids Fall: drei Delegationen waren drei Dialoge, weil
+    // Das ist der gemeldete Fall: drei Delegationen waren drei Dialoge, weil
     // delegate_task in 'workflow' liegt und 'workflow' auf 'confirm' steht.
     expect(resolveApprovalLevel('delegate_task', chat({ categoryLevel: 'confirm' }))).toBe('auto')
   })

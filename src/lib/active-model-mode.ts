@@ -33,7 +33,7 @@ export interface ModePick {
   change: boolean
   /** What to write when it does. null clears the selection on purpose: a
    *  lu-cloud model left active in Local mode kept spending credits after the
-   *  switch said Local (Discord 2026-08-09, helpslowlydying). */
+   *  switch said Local (Discord 2026-08-09). */
   next: string | null
   /** True when `requested` is what landed, so the caller knows the request was
    *  answered and can drop it. False whenever the request was absent, not in

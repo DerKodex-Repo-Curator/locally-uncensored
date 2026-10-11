@@ -1,7 +1,7 @@
 /**
  * Resuming a plan must be a mechanism, not hope.
  *
- * David, 2026-08-22 on the running build: an agent run with a plan was
+ * 2026-08-22 on the running build: an agent run with a plan was
  * interrupted by a side question, the model answered in prose and left the
  * plan lying. "continue" then asked the model to rediscover its own plan in a
  * history it may no longer hold. G27b hands it over instead: one line at the
@@ -24,7 +24,7 @@ const src = (...p: string[]) => readFileSync(resolve(here, '../..', ...p), 'utf8
 
 const t = (content: string, status: TodoItem['status']): TodoItem => ({ content, status })
 
-/** David's shape: a long plan, a few steps in, interrupted mid-flight. */
+/** The owner's shape: a long plan, a few steps in, interrupted mid-flight. */
 const INTERRUPTED: TodoItem[] = [
   t('Read the existing router', 'completed'),
   t('Sketch the new endpoint', 'completed'),

@@ -2,6 +2,546 @@
 
 All notable changes to Locally Uncensored are documented here.
 
+## [3.0.6] - 2026-10-11
+
+You can talk to LU and hear it answer, and a model can use the mouse and
+keyboard in apps you approve. Local models with image input download with their
+image part, a chat on LU Cloud can order images and clips, dialogs have a new
+look, a running task says what it is doing, and LU Cloud lists ten more chat
+models. Voice, computer control, Create in chat and the ten new models are in
+beta. The app marks each of them with the word Beta, and hovering the mark says
+what that means. The limits we know are listed below. Our check of Voice and
+computer control in the real app ran on Windows. On a Mac, Voice has been tried
+by hand in the app, and computer control is in the app but not fully tested
+yet.
+
+### Added
+
+- **Voice (Beta): talk to LU and hear it answer.** Voice is a new surface in
+  the main navigation. Speech recognition, the voice and the turn taking run on
+  your own machine, and the model that answers is the chat model you picked.
+  The first time, LU shows what it downloads and where it goes, then installs
+  its own voice engine with one click. You can interrupt an answer by speaking,
+  and the session is saved as a normal conversation. It is English only for
+  now. Voice is in beta: it is new, and your computer may still show rough
+  edges. Our check in the real app ran on Windows, and on a Mac Voice has been
+  tried by hand in the app. The word Beta stands next to the title.
+- **Fifteen voices to choose from.** Pick a voice in the setup or later in the
+  Voice settings: Alba, Anna, Azelma, Charles, Eponine, Eve, Fantine, George,
+  Jane, Javert, Marius, Mary, Michael, Paul or Vera. Changing it fetches one
+  small file and installs nothing else again. Listen plays a short sentence in
+  the chosen voice once the voice engine is installed.
+- **Four switches sit next to the title.** Voice settings, Agent, Where it may
+  work and Thinking. You can move all of them while a session runs, and the
+  session follows at once. With Agent off, the session is a conversation
+  without tools.
+- **You decide how far the tools reach.** Workspace only is the default: files
+  stay inside the folder of the session, LU asks before every command, and
+  there is no screen. Whole computer opens files by any path your user account
+  can open, commands in any folder and the screen. LU asks once before that
+  level is used for the first time, and your system asks once more each time LU
+  was started. A session that is starting waits for that answer and says so.
+  System folders and the folders that hold keys and passwords stay closed at
+  both levels.
+- **The model can use tools, and a tool that needs your approval waits for your
+  click.** With Agent on, a voice session has the tools of the agent chat with
+  the same permissions. A tool call looks the way it does in the chat, and the
+  same approval bar asks in plain words, for example "Voice wants to change a
+  file." You answer it with a click on Approve or Reject. A spoken yes or no
+  answers the questions of computer control only, and it is not a line of the
+  conversation. Local models get a shorter tool list (web, files, shell and the
+  screen), so the first answer comes quickly.
+- **Thinking is a switch, and a thought is never read aloud.** Thinking is off
+  by default. Switched on, the thought appears in the transcript as the folded
+  Thinking block you know from the chat. Thinking length in the Voice settings
+  limits a thought to between 128 and 4096 tokens, 512 by default. When a
+  thought runs longer, LU ends it and asks the model again for a direct answer.
+- **A light switch unloads Voice.** While the voice engine is in memory, a
+  switch next to the title shows how much memory it holds. LU measures that
+  number, and on our Windows test machine it was about 1 GB. One click ends the
+  session and stops the engine, and if the voice session loaded the chat model,
+  that model is unloaded too. Without the click, the engine shuts down five
+  minutes after the last session.
+- **A short chord says that a session is listening.** It is quiet and lasts
+  about a second. You can switch it off in the Voice settings.
+- **Voice hears you while it starts.** What you say after the Start click, also
+  while the speech models are still loading, is kept for up to a minute and
+  answered once the session is up.
+- **Dictation in the chat works when only Voice is installed.** The microphone
+  button in the chat uses the speech recognition of the voice engine if no
+  separate speech-to-text install exists.
+- **One line of advice for small models.** If the chat model takes no tools or
+  is smaller than 7B, the empty Voice surface recommends a local model that
+  fits.
+- **A session that ends without the Stop button says why.** Leaving the Voice
+  surface, a repair and an uninstall each end the session with one sentence and
+  a Start again button.
+- **Only a serious error ends a voice session.** If the voice engine reports an
+  error it cannot recover from, the session ends and says why. Any other error
+  goes to the log, and where you would miss something, for example a sentence
+  that could not be spoken, one line under the status says so until you speak
+  again.
+- **Computer control (Beta): a model works in the apps you approve. Off by
+  default.** Computer control is in beta: it is new and not proven in every app
+  yet, so watch what it does and stop it when it goes wrong. It stays off until
+  you switch it on under Settings, Agent, Agent Permissions, Computer control.
+  In every new chat LU asks once whether it may use computer control there,
+  before it looks at the screen or acts. It also asks before it touches an app
+  for the first time and, by default, before every action. Autonomous, for one
+  session, asks only before sending, buying, deleting or changing permissions.
+  Terminals, password managers, system sign-in and permission dialogs, security
+  settings, the Run dialog and windows with administrator rights are always off
+  limits, and LU never types into a password field. Ctrl+Alt+Space pauses and
+  Ctrl+Alt+Esc stops, from anywhere. Our check in the real app ran on Windows.
+  On a Mac it is in the app but not fully tested yet.
+- **Every chat asks once before computer control starts.** The first time a
+  chat wants the screen, a card in the conversation asks "Allow computer
+  control in this chat?" with Allow and Deny. Until you click, LU takes no
+  screenshot and does nothing. The yes holds for that one chat. A new chat asks
+  again, and so does every chat after the app was restarted. No setting and no
+  autonomous session skips the card. In a voice session LU says aloud that it
+  waits for your click. A spoken yes does not allow it, and a spoken no or stop
+  declines.
+- **LU gets out of the way while it works.** On Windows the LU window shrinks
+  to a small window in the top right corner of the screen LU works on, and
+  comes back at its old size and place when the work is over. The small window
+  shows what LU is doing and names the two shortcuts. The edge of that screen
+  glows softly in purple for as long as LU works there. On Linux the window
+  stays as it is and a bar at the top says "LU is controlling this computer".
+- **Questions stand above the input field.** A question about an app or an
+  action stands directly above the input field in the chat, and above the
+  session controls in Voice. While the LU window is small, the question appears
+  there with a Stop button. You answer it with the mouse. It does not take the
+  keyboard, so the app LU works in keeps the focus.
+- **A sensitive action always needs your click.** Anything that sends, buys,
+  deletes or changes permissions is asked with the reason in red, in a
+  supervised session as in an autonomous one. The same goes for a click whose
+  target LU cannot name, for a button, link or menu item without a name, and
+  on Windows and Linux for Alt with a letter, which presses a button or opens a
+  menu from anywhere in a window. A spoken yes never confirms such an action,
+  because speech recognition can mishear and the microphone hears the whole
+  room.
+- **A hand on the mouse pauses LU.** In an autonomous session LU pauses when
+  you move the mouse. The paused view shows what LU did so far and asks whether
+  you take over or let it continue, and you can add an instruction for the rest
+  of the task. After Let it continue, LU brings the window it works in back to
+  the front and looks at the screen again before it acts. Ctrl+Alt+Esc still
+  stops at once, also during a pause.
+- **Ask for something on the screen by voice.** With Where it may work set to
+  Whole computer, a voice session can carry out a task on the screen and tell
+  you the result. LU asks its questions aloud, and yes or no answers an
+  ordinary action. Say stop or wait and the task pauses. Only the word alone
+  does that: "Wait, what is two plus two?" is a question for the model. In our
+  test on Windows, typing a note in Notepad by voice took 11 to 22 seconds from
+  the end of the command to the spoken result, with a local 9B model that works
+  from the list of buttons and fields.
+- **Screen tasks follow what the chat model can see.** The model that looks at
+  the screen is the chat model by default, and LU does not ask how it should
+  run. A model that can see images gets the screenshots, and on Windows the
+  list of buttons and fields of the window next to them. A model that cannot
+  see images works on Windows from that list alone, without a picture. A local
+  model sees images while it is loaded with its image part. You can choose
+  another local model or a cloud model with image input instead.
+- **Holo 3.1 9B is in the model catalog as a screen model, marked Beta.** It is
+  recommended from 16 GB of video memory. In our test on Windows it finished a
+  simple typing task in 1 of 3 runs.
+- **Screenshots appear on the step they belong to.** Each look at the screen is
+  a small picture on the block of its tool call, and a click opens it large
+  over the whole window. The pictures are kept in memory only, at most 24, and
+  are not written to the conversation. If a password field had the focus, the
+  block says so and shows no picture.
+- **A screen task has a limit.** It ends after at most 25 steps or 8 minutes,
+  and the time you take to answer a question counts. A task that ran out of
+  time says so.
+- **Local models with image input download with their image part.** A local
+  chat model of the LU Engine takes pictures only when a second file, its image
+  part, lies next to the model. LU now fetches both as one download on the
+  Models page, in onboarding and for a model you find through the hub search,
+  with one progress bar and a checksum for each file. The two download dialogs
+  have a ticked box, Include image input, with the size it adds. For a model
+  you already have, Add image input fetches the missing file: on the model's
+  row under Models and at the top of a chat once a picture is attached. The
+  catalog lists 42 image parts, each with its exact size and checksum. If the
+  graphics memory has no room for the part next to the model, the model loads
+  without it and LU says so.
+- **Create in chat (Beta): ask for an image or a clip in a Cloud chat.** In
+  Cloud mode the Plugins menu has a Create switch. With it on, the chat model
+  puts together an order from what you ask for, the order appears as a card,
+  and nothing runs until you approve it. It is in beta, so read the order
+  before you start it, and the switch appears once your account has it.
+- **Ten more chat models on LU Cloud, marked Uncensored (Beta).** The Cloud
+  model picker opens with a new group of ten models whose makers release them
+  to answer without refusing, among them Gemma 4 Uncensored, GLM 4.7 Flash
+  Heretic, Aion 3.5 and Abliterated Large V2. A model shows up once the cloud
+  catalogue lists it.
+- **Five of the new models say Limited capacity.** The Cloud model picker
+  writes Limited capacity in grey after their names. At busy times such a
+  model can ask you to wait a moment.
+- **A build for Macs with Apple Silicon (Beta).** This release is prepared for
+  a Mac build: Apple Silicon, macOS 14 or newer, no Intel Macs. The `.dmg` is
+  attached to the release only after the Mac build has passed its own checks,
+  so it can arrive later than the Windows and Linux installers. If the release
+  page lists no `.dmg`, there is no Mac build yet. On a Mac, chat runs on local
+  models through the bundled server with Metal, and Create makes images and
+  video on the Mac itself, without ComfyUI. On an M5 Pro with 48 GB,
+  DreamShaper XL Turbo made an image in 33 seconds and Qwen-Image 2.1 Turbo in
+  38, and LTX-2.3 Distilled 4-bit made a clip of two seconds at 768x512 with
+  sound in 64 seconds. The Mac build is in beta: the app has run on that one
+  Mac only.
+- **The Linux packages carry the voice engine.** The AppImage, the deb and the
+  rpm for x86_64 include the files Voice needs. We built all three in an
+  emulated x86_64 environment and checked what is inside and that no library is
+  missing. We have not started the packaged app on a real x86_64 Linux machine,
+  and Voice and computer control have not been run in the app on Linux.
+
+- **Every result in Create shows the prompt it was made from.** Under a picture
+  or a clip on the stage there is a Prompt box, and a click on the picture
+  opens the large view with the prompt and a Copy button. It works for results
+  made on your own machine and on LU Cloud, and for pictures ordered from a
+  chat. A tool that takes no prompt, such as background removal, shows none.
+- **Download a trained cloud character.** In Cloud mode, the character list
+  under Create, Character, "Use character" has a download button next to each
+  character. It asks where to save and writes the character as a .safetensors
+  file. While the file comes in, a Cancel button next to the download stops it
+  and removes the unfinished file. We have tested the download and the cancel
+  against a stand-in for the service and not yet against the real one.
+- **An Ollama model that runs partly on the processor says so.** A context
+  window that is too large for the graphics memory does not fail on Ollama.
+  Part of the model moves to the processor, and every answer gets slower with
+  nothing on screen to say why. After a load LU now asks Ollama how much of the
+  model sits in graphics memory. It shows the answer in the list where you pick
+  the context window and, in short, on the model's row in the model picker,
+  with the numbers in the tooltip. LU shows what Ollama measured after the load
+  and predicts nothing before it.
+- **On a Mac, a long local video run is announced and shows its steps.** Where
+  we timed a model on a real run, Create says before the start how long a clip
+  of the chosen length takes, once that is ten minutes or more, for example
+  "about 38 minutes on an M5 Pro with 48 GB, and longer on a smaller Mac". Two
+  models carry such a time, Wan 2.1 T2V 1.3B and LTX-2.3 4-bit. During the run
+  the line under the bar names the step and the time left, for example "Step
+  36/50, about 11 min left", and the bar follows the steps. A run that reports
+  its steps is no longer cut off after sixty minutes. It goes on while a new
+  step arrives within twenty minutes, for up to four hours. This is on macOS
+  only.
+- **Choose your microphone in the settings (discussion 152).** Settings, Voice
+  & Remote, Speech has a Microphone field that lists the system default and
+  your input devices by name. The choice holds for dictation in the chat and
+  for Voice. If the chosen microphone is unplugged, LU records from the system
+  default and keeps your choice for when the device is back. The names appear
+  once the app may use the microphone, and a button under the field asks for
+  that. This has run in automated tests and not yet with a real microphone.
+
+### Changed
+
+- **A running task says what it is doing.** The status line shows the LU mark
+  and plain words such as Reading, Writing, Searching or Working on the screen
+  in place of internal tool names, with the seconds the step has taken. This
+  also holds while the model is still writing a tool call. When you scroll up
+  during a run, the mark floats above the composer in Chat, Agent and Code, and
+  a click takes you back to the end.
+- **Dialogs have a new look.** Confirmations, questions and settings pop-ups
+  share one dark glass style and one row of buttons. Tall dialogs stay inside
+  the window, and menus and popovers use the same style.
+- **The Model Manager on Windows and Linux has the colours of the Mac build.**
+  Tiles, rows and buttons use one accent colour where chat, image and video
+  models each had their own. The layout and what the controls do are the same
+  as before.
+- **Approvals in the agent chat name the action.** The bar says what the tool
+  wants to do, such as change a file. The internal tool name is still there as
+  a tooltip and in the opened block.
+- **Compare and the background agents panel show the same status mark.** Both
+  use the LU mark with one word per state, like the status line in the chat.
+- **The No refusals mark is now called No Filter.** The mark keeps its meaning:
+  only a model that answered in full in our measurement carries it. It is a
+  plain grey tag now, in the cloud picker, the model selector, the Create model
+  chip and the note under an answer that declines. The Qwen-Image 2.1 downloads
+  that were labelled No Refusals are labelled No Filter.
+- **The open image and video models have Uncensored in their names.** For
+  example Wan 2.2 Uncensored Extend. Three presets and three local downloads
+  follow, among them Wan 14B Uncensored (GGUF). Only the names changed. The
+  counts are the same as before: fourteen video models and seven image models
+  in the cloud catalogue.
+- **Settings, Privacy and the README say what the app sends.** The Privacy
+  section said "No telemetry" next to a counter and called that counter daily.
+  What the app sends has not changed. The texts now describe it. LU has no
+  analytics kit and sends no crash reports. On its own it asks GitHub Releases
+  for a new version a few seconds after start and at most every six hours after
+  that, and it counts each press of the Cloud switch: which way it was pressed,
+  the platform and the app version, without an identifier. While you are signed
+  in to LU Cloud, the app also checks your account every five minutes, and a
+  press of the Cloud switch is counted for your account as well. Remote Access
+  over the internet runs through a Cloudflare tunnel, encrypted between each
+  device and Cloudflare and not end to end. Onboarding and the importer no
+  longer promise more than that.
+- **The agent cannot fetch from a private network, and a page has a size
+  limit.** When the agent fetches a web page, addresses in a private network
+  and in the range 100.64.0.0/10 are out of reach, and a page over 8 MB is
+  refused.
+
+### Fixed
+
+- **Compare, Model Info and Delete Model name the model without a provider
+  prefix.** The three places showed "openai::" in front of the model name.
+- **Background tasks are listed in the order they were started.** Two tasks
+  started within the same second could swap places in the list.
+- **A command you keep declining ends the turn.** When you decline the same
+  command three times in a row, the model is told so. After six the turn ends
+  and says why. A declined call used to count like one that ran, so a model
+  could ask without end.
+
+- **Switching to another Ollama model after a voice session no longer hangs.**
+  After a voice session or a chat turn, LU reads the exchange once more in the
+  background to keep memories. That step asked Ollama for a different context
+  window than the one the model was loaded with, so Ollama loaded the model
+  again and kept it busy, and a model you picked next waited behind it with
+  nothing on screen. The step now uses the window the model is loaded with,
+  stops after 60 seconds at the latest, and gives way as soon as you pick, load
+  or unload a model.
+- **Loading an Ollama model can be cancelled, and unloading says what
+  happened.** The load switch turns into Cancel while a model loads and says
+  which model it is waiting for. Unloading a model that is still answering
+  says so and no longer reports "Unloaded". We tested both against a stand-in
+  for Ollama and not yet against a real one.
+- **Going from Chat to Voice no longer loads an Ollama model again.** Ollama
+  keeps a model loaded for one context window and loads it again when a request
+  names another. Chat, Voice and the calls LU makes in the background (a prompt
+  rewrite, a compaction, a sub-agent, the comparison view, a benchmark, a
+  workflow) each worked that number out for themselves. A voice session now
+  asks for the window of the chat, and a background call for the window the
+  model was last sent, so neither is a reason for a load. Your own setting for
+  the window still wins. The context counter of an agent session now counts
+  against the window that session sends.
+- **A message, an instruction in Code and a voice start no longer wait behind
+  the memory step.** After an answer LU reads the exchange once more in the
+  background to keep memories, and a message sent right after that answer
+  waited behind it. Sending now ends the step first when the model runs on your
+  own machine. The memories of that one turn are then not kept.
+- **Loading an LM Studio model can be cancelled, has a limit and says what
+  failed.** The load switch of an LM Studio model turned for as long as the
+  load took, and nothing could stop it. It is now Cancel while the model loads,
+  a load ends after five minutes at the latest, and a failed load shows the
+  sentence LM Studio's own command gave. After an unload the switch shows what
+  LM Studio's list of loaded models says, so a model that is still loaded is
+  not called unloaded. LM Studio goes on loading after a
+  cancel, so LU now tells it to unload the model right away, and unloads it
+  once it is loaded if LM Studio did not take that. The switch reads
+  Cancelling until the model has left memory and does not show On in between.
+  On LM Studio 0.4.12 we have seen the unload end a running load in about a
+  second.
+- **A stop of the LU Engine while a model loads no longer restarts it on the
+  processor.** A stop during a load was read as a crash, and LU started the
+  model again without the graphics card. That could happen when you switched to
+  the Cloud, picked another backend, started a render that needs the memory or
+  quit the app. A stop now ends the start.
+- **An answer cut off by a model switch says so.** Picking another local model
+  while an answer is still being written ends that answer. It used to end with
+  "Connection dropped before the end". What was written stays, and the line
+  under it now reads "Stopped because you switched to another model".
+- **A picture made in the running session can be used as a source.** In the
+  installed app, picking a picture you had just made as the source in Edit
+  failed with "Could not load that gallery image: Load failed", while older
+  pictures worked. The same fault is fixed where else such a picture is read:
+  as the start image of a video, when the chat model is shown a picture it
+  made, and for Download in the gallery.
+- **Seven interface corrections now hold on every platform.** They were made
+  for the Mac build first, and Windows and Linux follow. On a Create tool that
+  works from a source image, the picture, its references and the buttons fit on
+  one screen. The model picker in Create shows the whole model name. Start here
+  on the Models page recommends nothing that needs Ollama while Ollama is off.
+  The command palette offers no local model while the Cloud switch is on. The
+  marks DEFAULT, LOCAL and CLOUD in Settings can be read in the light theme. A
+  video whose file cannot be read shows its sentence without player controls.
+  The details dialog names a model once, where it read "Name: Name".
+- **Voice names the right model.** The idle Voice surface kept naming the model
+  of the last session after you had picked another, and the answers of a saved
+  voice session could read as written by a different model. Both now name the
+  model that answers.
+- **A spoken yes at the card for computer control gets an answer.** In a voice
+  session, a spoken yes while the card "Allow computer control in this chat?"
+  was open went to the model as a new request, and the card stayed. LU now says
+  aloud that it waits for your click and answers a spoken yes with "This one
+  needs your click on the screen." A spoken no or stop declines, like Deny.
+- **A dropdown no longer hangs in the window after its button is scrolled
+  away.** A list opened from a button inside a scrolling panel stayed on screen
+  when you scrolled the button out of view. It is hidden until the button is
+  back.
+- **The Get button of a model tile stays inside the tile.** Under Models, Chat,
+  Get new on Windows and Linux, the button stood out over the right edge of its
+  tile at some window widths. The row now wraps.
+- **On a Mac, Qwen-Image 2.1 asks for the memory it needs, and a LoRA is
+  handled as in ComfyUI.** The 8-bit and Turbo versions of Qwen-Image 2.1 asked
+  for 32 GB. Their runs on our 48 GB Mac peaked at 10.3 and 14.9 GB, so both
+  now ask for 24 GB. We have not run either on a Mac with 24 GB. A Qwen-Image
+  2.1 LoRA that carries its own alpha ran at the full strength that was set.
+  The strength now counts alpha divided by rank, as it does in ComfyUI, and a
+  LoRA whose layers carry different alphas says on its row that it runs in
+  full. Delete in the LoRA list removed the file for good and now moves it to
+  the Trash. This is on macOS only.
+- **Dictation in the chat works again on installs with Python 3.12 or newer
+  (issue 155).** A fresh speech-to-text install on Python 3.12 or newer got
+  PyAV 19, an audio library that dropped an argument the speech recognition
+  still passes. Every take then failed with "open() got an unexpected keyword
+  argument 'metadata_errors'". The dictation server that ships with LU now
+  leaves the argument out when PyAV refuses it. The fix comes with the app, so
+  an install that was hit needs no reinstall.
+- **Restart Now starts the app again on macOS and Linux (discussion 150).**
+  After an update, the Restart Now button closed the app on macOS and Linux and
+  did not start it again. It now starts the new version. Windows is unchanged,
+  because the installer starts the app there. The fix is part of 3.0.6, so it
+  works from the next update after this one, and the update to 3.0.6 itself can
+  still leave the app closed on those two systems. We have not checked it on a
+  real update yet.
+- **A CUDA "unknown error" in Create comes with an explanation (discussion
+  130).** When ComfyUI stops a run with "CUDA error: unknown error", LU now
+  says that the error comes from the graphics driver and not from the model or
+  your prompt, that it usually clears after restarting ComfyUI or the computer,
+  and that a driver update is the next step if it keeps coming back. An
+  out-of-memory error keeps its own hint.
+- **The LU Engine finds an image part you placed by hand (discussion 67).** The
+  engine only saw an image part under the name its own downloads write,
+  `<model>.mmproj.gguf`. One you put next to a model under its original name is
+  now used when it is clear which model it belongs to: its name carries the
+  model's name, or it is the only image part in a folder that holds this one
+  model. Where that is not clear, for example an image part without a model
+  name next to several models, no model gets it. Image parts named like
+  `<model>.mmproj-Q8_0.gguf` are no longer listed as chat models. This has run
+  in automated tests only.
+- **On a Mac, a picture or video run takes the chat model out of memory
+  first.** A local run in Create started with the chat model still loaded, and
+  a Mac has one pool of memory for both. With a 23 GB chat model loaded, one
+  picture took longer on our 48 GB Mac and macOS moved memory to disk while
+  it ran. Create now unloads
+  the chat model before the run, shows "Freeing memory..." while it does, and
+  brings the model back when the run is over, as it already did on Windows and
+  Linux. This is on macOS only.
+- **Long LoRA names are shown in full (discussion 150).** In the LoRA stack of
+  the advanced settings in Create, a long name was cut off, so two LoRAs that
+  start alike read the same. A name now takes as many lines as it needs. Where
+  a name stays on one line, the tooltip shows it whole.
+- **A compacted conversation keeps its code blocks.** When a long conversation
+  is compacted, LU reads the summary back section by section. A line such as
+  OPEN or TASK inside a code block was taken for a section heading, which tore
+  the block and the summary apart. Code blocks now stay whole, a block the
+  model left open is closed, and a summary that a model hands back wrapped in
+  one code block is still read. Thanks to ALANDVO for the fix (pull request
+  154).
+
+### Security
+
+- **A security review of everything new in this release led to ten fixes.**
+  Among the ten findings we fixed before shipping: no key press puts a
+  character into a password field, and pasting is refused there as well. Typed
+  text is checked again after every tab and line break. A letter or the space
+  bar outside a text field is judged like a click, so it cannot press a focused
+  Send button without a question. A double click on a program, an installer, a
+  script or a shortcut asks first. Sensitive buttons are recognised in eleven
+  more languages. The question about an app starts with the focus on Deny.
+  Whole computer keeps token files, mail and browser data and LU's own folders
+  closed, and Workspace only has no screen through any tool. Four Rust
+  libraries (rustls, rustls-webpki, h2 and crossbeam-epoch) moved past
+  published advisories.
+- **The agent reads web pages more safely.** The way the agent fetches a web
+  page is hardened, and packed pages are now readable.
+- **Computer control asks before two more kinds of action.** A button, link or
+  menu item without a name went through without a question in an autonomous
+  session, because no sensitive word was found in an empty name. It is now
+  asked like any target LU cannot name. On Windows and Linux, Alt with a letter
+  is asked too, because it presses a button or opens a menu from anywhere in a
+  window. Neither takes a spoken yes.
+- **With Whole computer, the start files of the shell can be read and not
+  changed.** The files your system runs by itself when a terminal or a session
+  starts (such as `.zshrc`, `.bashrc` or the PowerShell profile) and the
+  settings of git stay readable. The tools no longer write to them outside the
+  workspace, because a line written there is a command that runs later without
+  a question.
+- **A catalogue search reads at most 16 MB.** When LU searches a model
+  catalogue or reads a file list from the internet, it stops at 16 MB and says
+  so. There was no limit before.
+
+### Known limits
+
+- Voice, computer control, Create in chat and the ten new chat models are in
+  beta. They can still change, and this list names what we have not tested.
+- Voice is English only, and the voices are fixed.
+- Voice is shown in local mode only. With the Cloud switch on it is hidden,
+  because LU Cloud has no voice service yet.
+- Speaking while LU speaks relies on the echo cancellation of the system. With
+  loud speakers and no headset the first words of an interruption can be quiet
+  or missing.
+- The first voice session after setup or after a restart takes much longer to
+  start than later ones: 23 to 63 seconds cold against about one second warm in
+  our Windows tests.
+- For the first six seconds after the Start click, a voice that reaches the
+  microphone only faintly is turned down. A headset is not affected.
+- Computer control works in the foreground with the real pointer. There is no
+  background mode.
+- The list of buttons and fields and the autonomous mode exist on Windows only.
+  On Linux and macOS LU cannot name what a click would press, so every click
+  there is asked as a sensitive action.
+- Small local models misjudge when a screen task is finished. A task can end as
+  stopped although the work is done.
+- Holo 3.1 9B does not fit next to a 9B chat model on a 12 GB card.
+- Text on the screen can try to give the model instructions. LU marks what it
+  reads from the screen as untrusted and asks before sensitive actions. For
+  anything that matters, stay in the supervised mode.
+- The words LU reads on a button to tell a sensitive action from an ordinary
+  one are a list. A wording the list does not know is not recognised. A button
+  without any name is asked about.
+- Voice and computer control have not been run in the app on Linux. Computer
+  control needs an X11 session there. The x86_64 packages were built and
+  inspected in an emulated environment and have not been started on a real
+  machine by us.
+- Voice and computer control were checked point by point in the real app on one
+  Windows 10 machine. Eight corrections and the ten security fixes made after
+  that check have run in automated tests only and have not been checked again
+  in a real window.
+- The question at the first use of computer control in a chat ran in the app on
+  Windows, in the chat and in Voice. In the Code tab and after a restart of the
+  app it has run in automated tests only.
+- A model that can see images works from the screenshot and the list of buttons
+  and fields on Windows. We compared that with the list alone on two tasks
+  only, three runs each. Both ways finished all six runs, and the runs with the
+  picture took 497 seconds against 381.
+- The 11 to 22 seconds for a note by voice were measured before the question in
+  every new chat existed. In a new chat your click on Allow comes on top.
+- The changes to how the agent fetches a web page have run in automated tests.
+  We have not tried them on a live page in the app.
+- The later changes to loading and switching models have run in automated
+  tests, against stand-ins for LM Studio and Ollama: cancelling an LM Studio
+  load, the one context window for Ollama, the note about the processor, and
+  sending past the memory step. We have not checked them against the real
+  programs in the app. The same holds for the two new questions of computer
+  control and for the start files of the shell.
+- Of the ways to stop the LU Engine during a load, quitting the app was checked
+  against the real engine on a Mac. The Cloud switch and a change of backend
+  have run in automated tests only.
+- The note about a model on the processor exists for Ollama only, and only
+  after a load.
+- A chat turn and an agent turn on the same Ollama model still send two
+  different context windows, so going from Chat to Agent can load the model
+  again.
+- The ten new chat models are new in LU Cloud and can still change.
+- Create in chat is switched on account by account. It has not run yet in
+  the installed app against the live service.
+- The Mac build is in beta. The app has run on one Mac only, an M5 Pro with 48
+  GB on macOS 26. It has not run on macOS 14 or 15, and not on a Mac with 16 or
+  24 GB.
+- On a Mac, Voice has been tried by hand in the app. It did not go through the
+  point by point check the Windows app got. Computer control is in the app on
+  a Mac but not fully tested yet, and the app says so at its switch.
+- Not confirmed on macOS: Remote Access and the automatic update. The update
+  has never run there, because there is no older Mac version to update from.
+- Create on a Mac does not use ComfyUI. Most video models in the Mac catalog
+  are marked "Experimental: not yet tested in LU".
+- The microphone field, the image part placed by hand and the freeing of memory
+  before a run on a Mac have run in automated tests only. The microphone field
+  has not been tried with a real microphone.
+- Restart Now on macOS and Linux has not run on a real update. It works from
+  the first update after 3.0.6.
+- The Windows installers of this release are not code signed, so SmartScreen
+  and some antivirus engines can warn about them. SECURITY.md says how to check
+  a download.
+
 ## [3.0.5] - 2026-10-05
 
 Create runs LTX 2.5, FastH3 and YuE2 on your own machine, edits several images
@@ -524,11 +1064,11 @@ also takes the Create Studio endpoints in now, fourteen video and seven image.
 - **The count of open models now takes the Create Studio endpoints in.**
   Fourteen video models and seven image models in the cloud catalogue run
   without a built-in content restriction, counted the way a customer picks
-  them: every catalogue entry marked adult, whether it sits in the classic
+  them: every catalogue entry marked open, whether it sits in the classic
   picker or on the Create Studio shelf. The old rule left the Studio shelf out
   and reported ten and three, so four open image-to-video endpoints and four
   open image models were sold short. Two of the fourteen, OpenVideo and
-  OpenVideo + Style LoRA, do not carry Spicy in the name and are open all the
+  OpenVideo + Style LoRA, do not carry Uncensored in the name and are open all the
   same; the mark comes from the catalogue field, never from the name. An entry
   that is the same endpoint under a second name is counted once, and the
   extend tools stay out because they continue a clip instead of making one.
@@ -1605,7 +2145,7 @@ what it is doing.
 
 ### Added
 
-- **LoRA selection in image generation** (#109, ElBiggus). The image track
+- **LoRA selection in image generation** (#109). The image track
   has a LoRA section with a Rescan button. Characters trained in Character
   Studio and files dropped into the LoRA folder are selectable and
   stackable.
@@ -1618,14 +2158,14 @@ what it is doing.
 
 ### Fixed
 
-- **Dragging files into the app works again on Windows** (#111, ElBiggus).
+- **Dragging files into the app works again on Windows** (#111).
   Dropping photos on the Character Studio board did nothing while picking the
   same files through the dialog worked. The window framework had claimed drag
   and drop for itself, so the page never saw the drop. That silently affected
   three places, not just the one that got reported: the training board, the
   chat composer and the RAG panel.
 - **Download and install finishes instead of sitting on "Refreshing the model
-  list"** (Voxyl AI and Aldrich Ironhart). On Extend Video and Animate Image
+  list"** (Two users). On Extend Video and Animate Image
   the transfer ran to the end and the card then never moved again. The files
   were on disk the whole time; ComfyUI was still scanning its folders, and
   nothing waited for it. The install now waits for the models to actually show
@@ -1633,7 +2173,7 @@ what it is doing.
   engine once if the scan never catches up, and if even that fails it says
   what is wrong instead of freezing.
 - **Turning thinking off now turns it off on your own server too** (#112,
-  kevinmlynch, who sent the diagnosis and a patch). We asked for the smallest
+A user, who sent the diagnosis and a patch). We asked for the smallest
   amount of reasoning the OpenAI API allows, which some servers read as the
   largest, so the switch did the opposite of what it says. LU Cloud was never
   affected. The value walks down until the server accepts it, and how far it
@@ -1659,17 +2199,17 @@ what it is doing.
 - **The benchmark has a brake.** A model that goes off script can no longer
   wedge the run, and the board says what it is actually ranking (#106).
 - **The gallery reports the seed you actually rendered with** (#110,
-  ElBiggus). Four different places rolled their own random seed and kept the
+A user). Four different places rolled their own random seed and kept the
   number to themselves, so every random run was filed as seed 0 and no image
   you liked could be reproduced. The dice are thrown once per run now, and
   that number reaches the sampler and the gallery. Cloud runs carry their
   seed too, instead of letting the provider roll one nobody learns.
-- **Help tooltips are readable again** (#107, ElBiggus). The latent-upscale
+- **Help tooltips are readable again** (#107). The latent-upscale
   help text was clipped to about two words by the card it sat in. Tooltips
   now float above the whole window, flip away from the screen edge and keep
   pointing at what they explain, everywhere in the app.
 - **The Music tab stops printing cloud facts at local users** (#108,
-  ElBiggus). Running locally it hid the lyrics box while claiming the model
+A user). Running locally it hid the lyrics box while claiming the model
   writes its own lyrics, described a box that was not on screen, implied more
   music models were downloadable, and said the length slider bills per second
   on a machine where nothing is billed. It also offered width and height for
@@ -1680,7 +2220,7 @@ what it is doing.
   its own venv automatically, and Settings has a Repair button for doing it
   by hand.
 - **The built-in engine keeps its memory across renders** (#85,
-  I-Am-LongXi). Conversation state is saved before an image or video render
+A user). Conversation state is saved before an image or video render
   takes the VRAM and restored after, measured 2.3 s warm against 62 s cold,
   instead of the chat starting over.
 - **Fresh ComfyUI setups install a torch the current core accepts.** The
@@ -1936,7 +2476,7 @@ Community fix release: works through every open GitHub issue plus the actionable
 - **Starting ComfyUI twice could leave an untrackable twin owning the port.** `start_comfyui` only probed the port to decide "already running" — but a booting ComfyUI imports for 20-60 s before it binds the port, so opening a Create tab during that window spawned a second copy and overwrote the tracked process handle. The first copy then won the port bind and became a zombie LU could never stop: every install's restart killed only the tracked twin, the zombie kept serving the stale node list, and the install card span forever with no error (the exact reported chain). The start command now recognises a tracked child that is still booting and reports `starting` instead of spawning; `stop_comfyui` additionally reaps the child before returning so the port is provably free for the restart. Verified end-to-end: pose-extractor card → install → automatic restart → node registered → card cleared in 70 s.
 - If ComfyUI is running outside LU (your own terminal/script), LU cannot restart it to register a freshly installed node pack — the old process keeps serving the stale node list. Instead of polling a misleading 40 seconds, the restart now waits until LU's own engine is provably down and only then blames an external engine, with the real fix in the message: restart your ComfyUI yourself, then come back.
 
-### New — Delete image/video models from the Model Hub (cpl.sardinas7489, Discord)
+### New — Delete image/video models from the Model Hub (Discord)
 
 - Installed image and video models finally have a trash button. Before, delete existed only for Ollama chat models — a ComfyUI checkpoint that turned out too big for the PC (the report: a 27 GB video model whose render hit the 60-minute timeout) had no way back out of the app and sat on the disk forever. The delete removes the model file (plus a stale resume-partial next to it), rescans ComfyUI and refreshes the list; the path goes through the same traversal-jailed helpers as downloads and refuses anything outside the known model folders.
 
@@ -1944,7 +2484,7 @@ Community fix release: works through every open GitHub issue plus the actionable
 
 - When a specialized lane needs core nodes a user-managed ComfyUI is too old to have, LU can `git pull` + reinstall requirements in place (the same streaming, cancellable, retrying installer the bundle downloads use) instead of leaving a cryptic ComfyUI rejection. Gating stays node-presence based (no brittle version-string parsing). LU-managed ComfyUI installs are always current; a user's own install gets the offer, never a forced update.
 
-### Fixed — Voice: whisper/piper state detection, venv installs, PEP 668 (#77, #78 ElBiggus; joerack Discord)
+### Fixed — Voice: whisper/piper state detection, venv installs, PEP 668 (#77, #78; Discord)
 
 - **Whisper badge no longer resets to "not installed" after every relaunch.** `whisper_status` only reported a *running* server process; after a restart the process is gone, so the UI showed red even though the install was fine. It now also probes the installed `faster_whisper` package on disk.
 - **Transcription lazy-start now uses the same Python that the installer targeted.** `transcribe` spawned `state.python_bin` (system Python) while `install_whisper` had installed into the LU-resolved interpreter — on setups where those differ, a completed install was invisible at runtime.
@@ -1961,7 +2501,7 @@ Community fix release: works through every open GitHub issue plus the actionable
 
 - On Windows, a workspace whose stored root carried the `\\?\` verbatim prefix (common when a path came from a native picker or long-path handling) failed every file operation with "path escapes the workspace". The jail normalised the *candidate* path but compared it against the *raw* root — the asymmetry made the root never match itself. Both sides now go through one normaliser (case-fold, slash-fold, verbatim/UNC strip); the error message now includes both the workspace root and the requested path so future reports are diagnosable. Four new regression tests cover the `\\?\` cases.
 
-### Fixed — ComfyUI 0.19+ blocks LU's progress + media unless you pass a CORS flag (#75 cinemazverev)
+### Fixed — ComfyUI 0.19+ blocks LU's progress + media unless you pass a CORS flag (#75)
 
 - ComfyUI 0.19.0 (April 2026) added an origin-check middleware that returns 403 for every cross-site request — including the desktop WebView's requests from `http://tauri.localhost` to a **user-managed** ComfyUI (LU-spawned ComfyUI always passed `--enable-cors-header`, so it was never affected). Control-plane HTTP already went through the Rust proxy and kept working; what broke was the live progress WebSocket and direct `<img>`/`<video>` gallery loads.
 - **Live progress now flows through a Rust-side WebSocket proxy** (`comfy_ws_connect`) whose client handshake carries no browser Origin, so it passes the middleware on any ComfyUI. The web build keeps the raw WebSocket.
@@ -1981,7 +2521,7 @@ Community fix release: works through every open GitHub issue plus the actionable
 
 ### Fixed — A model without tool calling now fails with a clear message, not a raw error
 
-- Picking a model that does not support function calling and then using Agent or Code mode (or Chat with tools on) made the hosted inference endpoint answer HTTP 405, which surfaced as an opaque error or an aborted turn with no explanation (a paying user hit exactly this). LU now recognises that case across every OpenAI-compatible backend (LU Cloud / DeepInfra, LM Studio, custom endpoints) and shows a plain "this model does not support tool calling" note that says what to do: turn tools off, or switch to a tool-capable model.
+- Picking a model that does not support function calling and then using Agent or Code mode (or Chat with tools on) made the hosted inference endpoint answer HTTP 405, which surfaced as an opaque error or an aborted turn with no explanation (a paying user hit exactly this). LU now recognises that case across every OpenAI-compatible backend (LU Cloud / the upstream, LM Studio, custom endpoints) and shows a plain "this model does not support tool calling" note that says what to do: turn tools off, or switch to a tool-capable model.
 - **LU Cloud now knows up front which models can't do tools.** The `/models` list carries a per-model tool-calling flag, so Agent mode is disabled before you ever send a request on the cloud chat models that lack function calling (Hermes 3, Euryale, MythoMax, Llama 4 Maverick, and friends) — no failed turn required. Plain chatting with those models still works.
 - **Every chat model in the dropdown now shows a tools icon at a glance:** a green wrench for models that support tool calling, an amber marker for models that don't (whether the server declared it, or a run proved it). When the server returns its clean "can't run tools / can't read images" reason, LU surfaces that exact line instead of a generic error.
 
@@ -1995,11 +2535,11 @@ Community fix release: works through every open GitHub issue plus the actionable
 - **Nothing on screen is a dead control.** The knobs render only where the submit path reads them: locally every lane consumes them; the regular Video/Animate lanes honour them on LU Cloud too; the specialized hosted ops run at fixed server-side settings, so those sliders stay hidden on Cloud rather than pretending to work. On Talking Character the frame count is hidden entirely and labelled "clip length follows your voice", because the lane derives it from the audio.
 - **The Size tiers are video-native.** They read the lane's actual video model (Wan S2V / Animate / the picked video model), not the last image model, so a 480p video graph offers 320p/480p/720p rather than image-centric 1024p sizes; dimensions snap to the multiple of 16 the WAN/S2V/VACE VAEs require.
 
-### New — ComfyUI install location is configurable (andy_38747, Discord)
+### New — ComfyUI install location is configurable (Discord)
 
 - The Settings → AI Backends → ComfyUI **Path** field now doubles as the install target: put e.g. `D:\ComfyUI` there before pressing **Install ComfyUI** and the multi-GB install (plus all image/video models, which live inside the ComfyUI folder) lands on that drive instead of filling `C:`. Empty field keeps the previous default (home folder). A completed custom-target install is persisted as the active path, so LU finds it after a restart.
 
-### Fixed — Create-tab LoRA picker was a silent no-op (game-master0, Discord #80)
+### Fixed — Create-tab LoRA picker was a silent no-op (Discord #80)
 
 - The Create UI collected selected LoRAs into a `loras` param that **no code ever read** — the workflow builder expects `lora`/`loraStrength`. Selections now reach the builder, for images and video.
 - **Video LoRA support**: the LoRA stack is no longer hidden for every video model — it shows for families whose graphs support model-only LoRA loading (WAN, WAN 2.2, Hunyuan, LTX, Mochi, Cosmos). WAN 2.2's dedicated builder gains a guarded `LoraLoaderModelOnly` chain; a plain WAN 2.2 run without LoRAs produces a byte-identical graph to before.
@@ -2012,7 +2552,7 @@ Community fix release: works through every open GitHub issue plus the actionable
 
 - One-click provider preset pointing at a local LiteLLM proxy (`http://localhost:4000/v1`, OpenAI protocol) — fronts 100+ upstream providers from one endpoint.
 
-### Fixed — Errored bundle downloads can now be cleared (the_mr_pickles, Discord)
+### Fixed — Errored bundle downloads can now be cleared (Discord)
 
 - A failed bundle download left the card stuck on "Retry" with no way to dismiss the error state. A new **Clear** button resets the bundle back to installable.
 
@@ -2032,15 +2572,15 @@ Community fix release: works through every open GitHub issue plus the actionable
 
 ## [2.5.0] - 2026-05-28
 
-Minor release. 30+ changes — the headline Codex / Agent sprint (Sprint A / B / C ported from the companion repo `uselu`), eight reporter-facing fixes (B1–B3 + AA + Y + Z), two new pieces of UI (BB — GPU picker, CC — chatbot-export importer), production hardening (B4 / B5), and the autonomy-ceiling bump that turns scaffold→install→fix→verify into a single turn. Bundles all v2.4.9 contents.
+Minor release. 30+ changes — the headline Codex / Agent sprint (Sprint A / B / C ported from the companion repo `the web app`), eight reporter-facing fixes (B1–B3 + AA + Y + Z), two new pieces of UI (BB — GPU picker, CC — chatbot-export importer), production hardening (B4 / B5), and the autonomy-ceiling bump that turns scaffold→install→fix→verify into a single turn. Bundles all v2.4.9 contents.
 
 ### Fixed — Ollama auto-detection persists across launches (B1)
 
-- **Ollama re-enabled state now pins through restart** (cinemazverev). `AppShell.tsx` boot path previously re-ran auto-detect on every launch and reset a user's manually-enabled Ollama back to disabled when the daemon was momentarily unreachable. v2.5.0 records the user's deliberate re-enable in localStorage and treats it as authoritative — auto-detect can only add backends, never remove ones the user explicitly turned on.
+- **Ollama re-enabled state now pins through restart**. `AppShell.tsx` boot path previously re-ran auto-detect on every launch and reset a user's manually-enabled Ollama back to disabled when the daemon was momentarily unreachable. v2.5.0 records the user's deliberate re-enable in localStorage and treats it as authoritative — auto-detect can only add backends, never remove ones the user explicitly turned on.
 
 ### Fixed — Multi-backend modal persists Ollama choice (B2)
 
-- **`BackendSelector.tsx` modal Ollama choice survives modal re-open** (vanja-san). Pre-v2.5.0 picking Ollama in the multi-backend modal, closing it, and re-opening reset the dropdown to "Auto". v2.5.0 reads the previous selection from settings on mount and re-applies it so the user's chosen backend stays sticky across modal opens.
+- **`BackendSelector.tsx` modal Ollama choice survives modal re-open**. Pre-v2.5.0 picking Ollama in the multi-backend modal, closing it, and re-opening reset the dropdown to "Auto". v2.5.0 reads the previous selection from settings on mount and re-applies it so the user's chosen backend stays sticky across modal opens.
 
 ### Fixed — LM Studio per-model load/unload backend (B3)
 
@@ -2048,27 +2588,27 @@ Minor release. 30+ changes — the headline Codex / Agent sprint (Sprint A / B /
 
 ### Fixed — Ollama actually uses the context window you set (Bug AA)
 
-- **`num_ctx` now travels from Settings → Ollama on every chat + tool call** (kj103x Discord 2026-05-25/27 thread `1507756765612216411`). Pre-v2.5.0 LU passed `temperature`, `top_p`, `top_k`, and `num_predict` through to `/api/chat` but never `num_ctx`, so Ollama silently defaulted to 2048 regardless of what the user set in the UI. RAG payloads and long-turn chats got clipped on every model regardless of what the loaded model actually supported — kj103x's "VRAM caps at ~5 GB no matter the token limit" symptom. v2.5.0 adds `contextWindowOverride` to `Settings`, a `Context window (Ollama)` input under Settings → Generation, and threads the value through `ChatOptions.contextWindow` in `src/api/providers/ollama-provider.ts` (chatStream + chatWithTools) and `src/lib/ollama-stream-tools.ts` (agent tool loop). Forwarded to all four consumers — `useChat`, `useABCompare`, `useAgentChat`, `workflow-engine`. 0 = let Ollama decide (default, matches pre-v2.5.0 behaviour). Cloud providers ignore the field — they manage context themselves.
+- **`num_ctx` now travels from Settings → Ollama on every chat + tool call** (Discord 2026-05-25/27 thread `1507756765612216411`). Pre-v2.5.0 LU passed `temperature`, `top_p`, `top_k`, and `num_predict` through to `/api/chat` but never `num_ctx`, so Ollama silently defaulted to 2048 regardless of what the user set in the UI. RAG payloads and long-turn chats got clipped on every model regardless of what the loaded model actually supported — a user's "VRAM caps at ~5 GB no matter the token limit" symptom. v2.5.0 adds `contextWindowOverride` to `Settings`, a `Context window (Ollama)` input under Settings → Generation, and threads the value through `ChatOptions.contextWindow` in `src/api/providers/ollama-provider.ts` (chatStream + chatWithTools) and `src/lib/ollama-stream-tools.ts` (agent tool loop). Forwarded to all four consumers — `useChat`, `useABCompare`, `useAgentChat`, `workflow-engine`. 0 = let Ollama decide (default, matches pre-v2.5.0 behaviour). Cloud providers ignore the field — they manage context themselves.
 
 ### Fixed — Downloaded but invisible (Bug Y, two-layer)
 
-- **`handleTextDownload` now routes by the *active chat provider*, not by which backend happens to be enabled** (Aldrich Ironhart Discord 2026-05-25/26, msg `1508875114215899156`). Pre-v2.5.0 the logic was `useOllamaPath = !lmStudioOn && ollamaOn` — whichever was enabled won. A user chatting on LM Studio who clicked Download in Discover got the file pulled into Ollama's store (or vice versa), invisible to the chat side because the chat picker couldn't see the other backend. v2.5.0 derives the target from `getProviderIdFromModel(activeChatModel)` in `src/components/models/DiscoverModels.tsx`, with the old enabled-wins logic as a fallback for first-launch empty-state users. Ollama-only entries (those with `model.ollamaModel`) now refuse with a clear error when the user is on LM Studio ("Switch the chat picker to an Ollama model first") instead of silently pulling somewhere the user can't see.
+- **`handleTextDownload` now routes by the *active chat provider*, not by which backend happens to be enabled** (a user Discord 2026-05-25/26, msg `1508875114215899156`). Pre-v2.5.0 the logic was `useOllamaPath = !lmStudioOn && ollamaOn` — whichever was enabled won. A user chatting on LM Studio who clicked Download in Discover got the file pulled into Ollama's store (or vice versa), invisible to the chat side because the chat picker couldn't see the other backend. v2.5.0 derives the target from `getProviderIdFromModel(activeChatModel)` in `src/components/models/DiscoverModels.tsx`, with the old enabled-wins logic as a fallback for first-launch empty-state users. Ollama-only entries (those with `model.ollamaModel`) now refuse with a clear error when the user is on LM Studio ("Switch the chat picker to an Ollama model first") instead of silently pulling somewhere the user can't see.
 - **`isModelFullyInstalled` now also matches LM Studio scanner output** (Y/b). Pre-v2.5.0 the check only looked at `installedModels.filter(m => m.provider === 'ollama')` tags. After a restart, the in-memory `downloads[filename]` flag is gone, so GGUFs that LU itself wrote to LM Studio's scan dir never lit up the INSTALLED badge. v2.5.0 also matches LM Studio entries by filename basename (case-insensitive, with-or-without `.gguf` suffix, with-or-without LM Studio's `<publisher>/<repo>/` prefix), so the badge survives both a restart and a cross-backend download.
 
-### Fixed — Hermes 3 phantom-complete + Hermes 3 repo retarget (Bug Z, leonsk29 GH #48)
+### Fixed — Hermes 3 phantom-complete + Hermes 3 repo retarget (Bug Z, GH #48)
 
-- **Pulls that fail without an explicit `{"status":"success"}` no longer flip the badge to "Completed"** (leonsk29 GH #48 2026-05-26). Pre-v2.5.0 `pull_model_stream` in `src-tauri/src/commands/proxy.rs` returned `Ok(())` whenever the byte-stream ended cleanly, even if Ollama never said "success" — and `src/hooks/useModels.ts` swallowed any thrown error from the catch with an empty block. leon's CLI repro on 2026-05-26 confirmed Ollama responds to a broken HF reference (e.g. `bartowski/Hermes-3-Llama-3.1-8B-GGUF` on llama.cpp-incompatible builds) with HTTP 200 + a stream that ends after just `{"status":"pulling manifest"}`. v2.5.0's Rust side now tracks the last status + watches each line for an `error` field, and returns a descriptive `Err` ("pull did not complete: stream ended at \"pulling manifest\". Repo may be incompatible with llama.cpp (try a different GGUF mirror).") when neither success nor explicit error came through. `useModels.ts` now surfaces that string as the card's last status (`Failed: ...`) instead of swallowing it. Cancellation is still distinguished from real errors.
+- **Pulls that fail without an explicit `{"status":"success"}` no longer flip the badge to "Completed"** (GH #48 2026-05-26). Pre-v2.5.0 `pull_model_stream` in `src-tauri/src/commands/proxy.rs` returned `Ok(())` whenever the byte-stream ended cleanly, even if Ollama never said "success" — and `src/hooks/useModels.ts` swallowed any thrown error from the catch with an empty block. leon's CLI repro on 2026-05-26 confirmed Ollama responds to a broken HF reference (e.g. `bartowski/Hermes-3-Llama-3.1-8B-GGUF` on llama.cpp-incompatible builds) with HTTP 200 + a stream that ends after just `{"status":"pulling manifest"}`. v2.5.0's Rust side now tracks the last status + watches each line for an `error` field, and returns a descriptive `Err` ("pull did not complete: stream ended at \"pulling manifest\". Repo may be incompatible with llama.cpp (try a different GGUF mirror).") when neither success nor explicit error came through. `useModels.ts` now surfaces that string as the card's last status (`Failed: ...`) instead of swallowing it. Cancellation is still distinguished from real errors.
 - **Hermes 3 discover entries switched from `bartowski/Hermes-3-Llama-*-GGUF` to `mradermacher/Hermes-3-Llama-*-GGUF`** (Z/b). bartowski's quants for those specific repos return HTTP 400 on current Ollama. mradermacher's GGUFs are llama.cpp-compatible and ship the same Q4_K_M sizes (2 GB / 5 GB / 42 GB for 3.2 3B / 3.1 8B / 3.1 70B respectively). Filename convention also changed (mradermacher uses `.Q4_K_M.gguf`, bartowski uses `-Q4_K_M.gguf`) and the entries reflect that.
 
-### New — Hardware: GPU picker (Bug BB, BobbyT)
+### New — Hardware: GPU picker (Bug BB)
 
-- **Settings → Hardware now lists every detected GPU and lets you pin a vendor + indices** (BobbyT Discord 2026-05-26). BobbyT runs AMD RX 6800XT 16 GB + Intel Arc Pro B60 24 GB and wanted to pin the Arc Pro for inference. Pre-v2.5.0 LU had no picker — Ollama and ComfyUI used whatever the driver picked first. v2.5.0 adds `commands::gpu` with `detect_gpus` (probes nvidia-smi / rocm-smi / lspci on Linux / wmic on Windows / system_profiler on macOS), `set_gpu_selection` / `get_gpu_selection` (AppState-backed), and `apply_gpu_env` which forwards the right env-var family on next `start_ollama` / `start_comfyui` spawn: `CUDA_VISIBLE_DEVICES` for NVIDIA, `HIP_VISIBLE_DEVICES + ROCR_VISIBLE_DEVICES` for AMD, `ONEAPI_DEVICE_SELECTOR` (level_zero) for Intel. "Auto" leaves env-vars unset and matches pre-v2.5.0 behaviour. Frontend lives at `src/components/settings/HardwareSettings.tsx`; settings persisted as `gpuVendor` + `gpuIndices` on the existing Settings store. The boot effect in `App.tsx` pushes the persisted pick into AppState at app start so users don't have to open Settings before the first Ollama / ComfyUI spawn.
+- **Settings → Hardware now lists every detected GPU and lets you pin a vendor + indices** (Discord 2026-05-26). A user runs AMD RX 6800XT 16 GB + Intel Arc Pro B60 24 GB and wanted to pin the Arc Pro for inference. Pre-v2.5.0 LU had no picker — Ollama and ComfyUI used whatever the driver picked first. v2.5.0 adds `commands::gpu` with `detect_gpus` (probes nvidia-smi / rocm-smi / lspci on Linux / wmic on Windows / system_profiler on macOS), `set_gpu_selection` / `get_gpu_selection` (AppState-backed), and `apply_gpu_env` which forwards the right env-var family on next `start_ollama` / `start_comfyui` spawn: `CUDA_VISIBLE_DEVICES` for NVIDIA, `HIP_VISIBLE_DEVICES + ROCR_VISIBLE_DEVICES` for AMD, `ONEAPI_DEVICE_SELECTOR` (level_zero) for Intel. "Auto" leaves env-vars unset and matches pre-v2.5.0 behaviour. Frontend lives at `src/components/settings/HardwareSettings.tsx`; settings persisted as `gpuVendor` + `gpuIndices` on the existing Settings store. The boot effect in `App.tsx` pushes the persisted pick into AppState at app start so users don't have to open Settings before the first Ollama / ComfyUI spawn.
 
 ### New — Chatbot-export importer (Feature CC, MikeS++)
 
 - **Settings → "Import past chatbot conversations" parses ChatGPT, Claude, and Gemini exports** (MikeS++ Discord 2026-05-27). New file picker accepts the official export JSON or the unmodified .zip (JSZip walks for `conversations.json` with a fallback to the largest .json inside). Per-platform parser in `src/lib/parsers/chatbot-export.ts`: ChatGPT's `mapping` tree gets linearised by walking the first child each turn (matches what the user saw in the UI), Claude's `chat_messages` array gets a 1-to-1 markdown render, Gemini's `messages` array (or single-prompt activity fallback) gets the same treatment. Each conversation becomes a synthetic `.md` File and goes through the existing `useRAG.uploadDocument` pipeline — same chunking + embedding flow as a dragged-in document. Imports attach to the active chat's RAG store (per-conversation by design; memory facts stay in the curated memoryStore). Conversations are pre-selected for convenience; the UI surfaces per-conversation checkboxes + Select all / none for cleanup before import. Stays on the user's machine — no upload, no cloud round-trip.
 
-### New — Codex / Agent capabilities (Sprint A / B / C from uselu)
+### New — Codex / Agent capabilities (Sprint A / B / C from the web app)
 
 - **Architect / Editor split** (Sprint A #1). A separate "architect" model produces a structured plan with no tool access; the regular Codex model then applies the plan with tool access. Aider-style — empirically ~30 % better edit accuracy on multi-file refactors. Settings: `codexArchitectMode`, `codexArchitectModel`, `codexArchitectAllowCloud` (local-first by default; explicit opt-in to leave the machine).
 - **Repo-Map injection (Aider PageRank)** (Sprint A #2). The bridge ranks repo files by import-graph PageRank and injects the top-N entries into the editor system prompt. Default top-N is 20, clamped to bridge's [1, 200] range. Settings: `codexRepoMapEnabled`, `codexRepoMapLimit`.
@@ -2090,7 +2630,7 @@ Minor release. 30+ changes — the headline Codex / Agent sprint (Sprint A / B /
 - **Structured logger with key-substring redaction** (B4, `src/lib/logger.ts`). Replaces ad-hoc `console.log` calls in production paths. Any object key containing `token` / `key` / `secret` / `password` / `auth` is redacted before emit so log lines pasted into bug reports never accidentally leak credentials.
 - **`console.log` stripped from production builds** (B5). `vite.config.ts` adds `esbuild.pure: ['console.log', 'console.debug']` so DCE drops the calls in `vite build` output. Errors and warnings remain — only the noisy debug-level calls go.
 
-### Hardening — Iteration cap bump (uselu live-test 2026-05-25)
+### Hardening — Iteration cap bump (the web app live-test 2026-05-25)
 
 - **`agentMaxIterations` 25 → 200; `agentMaxToolCalls` 50 → 400.** Real scaffold→install→fix→verify loops on a 35B local model hit the previous 25/50 caps mid-useful-work. The new caps are roomy enough for multi-file refactors yet still bounded enough that a runaway loop surfaces in finite wall-clock. Existing v2.4.9 settings auto-migrate (the persisted store keeps your customised values; only fresh installs see the new defaults).
 
@@ -2109,35 +2649,35 @@ If you had a custom HuggingFace download path set, double-check it after first l
 
 The chatbot importer attaches to the **active chat's** RAG store. Open or create a conversation before importing if you want a separate bucket per export.
 
-juliandiggins-stack's queued feature requests are deferred to v2.5.1 since the codex sprint took priority for this release.
+a user's queued feature requests are deferred to v2.5.1 since the codex sprint took priority for this release.
 
 ## [2.4.9] - 2026-05-25
 
-Sweep release on top of v2.4.8. Five bug fixes (U — GH #47 levoy1; V — Discord kj103x 2026-05-23 #help-chat, split into V/a RAG-persistence and V/b Ollama-orphan; W — Discord nightmare13740 2026-05-23/24 benchmark followup; X — Discord leonsk29 2026-05-24 #general thinking/agent toggles) plus two leonsk29 feature requests (GH #45 + GH #46).
+Sweep release on top of v2.4.8. Five bug fixes (U — GH #47; V — Discord 2026-05-23 #help-chat, split into V/a RAG-persistence and V/b Ollama-orphan; W — Discord 2026-05-23/24 benchmark followup; X — Discord 2026-05-24 #general thinking/agent toggles) plus two a user feature requests (GH #45 + GH #46).
 
 ### Fixed — ComfyUI Desktop App detection (Bug U)
 
-- **Onboarding now recognises the ComfyUI Desktop App** (GH #47, levoy1 2026-05-24). Pre-v2.4.9 both auto-detect (`detect_all_comfyui_installs_sync`) and manual entry (`set_comfyui_path`) required `main.py` to be the path's direct child. Levoy1's ComfyUI Desktop App from comfyanonymous (default install `%LOCALAPPDATA%\Programs\ComfyUI`) ships only `ComfyUI.exe` next to the Electron resources — the actual ComfyUI Working Directory with `main.py`, `models/`, `custom_nodes/` is at `~\Documents\ComfyUI` by default (or wherever the desktop installer's picker pointed at, recorded in `%APPDATA%\ComfyUI\config.json`'s `basePath`). v2.4.9 adds a `resolve_comfyui_path` helper that accepts either layout: if the given dir has `main.py` it's a classic install, if it has `ComfyUI.exe` it's the Desktop App and we walk a probe list (`Documents\ComfyUI`, `Documents\ComfyUI\ComfyUI`, `%APPDATA%\ComfyUI` and its `config.json` `basePath` hint, `%LOCALAPPDATA%\ComfyUI`, `%LOCALAPPDATA%\Programs\ComfyUI\resources\ComfyUI`) until we find `main.py`. The auto-scan picks the same hints. When the binary dir is given but no Working Directory is reachable, the error message tells the user exactly which folder we need ("LU needs the ComfyUI Working Directory with main.py, models/, custom_nodes/ — by default `~\Documents\ComfyUI`") instead of the previous bare "main.py not found".
+- **Onboarding now recognises the ComfyUI Desktop App** (GH #47 2026-05-24). Pre-v2.4.9 both auto-detect (`detect_all_comfyui_installs_sync`) and manual entry (`set_comfyui_path`) required `main.py` to be the path's direct child. a user's ComfyUI Desktop App from comfyanonymous (default install `%LOCALAPPDATA%\Programs\ComfyUI`) ships only `ComfyUI.exe` next to the Electron resources — the actual ComfyUI Working Directory with `main.py`, `models/`, `custom_nodes/` is at `~\Documents\ComfyUI` by default (or wherever the desktop installer's picker pointed at, recorded in `%APPDATA%\ComfyUI\config.json`'s `basePath`). v2.4.9 adds a `resolve_comfyui_path` helper that accepts either layout: if the given dir has `main.py` it's a classic install, if it has `ComfyUI.exe` it's the Desktop App and we walk a probe list (`Documents\ComfyUI`, `Documents\ComfyUI\ComfyUI`, `%APPDATA%\ComfyUI` and its `config.json` `basePath` hint, `%LOCALAPPDATA%\ComfyUI`, `%LOCALAPPDATA%\Programs\ComfyUI\resources\ComfyUI`) until we find `main.py`. The auto-scan picks the same hints. When the binary dir is given but no Working Directory is reachable, the error message tells the user exactly which folder we need ("LU needs the ComfyUI Working Directory with main.py, models/, custom_nodes/ — by default `~\Documents\ComfyUI`") instead of the previous bare "main.py not found".
 
 ### Fixed — RAG document persistence (Bug V/a)
 
-- **RAG embedding chunks survive an NSIS auto-update / WebView2 data reset** (kj103x Discord 2026-05-23 thread `1507756765612216411`, references GH Discussion #26 as "'fixed' but not really fixed"). v2.3.4 closed the chat-message half (3-leg backup of localStorage → `%APPDATA%\Locally Uncensored\store_backup.json`), but the RAG chunks (embedding vectors stored in IndexedDB at `locally-uncensored-rag → chunks` because 768-float vectors blow past localStorage's quota) were never in the backup pipeline. After an NSIS upgrade or WebView2 data wipe, `documents` (the file-metadata localStorage half of `rag-store`) restored fine but the chunks were lost — every RAG-enabled chat would show the document name and silently return no retrievals. v2.4.9 adds two Tauri commands (`backup_rag_chunks`, `restore_rag_chunks`, same atomic-temp-rename pattern as `backup_stores` to `%APPDATA%\Locally Uncensored\rag_chunks_backup.json`) and two `ragDB.ts` helpers (`exportAllChunks` / `importAllChunks`). The backup triad in `AppShell.tsx` now backs up RAG chunks on a 30 s interval + on `beforeunload`, separate cadence from the existing 5 s chat-snapshot triad because chunk payloads are heavy and change rarely (only on document upload/delete). Restore runs alongside `restore_stores` on cold start AND on warm starts where IndexedDB might be empty while localStorage has the doc metadata — and only imports entries the live store is missing, so a stale backup can't clobber newer in-app activity.
+- **RAG embedding chunks survive an NSIS auto-update / WebView2 data reset** (Discord 2026-05-23 thread `1507756765612216411`, references GH Discussion #26 as "'fixed' but not really fixed"). v2.3.4 closed the chat-message half (3-leg backup of localStorage → `%APPDATA%\Locally Uncensored\store_backup.json`), but the RAG chunks (embedding vectors stored in IndexedDB at `locally-uncensored-rag → chunks` because 768-float vectors blow past localStorage's quota) were never in the backup pipeline. After an NSIS upgrade or WebView2 data wipe, `documents` (the file-metadata localStorage half of `rag-store`) restored fine but the chunks were lost — every RAG-enabled chat would show the document name and silently return no retrievals. v2.4.9 adds two Tauri commands (`backup_rag_chunks`, `restore_rag_chunks`, same atomic-temp-rename pattern as `backup_stores` to `%APPDATA%\Locally Uncensored\rag_chunks_backup.json`) and two `ragDB.ts` helpers (`exportAllChunks` / `importAllChunks`). The backup triad in `AppShell.tsx` now backs up RAG chunks on a 30 s interval + on `beforeunload`, separate cadence from the existing 5 s chat-snapshot triad because chunk payloads are heavy and change rarely (only on document upload/delete). Restore runs alongside `restore_stores` on cold start AND on warm starts where IndexedDB might be empty while localStorage has the doc metadata — and only imports entries the live store is missing, so a stale backup can't clobber newer in-app activity.
 
 ### Fixed — LU-spawned Ollama is killed on shutdown (Bug V/b)
 
-- **Auto-installed `ollama serve` no longer lingers as a 200 MB orphan after LU quits** (same kj103x thread). The Drop impl on `AppState` already killed `comfy_process` and `claude_code_process` on shutdown, but Ollama was never stored — `start_ollama` and `auto_start_ollama` spawned `ollama serve` and discarded the `Child` handle, so quitting LU (tray → Quit) left `ollama.exe` running in the background indefinitely. v2.4.9 adds `ollama_process: Mutex<Option<Child>>` to `AppState`, captures the spawn in both call sites, and adds an Ollama kill leg to `Drop` that mirrors the ComfyUI taskkill `/T /F` pattern (kills the process tree). The pre-spawn tasklist check stays in place so we only ever store a `Child` we ourselves started — a user-managed `ollama serve` that was already running when LU launched is left alone, so quitting LU never kills someone else's Ollama. Hide-to-tray (`X` button) is unaffected: the page stays alive, Ollama keeps serving, no Drop runs until the user explicitly Quits from the tray menu. Same release also upgrades `exit_app` (used by the auto-updater to let NSIS swap the binary) from `std::process::exit(0)` to `app.exit(0)` so the Drop chain actually runs during an update — pre-v2.4.9 hard-exit bypassed every destructor and left both Ollama AND ComfyUI orphaned across upgrades.
+- **Auto-installed `ollama serve` no longer lingers as a 200 MB orphan after LU quits** (same thread). The Drop impl on `AppState` already killed `comfy_process` and `claude_code_process` on shutdown, but Ollama was never stored — `start_ollama` and `auto_start_ollama` spawned `ollama serve` and discarded the `Child` handle, so quitting LU (tray → Quit) left `ollama.exe` running in the background indefinitely. v2.4.9 adds `ollama_process: Mutex<Option<Child>>` to `AppState`, captures the spawn in both call sites, and adds an Ollama kill leg to `Drop` that mirrors the ComfyUI taskkill `/T /F` pattern (kills the process tree). The pre-spawn tasklist check stays in place so we only ever store a `Child` we ourselves started — a user-managed `ollama serve` that was already running when LU launched is left alone, so quitting LU never kills someone else's Ollama. Hide-to-tray (`X` button) is unaffected: the page stays alive, Ollama keeps serving, no Drop runs until the user explicitly Quits from the tray menu. Same release also upgrades `exit_app` (used by the auto-updater to let NSIS swap the binary) from `std::process::exit(0)` to `app.exit(0)` so the Drop chain actually runs during an update — pre-v2.4.9 hard-exit bypassed every destructor and left both Ollama AND ComfyUI orphaned across upgrades.
 
 ### Fixed — Benchmark shows latest run, not running average (Bug W)
 
-- **Per-model benchmark display is the latest session's tok/s, not a session-wide average that drifts as more samples accumulate** (nightmare13740 Discord 2026-05-23/24, Bug M retest). After the v2.4.8 Ollama `eval_count`/`eval_duration` fix, nightmare13740 ran gemma4:e4b ten times and watched the displayed tok/s climb from 15.2 to 17.9 across runs. They thought previous results were affecting new ones — they were, but only because `getAverageSpeed` in `benchmarkStore.ts` averaged every historical entry. Per-run measurements were stable; the UI was showing a drifting mean. v2.4.9 adds `getLatestSpeed(results, modelName)` which groups runs into "sessions" by a 10 s timestamp gap (one Run Benchmark click runs through BENCHMARK_PROMPTS in seconds, the next click is at least seconds later — usually minutes) and returns the mean of the most recent session only. `BenchmarkView.tsx` and `ModelBenchmark.tsx` switch to `getLatestSpeed`; the leaderboard keeps `getLeaderboard`/`getAverageSpeed` since cross-model comparison benefits from averaging out noise. Four new vitest cases pin the session-boundary logic.
+- **Per-model benchmark display is the latest session's tok/s, not a session-wide average that drifts as more samples accumulate** (Discord 2026-05-23/24, Bug M retest). After the v2.4.8 Ollama `eval_count`/`eval_duration` fix, a user ran gemma4:e4b ten times and watched the displayed tok/s climb from 15.2 to 17.9 across runs. They thought previous results were affecting new ones — they were, but only because `getAverageSpeed` in `benchmarkStore.ts` averaged every historical entry. Per-run measurements were stable; the UI was showing a drifting mean. v2.4.9 adds `getLatestSpeed(results, modelName)` which groups runs into "sessions" by a 10 s timestamp gap (one Run Benchmark click runs through BENCHMARK_PROMPTS in seconds, the next click is at least seconds later — usually minutes) and returns the mean of the most recent session only. `BenchmarkView.tsx` and `ModelBenchmark.tsx` switch to `getLatestSpeed`; the leaderboard keeps `getLeaderboard`/`getAverageSpeed` since cross-model comparison benefits from averaging out noise. Four new vitest cases pin the session-boundary logic.
 
 ### Fixed — Thinking + Agent toggles enable for community-uncensored Gemma 4 (Bug X)
 
-- **`isThinkingCompatible` and `isAgentCompatible` now match dashed-family names (`gemma-4-…`) and multi-segment HF paths (`hf.co/<org>/<repo>:<tag>`)** (leonsk29 Discord #general 2026-05-24). Symptom: leonsk29 reported the Thinking + Agent toggles both grayed out for every Gemma 4 community variant LU's Discover tab pulls (TrevorJS, nohurry, Stabhappy, LiconStudio, huihui-ai) while the official `gemma4:e4b` from Ollama had both enabled. Root cause was a two-stage match failure in `model-compatibility.ts`: (1) the prefix strip was non-greedy (`/^[^/]+\//`), so `hf.co/trevorjs/gemma-4-31b-it-uncensored-gguf:q4_k_m` only lost `hf.co/` and kept `trevorjs/` in front of the family token; (2) the family-dash collapse was anchored to start-of-string, so `gemma-4-…` mid-string never normalized to `gemma4`; (3) the final `.startsWith` couldn't see past the community prefix `huihui-` / `mradermacher/Huihui-` etc. v2.4.9 rewrites `normalizeFamily` to (a) greedy-strip the full path prefix (catches `hf.co/<user>/<repo>:<quant>`), (b) drop GGUF repo cruft (`-gguf`, `-imatrix`, `-max`, `-i1`, `-ud`), (c) drop tuning/variant markers (`-abliterated`, `-uncensored`, `-heretic`, `-instruct`, `-it`, `-chat`, `-base`), (d) drop quant suffixes (`-q\d…`, `-iq\d…`, `-mxfp\d`, `-nvfp\d`, `-bf\d+`), (e) collapse `gemma-4` / `qwen-3` / `llama-3.1` / `glm-4` / `phi-4` to the dash-less family form anywhere they appear, then matches via a new `containsFamily(family, normalized)` regex that requires non-alphanumeric boundaries on both sides so `mistral` doesn't collide with `mistralfork` and `gemma3xyz` stays excluded. Six new test cases pin the leonsk29 cases (TrevorJS, nohurry, Stabhappy, LiconStudio uncensored / heretic / abliterated repos, two-slash `hf.co/<user>/<repo>` shape, Huihui-prefixed community uncensored builds). One previous "by design" limitation in `model-compatibility-planner.test.ts` for `hf.co/<bart>/gemma4-…` is flipped: it should match, that was always the bug.
+- **`isThinkingCompatible` and `isAgentCompatible` now match dashed-family names (`gemma-4-…`) and multi-segment HF paths (`hf.co/<org>/<repo>:<tag>`)** (Discord #general 2026-05-24). Symptom: A user reported the Thinking + Agent toggles both grayed out for every Gemma 4 community variant LU's Discover tab pulls (TrevorJS, nohurry, Stabhappy, LiconStudio, huihui-ai) while the official `gemma4:e4b` from Ollama had both enabled. Root cause was a two-stage match failure in `model-compatibility.ts`: (1) the prefix strip was non-greedy (`/^[^/]+\//`), so `hf.co/trevorjs/gemma-4-31b-it-uncensored-gguf:q4_k_m` only lost `hf.co/` and kept `trevorjs/` in front of the family token; (2) the family-dash collapse was anchored to start-of-string, so `gemma-4-…` mid-string never normalized to `gemma4`; (3) the final `.startsWith` couldn't see past the community prefix `huihui-` / `mradermacher/Huihui-` etc. v2.4.9 rewrites `normalizeFamily` to (a) greedy-strip the full path prefix (catches `hf.co/<user>/<repo>:<quant>`), (b) drop GGUF repo cruft (`-gguf`, `-imatrix`, `-max`, `-i1`, `-ud`), (c) drop tuning/variant markers (`-abliterated`, `-uncensored`, `-heretic`, `-instruct`, `-it`, `-chat`, `-base`), (d) drop quant suffixes (`-q\d…`, `-iq\d…`, `-mxfp\d`, `-nvfp\d`, `-bf\d+`), (e) collapse `gemma-4` / `qwen-3` / `llama-3.1` / `glm-4` / `phi-4` to the dash-less family form anywhere they appear, then matches via a new `containsFamily(family, normalized)` regex that requires non-alphanumeric boundaries on both sides so `mistral` doesn't collide with `mistralfork` and `gemma3xyz` stays excluded. Six new test cases pin the cases (TrevorJS, nohurry, Stabhappy, LiconStudio uncensored / heretic / abliterated repos, two-slash `hf.co/<user>/<repo>` shape, Huihui-prefixed community uncensored builds). One previous "by design" limitation in `model-compatibility-planner.test.ts` for `hf.co/<bart>/gemma4-…` is flipped: it should match, that was always the bug.
 
 ### Feature — Onboarding suggests `nomic-embed-text` for Document Chat (GH #45)
 
-- **New onboarding step pulls the embedding model needed for Document Chat / RAG** (leonsk29 GH #45). v2.4.9 inserts an `embeddings` step between `models` and `done` in `Onboarding.tsx` STEP_ORDER. The step probes Ollama's installed model list for anything containing `embed`/`bge-`/`nomic` and auto-shows a "✓ Embedding model already installed" card if any are present (covers LM Studio + Ollama users who already have one). Otherwise it offers a one-click Install for `nomic-embed-text` (274 MB, runs on any CPU) with a progress bar and a Skip button. The Tauri Ollama-pull path is reused (`pullModelTauri('nomic-embed-text')`), gated by a `start_ollama` / `checkOllama` retry loop in case the daemon isn't reachable yet.
+- **New onboarding step pulls the embedding model needed for Document Chat / RAG** (GH #45). v2.4.9 inserts an `embeddings` step between `models` and `done` in `Onboarding.tsx` STEP_ORDER. The step probes Ollama's installed model list for anything containing `embed`/`bge-`/`nomic` and auto-shows a "✓ Embedding model already installed" card if any are present (covers LM Studio + Ollama users who already have one). Otherwise it offers a one-click Install for `nomic-embed-text` (274 MB, runs on any CPU) with a progress bar and a Skip button. The Tauri Ollama-pull path is reused (`pullModelTauri('nomic-embed-text')`), gated by a `start_ollama` / `checkOllama` retry loop in case the daemon isn't reachable yet.
 
 - **Upgrade-path coverage for users who completed onboarding before v2.4.9.** The new step above only fires for fresh installs — v2.4.8 → v2.4.9 upgraders never hit it. Three additions close that gap:
   - **`useRAG.uploadDocument` no longer uses `window.confirm`** for the embedding-missing case. Instead, the dropped file is queued in `ragStore.embeddingQueuedFiles` and `embeddingInstallPrompt` flips on. `RAGPanel` renders an in-app card with a Download (274 MB) + Cancel pair, matching the rest of the app chrome. After the pull succeeds, queued files replay automatically through the same `uploadDocument` path.
@@ -2146,7 +2686,7 @@ Sweep release on top of v2.4.8. Five bug fixes (U — GH #47 levoy1; V — Disco
 
 ### Feature — VRAM filter for text models in Discover (GH #46)
 
-- **VRAM tier sub-filter (Lightweight ≤10 GB, Mid-Range 10–16 GB, High-End >16 GB) on the text tab** (leonsk29 GH #46). Pre-v2.4.9 only image and video bundles had this filter; text models could only be narrowed by Uncensored / Mainstream. v2.4.9 surfaces the same filter chips on the text category in `DiscoverModels.tsx` and applies them to both `getUncensoredTextModels()` and `getMainstreamTextModels()` via each model's `sizeGB` field (Q4 quant ≈ VRAM need for fully-offloaded inference). Cloud / `canPull:false` entries without a `sizeGB` bypass the filter and always show, since "VRAM" is meaningless for them.
+- **VRAM tier sub-filter (Lightweight ≤10 GB, Mid-Range 10–16 GB, High-End >16 GB) on the text tab** (GH #46). Pre-v2.4.9 only image and video bundles had this filter; text models could only be narrowed by Uncensored / Mainstream. v2.4.9 surfaces the same filter chips on the text category in `DiscoverModels.tsx` and applies them to both `getUncensoredTextModels()` and `getMainstreamTextModels()` via each model's `sizeGB` field (Q4 quant ≈ VRAM need for fully-offloaded inference). Cloud / `canPull:false` entries without a `sizeGB` bypass the filter and always show, since "VRAM" is meaningless for them.
 
 ### Stability
 
@@ -2157,7 +2697,7 @@ Sweep release on top of v2.4.8. Five bug fixes (U — GH #47 levoy1; V — Disco
 
 ### Heads-up
 
-Windows + Linux only — macOS is not part of this build. `#bug-reports` / `#help-*` / GitHub monitored daily for regression reports. Still open from v2.4.8: 0yagizz OpenRouter half (passive, awaiting F12 console).
+Windows + Linux only — macOS is not part of this build. `#bug-reports` / `#help-*` / GitHub monitored daily for regression reports. Still open from v2.4.8: the OpenRouter half of a user report (passive, awaiting F12 console).
 
 ## [2.4.8] - 2026-05-23
 
@@ -2165,9 +2705,9 @@ Drop-in hotfix on top of v2.4.6. v2.4.7 was tagged but not separately released, 
 
 ### Fixed — Model Manager
 
-- **Text models in Discover keep their INSTALLED badge after restart** (Bug S — leonsk29 GH #43). Pre-v2.4.8 `isModelFullyInstalled` in `src/components/models/DiscoverModels.tsx` only consulted the in-memory `downloads` store, which is empty after a relaunch. A model installed yesterday looked uninstalled today. v2.4.8 also matches against the provider model list (`useModels().models`) for Ollama tags and for HuggingFace GGUF downloads pulled in via `hf.co/<repo>:<quant>` references, so whatever Ollama and LM Studio actually have on disk surfaces correctly. Session downloads remain a fast-path signal that doesn't wait for a `fetchModels()` round-trip.
+- **Text models in Discover keep their INSTALLED badge after restart** (Bug S — GH #43). Pre-v2.4.8 `isModelFullyInstalled` in `src/components/models/DiscoverModels.tsx` only consulted the in-memory `downloads` store, which is empty after a relaunch. A model installed yesterday looked uninstalled today. v2.4.8 also matches against the provider model list (`useModels().models`) for Ollama tags and for HuggingFace GGUF downloads pulled in via `hf.co/<repo>:<quant>` references, so whatever Ollama and LM Studio actually have on disk surfaces correctly. Session downloads remain a fast-path signal that doesn't wait for a `fetchModels()` round-trip.
 
-- **`canPull:false` text models get a clickable HuggingFace link** (Bug T — leonsk29 GH #44). Curated entries that have a HF page but no GGUF on day-one (Qwen 3.6 27B Samantha, GLM 5.1 754B MoE) render with a green "Available" badge instead of a Download button. Before v2.4.8 there was no UI to open the linked HF page. v2.4.8 adds an external-link icon button next to the Available badge for those entries.
+- **`canPull:false` text models get a clickable HuggingFace link** (Bug T — GH #44). Curated entries that have a HF page but no GGUF on day-one (Qwen 3.6 27B Samantha, GLM 5.1 754B MoE) render with a green "Available" badge instead of a Download button. Before v2.4.8 there was no UI to open the linked HF page. v2.4.8 adds an external-link icon button next to the Available badge for those entries.
 
 ### Fixed — LM Studio server-off banner UX polish
 
@@ -2195,39 +2735,39 @@ All six v2.4.7 fixes ride along — see the [2.4.7] section below for full detai
 
 v2.4.8 is a Windows + Linux release; macOS is not part of this build. `#bug-reports` / `#help-*` / GitHub will be monitored daily for regression reports.
 
-Still investigating: OpenRouter half of 0yagizz's report (needs F12 console output to repro).
+Still investigating: OpenRouter half of a user's report (needs F12 console output to repro).
 
 ## [2.4.7] - 2026-05-22
 
-Drop-in hotfix on top of v2.4.6. Five bugs: four user-reported (M — Discord nightmare13740; N — GH #40 juliandiggins-stack; O — Discord 0yagizz; P — Discord ake0n_official; R — GH Discussion #6 silentrunningcaUSA) plus internal hardening on the ComfyUI history-output extractor.
+Drop-in hotfix on top of v2.4.6. Five bugs: four user-reported (M — Discord; N — GH #40; O — Discord; P — Discord; R — GH Discussion #6) plus internal hardening on the ComfyUI history-output extractor.
 
 ### Fixed — benchmark accuracy
 
-- **Benchmark tok/s now excludes time-to-first-token + stream init** (Bug M — nightmare13740 Discord #help-chat, 2026-05-19). Pre-v2.4.7 `useBenchmark.runBenchmark` started the clock at `performance.now()` before opening the chat stream and used the resulting `totalTime` as the denominator for `tokensPerSec`. On any setup with non-trivial first-token latency (warm-up cost, connection init, ollama model load), the benchmark undercounted generation-phase throughput. nightmare13740's RTX 4070 Laptop 8 GB + gemma4:e4b reproduced the issue cleanly: ollama CLI baseline 30 tok/s, manual chat measurement 23–25 tok/s, pre-v2.4.7 benchmark 12 tok/s. v2.4.7 extracts `computeGenerationTps(tokenCount, totalTime, firstTokenTime)` into `src/stores/benchmarkStore.ts` as a pure helper, subtracts TTFT from the denominator, guards against `generationTime <= 0` for degenerate runs (0-token, 1-token, totalTime ≤ firstTokenTime). `useBenchmark.ts:55` now calls the helper; `timeToFirstToken` continues to surface as its own stat in the benchmark UI so users can compare TTFT and steady-state separately. Seven new vitest cases pin the math: nominal extraction, nightmare's exact 12-vs-24 tok/s reconstruction, zero-token guard, zero-generation-time guard, tiny TTFT relative to totalTime, single-token degenerate case.
+- **Benchmark tok/s now excludes time-to-first-token + stream init** (Bug M — Discord #help-chat, 2026-05-19). Pre-v2.4.7 `useBenchmark.runBenchmark` started the clock at `performance.now()` before opening the chat stream and used the resulting `totalTime` as the denominator for `tokensPerSec`. On any setup with non-trivial first-token latency (warm-up cost, connection init, ollama model load), the benchmark undercounted generation-phase throughput. a user's RTX 4070 Laptop 8 GB + gemma4:e4b reproduced the issue cleanly: ollama CLI baseline 30 tok/s, manual chat measurement 23–25 tok/s, pre-v2.4.7 benchmark 12 tok/s. v2.4.7 extracts `computeGenerationTps(tokenCount, totalTime, firstTokenTime)` into `src/stores/benchmarkStore.ts` as a pure helper, subtracts TTFT from the denominator, guards against `generationTime <= 0` for degenerate runs (0-token, 1-token, totalTime ≤ firstTokenTime). `useBenchmark.ts:55` now calls the helper; `timeToFirstToken` continues to surface as its own stat in the benchmark UI so users can compare TTFT and steady-state separately. Seven new vitest cases pin the math: nominal extraction, nightmare's exact 12-vs-24 tok/s reconstruction, zero-token guard, zero-generation-time guard, tiny TTFT relative to totalTime, single-token degenerate case.
 
   Late-shipping pre-release E2E in the actual release build (not vite-dev) found that the TTFT-subtraction formula alone was not enough. The Tauri Rust proxy (`proxy_localhost_stream`) collects bytes before returning, and WebView2 release-mode also aggregates TCP chunks for short responses. The result: for fast small models, all NDJSON lines arrive in JS within a single millisecond — `firstTokenTime ≈ totalTime`, `generationTimeMs ≈ 0`, formula returns numbers like 685,000 tok/s. To make the fix real for release builds, the Ollama provider now extracts the authoritative `eval_count` (tokens) and `eval_duration` (ns) fields from the server's final `done:true` chunk and forwards them via two new optional fields on `ChatStreamChunk` (`evalCount`, `evalDurationMs`). `useBenchmark` prefers these over JS timing whenever they're set: post-fix Ollama benchmark on this host now shows qwen2.5:0.5b at ~245 tok/s (matches Ollama API baseline 241.5) instead of 685,000. For providers that don't return server-side metrics (LM Studio / OpenAI-compat / vLLM / Anthropic), a sanity fallback kicks in: when `generationTimeMs < 100` and no API metrics, the formula falls back to wall-clock rate (`tokens / totalTime * 1000`) so the displayed number stays sane rather than blowing up to six-figure values. LM Studio q4_k_m benchmark on this host shows 85–136 tok/s via this path (vs the previous absurd readouts).
 
 ### Fixed — Windows / ComfyUI install
 
-- **`install_comfyui` + `install_custom_node` now probe `git --version` before clone** (Bug N — juliandiggins-stack GH issue #40, 2026-05-18). The existing spawn-error guard catches a flat "git not on PATH" failure, but it can't tell when a WSL / Linux-mounted git binary is first on PATH on a Windows machine — `git --version` succeeds, the clone *starts*, then dies because the Linux binary can't handle Windows-style target paths. The user ends up with a half-cloned ComfyUI directory and no actionable hint. v2.4.7 adds a tri-state `WindowsGitState` probe (Native / NonNative / Missing) in `src-tauri/src/commands/install.rs`. Native (`git version 2.x.x.windows.y` tag) proceeds silently. Missing blocks the install with a clear "install Git for Windows from https://git-scm.com/download/win and restart LU" hint. NonNative (no `.windows` tag — MSYS git, Cygwin git, or a WSL binary mounted into Windows PATH) surfaces a soft warning into the install panel logs but proceeds, since many MSYS/Cygwin gits actually handle Windows paths fine. Eleven new cargo unit tests pin the classification matrix (Git for Windows, WSL git, MSYS git, broken install, empty stdout, garbage stdout, case-insensitive) plus the install-hint copy (must mention `git-scm.com/download/win`, must mention PATH ordering for the WSL case).
+- **`install_comfyui` + `install_custom_node` now probe `git --version` before clone** (Bug N — GH issue #40, 2026-05-18). The existing spawn-error guard catches a flat "git not on PATH" failure, but it can't tell when a WSL / Linux-mounted git binary is first on PATH on a Windows machine — `git --version` succeeds, the clone *starts*, then dies because the Linux binary can't handle Windows-style target paths. The user ends up with a half-cloned ComfyUI directory and no actionable hint. v2.4.7 adds a tri-state `WindowsGitState` probe (Native / NonNative / Missing) in `src-tauri/src/commands/install.rs`. Native (`git version 2.x.x.windows.y` tag) proceeds silently. Missing blocks the install with a clear "install Git for Windows from https://git-scm.com/download/win and restart LU" hint. NonNative (no `.windows` tag — MSYS git, Cygwin git, or a WSL binary mounted into Windows PATH) surfaces a soft warning into the install panel logs but proceeds, since many MSYS/Cygwin gits actually handle Windows paths fine. Eleven new cargo unit tests pin the classification matrix (Git for Windows, WSL git, MSYS git, broken install, empty stdout, garbage stdout, case-insensitive) plus the install-hint copy (must mention `git-scm.com/download/win`, must mention PATH ordering for the WSL case).
 
 ### Fixed — Anthropic custom-proxy provider
 
-- **Anthropic provider no longer double-prefixes `/v1` when the user's baseUrl already ends in `/v1`** (Bug O — 0yagizz Discord 2026-05-18). Pre-v2.4.7 the provider unconditionally appended `/v1/messages` to the configured baseUrl. Users pointing the Anthropic provider at a proxy (claude-relay-server, LiteLLM, opencode-zen) sometimes paste a baseUrl with `/v1` already in the path — the proxy operator pinned the API version in their docs — and got back a silent 404 on `https://proxy.example/v1/v1/messages`. v2.4.7 collapses the second `/v1` via a new `messagesUrl()` helper that drops a trailing `/v1` before appending `/messages`. The default `https://api.anthropic.com` shape still produces the canonical `/v1/messages`, and `https://proxy.example/api-v1` (different non-suffix path that happens to contain "v1") still gets the standard `/v1/messages` append. Five new vitest cases cover both proxy shapes, trailing-slash tolerance, the default Anthropic URL, and the defensive non-suffix-`v1` case. OpenRouter half of 0yagizz's original report is still under investigation pending more F12-console context from the reporter — that path lands in v2.4.8 if it turns out to need a code change rather than a config one.
+- **Anthropic provider no longer double-prefixes `/v1` when the user's baseUrl already ends in `/v1`** (Bug O — Discord 2026-05-18). Pre-v2.4.7 the provider unconditionally appended `/v1/messages` to the configured baseUrl. Users pointing the Anthropic provider at a proxy (claude-relay-server, LiteLLM, opencode-zen) sometimes paste a baseUrl with `/v1` already in the path — the proxy operator pinned the API version in their docs — and got back a silent 404 on `https://proxy.example/v1/v1/messages`. v2.4.7 collapses the second `/v1` via a new `messagesUrl()` helper that drops a trailing `/v1` before appending `/messages`. The default `https://api.anthropic.com` shape still produces the canonical `/v1/messages`, and `https://proxy.example/api-v1` (different non-suffix path that happens to contain "v1") still gets the standard `/v1/messages` append. Five new vitest cases cover both proxy shapes, trailing-slash tolerance, the default Anthropic URL, and the defensive non-suffix-`v1` case. OpenRouter half of a user's original report is still under investigation pending more F12-console context from the reporter — that path lands in v2.4.8 if it turns out to need a code change rather than a config one.
 
 ### Fixed — LM Studio model picker
 
-- **Chat model picker now surfaces a "Start LM Studio Server" hint when LM Studio is installed but its server is off** (Bug Q — wakeywakeynow GH #41, 2026-05-19). Symptom: user has LM Studio installed with models on disk, opens LU's model picker, sees only Ollama models, no clue that LM Studio is missing because its server stopped. Root cause is straightforward: LM Studio's HTTP server doesn't auto-start with the app — the user has to run `lms server start` or click Developer → Start Server in the LM Studio UI. With the server off, LU's openai-compat probe gets no models and silently drops the LM Studio backend from the picker. v2.4.4 added the same hint to onboarding, but onboarding only runs once on first launch — returning users hit a stopped server with no visible signal. v2.4.7 wires the existing `lmstudio_server_status` Tauri command into `ModelSelector`'s dropdown and renders an inline banner with a working "Start LM Studio Server" button when `(lms_present || models_detected) && !running`. The button calls the existing `start_lmstudio_server` Tauri command, polls status for up to ~6 s for the server to bind 1234, then triggers a fresh `fetchModels()` so the LM Studio models appear in the dropdown without an LU restart. Live E2E in release build: with LM Studio server stopped, picker shows the banner with the right on-disk model count ("5 models on disk"). Clicking the button starts the server, the banner replaces itself with the LM Studio models, no app restart required.
+- **Chat model picker now surfaces a "Start LM Studio Server" hint when LM Studio is installed but its server is off** (Bug Q — GH #41, 2026-05-19). Symptom: user has LM Studio installed with models on disk, opens LU's model picker, sees only Ollama models, no clue that LM Studio is missing because its server stopped. Root cause is straightforward: LM Studio's HTTP server doesn't auto-start with the app — the user has to run `lms server start` or click Developer → Start Server in the LM Studio UI. With the server off, LU's openai-compat probe gets no models and silently drops the LM Studio backend from the picker. v2.4.4 added the same hint to onboarding, but onboarding only runs once on first launch — returning users hit a stopped server with no visible signal. v2.4.7 wires the existing `lmstudio_server_status` Tauri command into `ModelSelector`'s dropdown and renders an inline banner with a working "Start LM Studio Server" button when `(lms_present || models_detected) && !running`. The button calls the existing `start_lmstudio_server` Tauri command, polls status for up to ~6 s for the server to bind 1234, then triggers a fresh `fetchModels()` so the LM Studio models appear in the dropdown without an LU restart. Live E2E in release build: with LM Studio server stopped, picker shows the banner with the right on-disk model count ("5 models on disk"). Clicking the button starts the server, the banner replaces itself with the LM Studio models, no app restart required.
 
 ### Fixed — image / video timeouts
 
-- **Image and video generation timeouts are now user-configurable** (Bug P — ake0n_official Discord #help-chat, 2026-05-19). Pre-v2.4.7 image gens timed out at a hard-coded 20 min and video at 60 min. That was a sane default for desktop NVIDIA hardware but actively painful for the CPU-only / iGPU edge: ake0n_official's 12th-gen Intel Core + Intel UHD Graphics (128 MB allotment) finished sampling step 9 of 25 on a 1024 px Juggernaut-XL run before the 20-minute cap killed the job mid-sampler, with no way to recover the partial work. v2.4.7 adds `imageGenTimeoutMinutes` and `videoGenTimeoutMinutes` to `types/settings.ts` with defaults 20 and 60 (matching pre-v2.4.7 behavior on fresh installs and via the persisted-store migration), reads them in `useCreate.generate()` with a `Math.max(1, …)` clamp to prevent footguns from a 0-min input, and surfaces both as numeric inputs in `SettingsPage`'s new "Image / Video Generation Timeouts" section with an explanatory blurb naming the iGPU / CPU-only use case directly. Users on slow hardware can now bump both caps as needed (range 1–480 min); fast-GPU users see no change.
+- **Image and video generation timeouts are now user-configurable** (Bug P — Discord #help-chat, 2026-05-19). Pre-v2.4.7 image gens timed out at a hard-coded 20 min and video at 60 min. That was a sane default for desktop NVIDIA hardware but actively painful for the CPU-only / iGPU edge: a user's 12th-gen Intel Core + Intel UHD Graphics (128 MB allotment) finished sampling step 9 of 25 on a 1024 px Juggernaut-XL run before the 20-minute cap killed the job mid-sampler, with no way to recover the partial work. v2.4.7 adds `imageGenTimeoutMinutes` and `videoGenTimeoutMinutes` to `types/settings.ts` with defaults 20 and 60 (matching pre-v2.4.7 behavior on fresh installs and via the persisted-store migration), reads them in `useCreate.generate()` with a `Math.max(1, …)` clamp to prevent footguns from a 0-min input, and surfaces both as numeric inputs in `SettingsPage`'s new "Image / Video Generation Timeouts" section with an explanatory blurb naming the iGPU / CPU-only use case directly. Users on slow hardware can now bump both caps as needed (range 1–480 min); fast-GPU users see no change.
 
   Two release-mode polish items found during pre-ship E2E and folded into the same ship: (1) the inputs now use `value={settings.imageGenTimeoutMinutes ?? 20}` (and `?? 60` for video) so existing v2.4.6 users — whose persisted settings store predates these fields — see the defaults rendered as the field value instead of an empty input. Functionally `useCreate.generate()` already fell back to the defaults via `Math.max(1, settings.imageGenTimeoutMinutes || 20)`, so this is a UX-only patch; the saved timeout was always correct, just invisible on the first Settings visit after upgrade. (2) The `onChange` handler now clamps the upper bound too — `Math.min(480, Math.max(1, …))` — matching the HTML `max=480` attribute that was previously only a browser hint. Typing 999 used to persist as 999; v2.4.7 caps it at 480, so users who blindly type a large number to "disable" the timeout cap at the documented range instead.
 
 ### Fixed — ComfyUI output extraction
 
-- **Custom save nodes' outputs now surface in LU's gallery** (Bug R — silentrunningcaUSA GH Discussion #6, 2026-05-20). Pre-v2.4.7 `useCreate.ts` only scraped `nodeOutput.images`, `nodeOutput.gifs`, and `nodeOutput.videos` from each entry in ComfyUI's `/history/{promptId}` payload. That worked for the canonical SaveImage / SaveAnimatedWEBP / VHS_VideoCombine nodes, but every community workflow that uses a non-canonical save node — SaveImageWithMetadata posts under `result`, audio save nodes under `audio`, plenty of CivitAI workflows define their own keys — dropped its file on disk in ComfyUI's `output/` folder and never made it into LU's gallery. silentrunningcaUSA's symptom was exactly that: "I can send a generation request to ComfyUI and I can see the output in ComfyUI itself, but the result never comes back to LU." v2.4.7 extracts the extraction logic into a generic helper `extractComfyOutputFiles(nodeOutput)` in `src/api/comfyui.ts` that scans every key on the node output, accepts any array whose entries have a string `filename`, and fills in safe defaults for `subfolder` (`''`) and `type` (`'output'`) so downstream URL construction still works when a custom node omits them. Wired into all three `useCreate.ts` history-poll sites (WebSocket-branch heartbeat poll, WebSocket-branch completion path, polling-only fallback) so the fix applies regardless of which transport ComfyUI is on. Ten new vitest cases pin canonical-keys, custom-keys, audio, multi-key-on-same-node, missing-subfolder-and-type defaults, non-array values (LATENT, metadata, scalars), invalid array entries (missing filename, non-string filename, null), and the empty/null/undefined input guard.
+- **Custom save nodes' outputs now surface in LU's gallery** (Bug R — GH Discussion #6, 2026-05-20). Pre-v2.4.7 `useCreate.ts` only scraped `nodeOutput.images`, `nodeOutput.gifs`, and `nodeOutput.videos` from each entry in ComfyUI's `/history/{promptId}` payload. That worked for the canonical SaveImage / SaveAnimatedWEBP / VHS_VideoCombine nodes, but every community workflow that uses a non-canonical save node — SaveImageWithMetadata posts under `result`, audio save nodes under `audio`, plenty of CivitAI workflows define their own keys — dropped its file on disk in ComfyUI's `output/` folder and never made it into LU's gallery. a user's symptom was exactly that: "I can send a generation request to ComfyUI and I can see the output in ComfyUI itself, but the result never comes back to LU." v2.4.7 extracts the extraction logic into a generic helper `extractComfyOutputFiles(nodeOutput)` in `src/api/comfyui.ts` that scans every key on the node output, accepts any array whose entries have a string `filename`, and fills in safe defaults for `subfolder` (`''`) and `type` (`'output'`) so downstream URL construction still works when a custom node omits them. Wired into all three `useCreate.ts` history-poll sites (WebSocket-branch heartbeat poll, WebSocket-branch completion path, polling-only fallback) so the fix applies regardless of which transport ComfyUI is on. Ten new vitest cases pin canonical-keys, custom-keys, audio, multi-key-on-same-node, missing-subfolder-and-type defaults, non-array values (LATENT, metadata, scalars), invalid array entries (missing filename, non-string filename, null), and the empty/null/undefined input guard.
 
 ### Tests
 
@@ -2238,15 +2778,15 @@ Drop-in hotfix on top of v2.4.6. Five bugs: four user-reported (M — Discord ni
 
 ### Deferred to v2.4.8
 
-- **Bug Q** — wakeywakeynow GH #41 ("LM Studio installed but can't choose any models, worked first time, broken today"). Most plausible root cause is the LM Studio server having been stopped between the two runs (LM Studio closes its server when the desktop app is quit). The "no models — start LM Studio server" hint added in v2.4.4 already surfaces this state, so before landing a code change we want the reporter's F12 console output to confirm whether `listModels()` is timing out, returning empty, or failing auth. Carried into v2.4.8's outreach-then-fix queue rather than guessing at a fix that could regress the path that already works for everyone else.
+- **Bug Q** — GH #41 ("LM Studio installed but can't choose any models, worked first time, broken today"). Most plausible root cause is the LM Studio server having been stopped between the two runs (LM Studio closes its server when the desktop app is quit). The "no models — start LM Studio server" hint added in v2.4.4 already surfaces this state, so before landing a code change we want the reporter's F12 console output to confirm whether `listModels()` is timing out, returning empty, or failing auth. Carried into v2.4.8's outreach-then-fix queue rather than guessing at a fix that could regress the path that already works for everyone else.
 
 ## [2.4.6] - 2026-05-19
 
-Drop-in hotfix on top of v2.4.5. **One bug**: nightmare13740 (Discord 2026-05-18).
+Drop-in hotfix on top of v2.4.5. **One bug**: A user (Discord 2026-05-18).
 
 ### Fixed — chat throughput on tight VRAM cards
 
-- **Dropped hardcoded `num_gpu: 99` override on every Ollama chat request** (Bug L — nightmare13740 Discord #help-chat, 2026-05-18). The override was added in v2.2.1 (commit `ead5673`, april 2026) on the assumption "all desktop users have 16 GB+ cards, Ollama's auto-detect is too conservative, force max GPU offload." That assumption no longer holds with 2026 laptop GPUs (RTX 4070 Laptop ships with 8 GB) and modern model context windows (Gemma 3/4 advertise 128k native context, which materially expands the KV cache footprint). Symptom on nightmare13740's RTX 4070 Laptop 8 GB + gemma3:4b: ollama CLI without `num_gpu` ran at **30 tok/s** with sane VRAM use; LU's chat hit **6.9 tok/s** with VRAM saturated and 4 GB spilled to system RAM. The forced 99-layer offload exhausted VRAM, the KV cache had nowhere to live except system RAM, and every generated token thrashed across the PCIe bus. v2.4.6 removes the override from all five chat sites — `chatStream`, `chatStreamWithTools`, and `chatWithTools` in `src/api/ollama.ts`, `chatStream` and `chatWithTools` in `src/api/providers/ollama-provider.ts`, the Agent-Mode tool-call body in `src/lib/ollama-stream-tools.ts`, and both Remote-Access JS-template paths (`nativeToolChat` and the main agent loop) in `src-tauri/src/commands/remote.rs`. Ollama now applies its own VRAM-aware layer-placement logic on every request, which is a no-op on cards with headroom (Ollama already maxes layer count when VRAM allows) and restores CLI parity on tight cards.
+- **Dropped hardcoded `num_gpu: 99` override on every Ollama chat request** (Bug L — Discord #help-chat, 2026-05-18). The override was added in v2.2.1 (commit `ead5673`, april 2026) on the assumption "all desktop users have 16 GB+ cards, Ollama's auto-detect is too conservative, force max GPU offload." That assumption no longer holds with 2026 laptop GPUs (RTX 4070 Laptop ships with 8 GB) and modern model context windows (Gemma 3/4 advertise 128k native context, which materially expands the KV cache footprint). Symptom on a user's RTX 4070 Laptop 8 GB + gemma3:4b: ollama CLI without `num_gpu` ran at **30 tok/s** with sane VRAM use; LU's chat hit **6.9 tok/s** with VRAM saturated and 4 GB spilled to system RAM. The forced 99-layer offload exhausted VRAM, the KV cache had nowhere to live except system RAM, and every generated token thrashed across the PCIe bus. v2.4.6 removes the override from all five chat sites — `chatStream`, `chatStreamWithTools`, and `chatWithTools` in `src/api/ollama.ts`, `chatStream` and `chatWithTools` in `src/api/providers/ollama-provider.ts`, the Agent-Mode tool-call body in `src/lib/ollama-stream-tools.ts`, and both Remote-Access JS-template paths (`nativeToolChat` and the main agent loop) in `src-tauri/src/commands/remote.rs`. Ollama now applies its own VRAM-aware layer-placement logic on every request, which is a no-op on cards with headroom (Ollama already maxes layer count when VRAM allows) and restores CLI parity on tight cards.
 
 ### Tests
 
@@ -2259,19 +2799,19 @@ Drop-in hotfix on top of v2.4.5. **One bug**: nightmare13740 (Discord 2026-05-18
 Drop-in hotfix on top of v2.4.4. **Fourteen bugs total**: six user-reported (A — Discord/Reddit; B — GH #38; C — GH Discussion #39; D — Discord; E — GH #32 comment; K — Discord #help-coding-agent) plus eight surfaced during the real-tester Arch live verification sweep (F — `install_custom_node` not venv-aware on PEP 668; G — `install_ollama` Windows-only `.exe` download, plus a refix when the original tarball URL stopped resolving; H — `install_lmstudio` Windows-only; I — `install_python` Windows-only winget; J — `start_comfyui` crashes on non-NVIDIA systems without `--cpu` flag).
 
 ### Fixed — image / video creation
-- **Video output now actually produces `.mp4` files** (Bug A — miguelkodoatie Discord 14.05., Turbulent_Tomato7559 Reddit 10.05.). v2.4.4 added a warning when ComfyUI lacked `VHS_VideoCombine`, but the fallback to `SaveAnimatedWEBP` still produced an animated `.webp` "image" instead of a video. v2.4.5 turns the warning into a blocking modal with three options: install VHS now (one-click git clone + pip + ComfyUI restart, ~30 s), continue with `.webp`, or cancel. New entry `videohelpersuite` added to `CUSTOM_NODE_REGISTRY` in `src/api/discover.ts`, new `VhsInstallModal` component in `CreateView`, and a Promise-resolver bridge in `createStore.vhsInstallPrompt` so `useCreate.generate()` can await the user's choice. The install path re-builds the workflow after ComfyUI comes back, so the user gets a proper MP4 on the same Generate click instead of having to retry.
+- **Video output now actually produces `.mp4` files** (Bug A — Discord 14.05. Reddit 10.05.). v2.4.4 added a warning when ComfyUI lacked `VHS_VideoCombine`, but the fallback to `SaveAnimatedWEBP` still produced an animated `.webp` "image" instead of a video. v2.4.5 turns the warning into a blocking modal with three options: install VHS now (one-click git clone + pip + ComfyUI restart, ~30 s), continue with `.webp`, or cancel. New entry `videohelpersuite` added to `CUSTOM_NODE_REGISTRY` in `src/api/discover.ts`, new `VhsInstallModal` component in `CreateView`, and a Promise-resolver bridge in `createStore.vhsInstallPrompt` so `useCreate.generate()` can await the user's choice. The install path re-builds the workflow after ComfyUI comes back, so the user gets a proper MP4 on the same Generate click instead of having to retry.
 
 ### Fixed — onboarding / startup
-- **"ComfyUI loading..." now surfaces actionable UI after 60 s** (Bug B — dethlux GH #38). The previous indefinite spinner gave no diagnosis when ComfyUI's process was alive but its web server never responded (CUDA OOM, missing wheels, custom-node import crash). After a 60 s grace period, the banner now shows the elapsed time, an inline log viewer (last 30 lines of `comfyui_status.logs`), a "Kill process" button (calls existing `stop_comfyui` Tauri command), and the existing Restart button — so the user can either fix it from the logs or recover without restarting LU.
+- **"ComfyUI loading..." now surfaces actionable UI after 60 s** (Bug B — GH #38). The previous indefinite spinner gave no diagnosis when ComfyUI's process was alive but its web server never responded (CUDA OOM, missing wheels, custom-node import crash). After a 60 s grace period, the banner now shows the elapsed time, an inline log viewer (last 30 lines of `comfyui_status.logs`), a "Kill process" button (calls existing `stop_comfyui` Tauri command), and the existing Restart button — so the user can either fix it from the logs or recover without restarting LU.
 
 ### Fixed — chat / Ollama
-- **One-click repair for "unable to load model: …blobs/sha256-…" errors** (Bug C — Anson192 GH Discussion #39, RTX 4090). Ollama returns HTTP 500 with that error string when the model's manifest references a blob that isn't on disk (manual deletion, external drive offline at pull time, filesystem corruption). v2.4.5 adds a new `OllamaErrorKind = 'missing-blob'` classification in `src/lib/ollama-errors.ts` with a regex matching `unable to load model[:\s].*blobs[\\/]+sha256-[0-9a-f]+`. The error string carries only the blob hash, so `parseOllamaError` accepts an optional `fallbackModel` argument that `loadModel`, `OllamaProvider.chatStream`, and `OllamaProvider.chatWithTools` now pass through. `Header.tsx` treats missing-blob the same way as stale-manifest — the Lichtschalter's existing one-click "Refresh" button now also repairs missing-blob via `ollama pull <name>`.
+- **One-click repair for "unable to load model: …blobs/sha256-…" errors** (Bug C — GH Discussion #39, RTX 4090). Ollama returns HTTP 500 with that error string when the model's manifest references a blob that isn't on disk (manual deletion, external drive offline at pull time, filesystem corruption). v2.4.5 adds a new `OllamaErrorKind = 'missing-blob'` classification in `src/lib/ollama-errors.ts` with a regex matching `unable to load model[:\s].*blobs[\\/]+sha256-[0-9a-f]+`. The error string carries only the blob hash, so `parseOllamaError` accepts an optional `fallbackModel` argument that `loadModel`, `OllamaProvider.chatStream`, and `OllamaProvider.chatWithTools` now pass through. `Header.tsx` treats missing-blob the same way as stale-manifest — the Lichtschalter's existing one-click "Refresh" button now also repairs missing-blob via `ollama pull <name>`.
 
 ### Fixed — context window detection
-- **Dynamic context-window detection for LM Studio + Ollama** (Bug K — phantomderp Discord #help-coding-agent, 2026-05-04). Pre-fix LU cached an 8k fallback for unknown OpenAI-compatible models and never asked the server what the model actually supports, so the header showed 8k and the settings slider capped there even when the model could do 32k or 128k. `OpenAIProvider.getContextLength` now cascades: (1) `KNOWN_CONTEXT` table (expanded from 9 to 24 entries: gpt-5, o1/o3, deepseek-r1, llama-3.3, Groq + OpenRouter aliases), (2) `probeContextFromServer` for local backends — first the LM Studio Enhanced API `/api/v0/models/<id>` which returns `max_context_length` + `loaded_context_length` directly, then the generic `/v1/models/<id>` returning `context_window` / `max_model_len` / `n_ctx_train` on vLLM, llama.cpp server, others, (3) `guessContextFromName` heuristic for unknown families (llama-3.x → 131072, qwen2.5 → 32768, deepseek-r1 → 64000, etc.), (4) 8k hard fallback only if all three fail. `listModels` enriches contextLength in parallel via `Promise.all` so dropdowns surface real max context immediately. Cloud URLs skip the probe (no N+1, latency cost not warranted). `OllamaProvider.getContextLength` replaces the single `general.context_length` check with the same cascade pattern: tries `model_info["general.context_length"]` first, then any key ending in `.context_length` (Ollama leaves `general.context_length` empty for qwen2.5 and llama3.x and uses architecture-specific keys like `qwen2.context_length`, `llama.context_length`), then `parameters.num_ctx` (object or Modelfile-style string), then 4096 fallback. +13 new vitest cases (7 OpenAI + 4 Ollama + 3 heuristic + 1 fragile-test rewrite). Live verified on Arch + Host with multiple LM Studio + Ollama models.
+- **Dynamic context-window detection for LM Studio + Ollama** (Bug K — Discord #help-coding-agent, 2026-05-04). Pre-fix LU cached an 8k fallback for unknown OpenAI-compatible models and never asked the server what the model actually supports, so the header showed 8k and the settings slider capped there even when the model could do 32k or 128k. `OpenAIProvider.getContextLength` now cascades: (1) `KNOWN_CONTEXT` table (expanded from 9 to 24 entries: gpt-5, o1/o3, deepseek-r1, llama-3.3, Groq + OpenRouter aliases), (2) `probeContextFromServer` for local backends — first the LM Studio Enhanced API `/api/v0/models/<id>` which returns `max_context_length` + `loaded_context_length` directly, then the generic `/v1/models/<id>` returning `context_window` / `max_model_len` / `n_ctx_train` on vLLM, llama.cpp server, others, (3) `guessContextFromName` heuristic for unknown families (llama-3.x → 131072, qwen2.5 → 32768, deepseek-r1 → 64000, etc.), (4) 8k hard fallback only if all three fail. `listModels` enriches contextLength in parallel via `Promise.all` so dropdowns surface real max context immediately. Cloud URLs skip the probe (no N+1, latency cost not warranted). `OllamaProvider.getContextLength` replaces the single `general.context_length` check with the same cascade pattern: tries `model_info["general.context_length"]` first, then any key ending in `.context_length` (Ollama leaves `general.context_length` empty for qwen2.5 and llama3.x and uses architecture-specific keys like `qwen2.context_length`, `llama.context_length`), then `parameters.num_ctx` (object or Modelfile-style string), then 4096 fallback. +13 new vitest cases (7 OpenAI + 4 Ollama + 3 heuristic + 1 fragile-test rewrite). Live verified on Arch + Host with multiple LM Studio + Ollama models.
 
 ### Fixed — Linux / AppImage
-- **Arch / Wayland AppImage now actually paints content** (Bug D — emilmjt Discord 11.05.). The "empty window" symptom on Arch is Tauri 2 + webkit2gtk-4.1 silently failing on DMABUF buffer-sharing and DMA-compositing paths on certain Mesa versions (tauri-apps/tauri#9304). `src-tauri/src/main.rs` now sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` and `WEBKIT_DISABLE_COMPOSITING_MODE=1` at startup on Linux, falling back to software composite — same workaround the GNOME and KDE maintainers recommend. Only set when the user hasn't already exported the vars themselves. `tauri.conf.json` also now declares explicit `bundle.linux.deb.depends` and `bundle.linux.rpm.depends` for `webkit2gtk-4.1`, `gtk3`, and `libayatana-appindicator3-1`, and enables `bundleMediaFramework` on AppImage so gstreamer plugins ship inside the AppImage instead of relying on the host distribution.
+- **Arch / Wayland AppImage now actually paints content** (Bug D — Discord 11.05.). The "empty window" symptom on Arch is Tauri 2 + webkit2gtk-4.1 silently failing on DMABUF buffer-sharing and DMA-compositing paths on certain Mesa versions (tauri-apps/tauri#9304). `src-tauri/src/main.rs` now sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` and `WEBKIT_DISABLE_COMPOSITING_MODE=1` at startup on Linux, falling back to software composite — same workaround the GNOME and KDE maintainers recommend. Only set when the user hasn't already exported the vars themselves. `tauri.conf.json` also now declares explicit `bundle.linux.deb.depends` and `bundle.linux.rpm.depends` for `webkit2gtk-4.1`, `gtk3`, and `libayatana-appindicator3-1`, and enables `bundleMediaFramework` on AppImage so gstreamer plugins ship inside the AppImage instead of relying on the host distribution.
 
 ### Fixed — Linux / ComfyUI runtime
 - **`start_comfyui` + `auto_start_comfyui` pass `--cpu` on non-NVIDIA systems** (Bug J — discovered during 2026-05-17 Arch real-tester sweep). ComfyUI 0.21.x's `main.py` calls `get_torch_device()` → `torch.cuda.current_device()` unconditionally during import. On every Linux system without an NVIDIA driver (AMD ROCm setups, Intel Arc, pure CPU boxes, any user who hasn't installed `nvidia` yet), `torch.cuda._lazy_init()` raises `RuntimeError: Found no NVIDIA driver on your system` and `main.py` crashes before binding port 8188. The user then sees LU stuck on "ComfyUI loading…" (Bug B's 60-s panel surfaces this correctly, but the underlying spawn-then-crash burns time on every restart). New helper `process::needs_cpu_fallback()` probes `nvidia-smi`; when it's absent (and we're not on macOS, where PyTorch uses MPS and never touches cuda APIs), both ComfyUI spawn paths append `--cpu` to the argv. Live-verified on Arch VirtualBox VM 2026-05-17: pre-fix, `main.py` crashed with the verbatim `Found no NVIDIA driver` traceback; post-fix, ComfyUI 0.21.1 started cleanly in CPU mode and answered `/system_stats` after 15 s. Note: AMD/Intel users CURRENTLY downgrade to CPU too — a follow-up will probe `rocm-smi` and Intel XPU devices to pick the right backend, but the safe default is "no crash."
@@ -2289,10 +2829,10 @@ Drop-in hotfix on top of v2.4.4. **Fourteen bugs total**: six user-reported (A �
 - **`install_custom_node` now uses the ComfyUI venv when present** (Bug F — discovered during Arch live verification 2026-05-17). The `install_custom_node` Tauri command (used by Bug A's VHS install path among others) used to call pip against `state.python_bin` (the system Python). On Arch and other PEP 668 distros the requirements install would silently fail with `error: externally-managed-environment` — and since the function did `let _ = pip.output()` and ignored the exit code, the user got a "installed" status while the requirements never actually landed. The next workflow build then crashed with `ModuleNotFoundError`. `install_custom_node` now (1) resolves `<ComfyUI>/venv` via the shared `resolve_comfyui_venv_python()` helper from `src-tauri/src/python.rs`, falling back to `state.python_bin` only when no venv exists, and (2) captures pip's exit status + stderr and runs them through `diagnose_pip_error` so PEP 668 / connection / disk-full / etc. surface actionable messages. This bug only fired on PEP 668 distros (Arch / Debian 12+ / Fedora 38+ / Ubuntu 23.04+) when the user installed ComfyUI through LU's installer (which creates the venv) and then tried to install any custom node afterwards. **LIVE-VERIFIED on REAL Arch 2026-05-17**: in the installed-Arch VM, simulated Bug E's outcome by creating `<ComfyUI>/venv`, then ran the EXACT pip flow `install_custom_node` would issue. (a) venv-python path: `requests>=2.0` installed cleanly into the venv's site-packages, `python -c "import requests; print(requests.__version__)"` returned `2.34.2`; (b) system-python path (what the pre-fix code would have done): pip exited with `error: externally-managed-environment` + Arch's verbatim "If you believe this is a mistake, please contact your Python installation or OS distribution provider … See PEP 668 for the detailed specification" message. Both legs proven empirically.
 
 ### Fixed — Linux / ComfyUI install
-- **PEP 668 protected Pythons (Arch, Debian 12+, Fedora 38+, Ubuntu 23.04+) no longer brick the ComfyUI install** (Bug E — rzgrozt GH #32 comment 2026-05-08). A bare `python -m pip install torch ...` exits with `error: externally-managed-environment` on those distros because the stdlib carries an `EXTERNALLY-MANAGED` marker file. v2.4.5 detects the marker via `sysconfig.get_path('stdlib')`, then runs `python -m venv <ComfyUI>/venv` and uses the venv's Python for every subsequent pip step. New helpers `is_pep668_protected`, `create_comfyui_venv`, and `venv_python_path` live in `src-tauri/src/commands/install.rs` and `src-tauri/src/python.rs`. `process.rs::start_comfyui` and `auto_start_comfyui` mirror the lookup so ComfyUI launches with the venv Python it was installed against — no `ModuleNotFoundError: torch` on first run. When the system Python's `venv` module is missing (some minimal Arch installs), the error now surfaces a one-line fix: `sudo pacman -S python-virtualenv` (or `apt install python3-venv` / `dnf install python3-virtualenv`). `diagnose_pip_error` also catches the externally-managed string directly as a fallback for anyone whose Python somehow bypasses the venv path.
+- **PEP 668 protected Pythons (Arch, Debian 12+, Fedora 38+, Ubuntu 23.04+) no longer brick the ComfyUI install** (Bug E — GH #32 comment 2026-05-08). A bare `python -m pip install torch ...` exits with `error: externally-managed-environment` on those distros because the stdlib carries an `EXTERNALLY-MANAGED` marker file. v2.4.5 detects the marker via `sysconfig.get_path('stdlib')`, then runs `python -m venv <ComfyUI>/venv` and uses the venv's Python for every subsequent pip step. New helpers `is_pep668_protected`, `create_comfyui_venv`, and `venv_python_path` live in `src-tauri/src/commands/install.rs` and `src-tauri/src/python.rs`. `process.rs::start_comfyui` and `auto_start_comfyui` mirror the lookup so ComfyUI launches with the venv Python it was installed against — no `ModuleNotFoundError: torch` on first run. When the system Python's `venv` module is missing (some minimal Arch installs), the error now surfaces a one-line fix: `sudo pacman -S python-virtualenv` (or `apt install python3-venv` / `dnf install python3-virtualenv`). `diagnose_pip_error` also catches the externally-managed string directly as a fallback for anyone whose Python somehow bypasses the venv path.
 
 ### Tests
-- `vitest`: **2284 passed** (93 files) — +7 for `parseOllamaError` missing-blob coverage in `src/lib/__tests__/ollama-errors.test.ts` (Anson192 verbatim error, generic no-fallback-model, forward+back-slash tolerance, Rust-proxy wrapping, chat-style message wording with + without model), +1 smoke test for the new `videohelpersuite` `CUSTOM_NODE_REGISTRY` entry, +13 for Bug K context-window detection across `provider-openai.test.ts` (LM Studio Enhanced API probe, generic `/v1/models/<id>` fallback, heuristic cascade, no-probe for cloud, listModels enrichment) and `provider-ollama.test.ts` (architecture-specific key cascade), +1 fragile 401 test rewrite.
+- `vitest`: **2284 passed** (93 files) — +7 for `parseOllamaError` missing-blob coverage in `src/lib/__tests__/ollama-errors.test.ts` (a user verbatim error, generic no-fallback-model, forward+back-slash tolerance, Rust-proxy wrapping, chat-style message wording with + without model), +1 smoke test for the new `videohelpersuite` `CUSTOM_NODE_REGISTRY` entry, +13 for Bug K context-window detection across `provider-openai.test.ts` (LM Studio Enhanced API probe, generic `/v1/models/<id>` fallback, heuristic cascade, no-probe for cloud, listModels enrichment) and `provider-ollama.test.ts` (architecture-specific key cascade), +1 fragile 401 test rewrite.
 - `cargo test --release`: **89 passed + 1 ignored** — +5 for Bug D (webkit env-var workarounds) + 13 for Bug E (PEP 668 detection, venv path layout, diagnose hints) + 9 for Bug I (`linux_python_install_hint` distro matrix: Arch, Manjaro via `ID_LIKE`, Ubuntu, Debian, Fedora, Rocky via quoted `ID_LIKE="rhel centos fedora"`, openSUSE, unknown fallback, empty input) + 2 for Bug J (`needs_cpu_fallback` macOS short-circuit + determinism) + 8 for Bug G refix (`linux_ollama_install_hint` matching the same distro matrix). Bug D + Bug F + Bug H code-paths cross-platform via cfg gates. Bug E has a `#[ignore]`'d live integration test (`pep668_e2e_live_detect_and_create_venv`) driven against real Arch's `/usr/bin/python` during the 2026-05-17 verification.
 - `cargo check --release`: clean (1 dead-code warning on unused `save_binary_file_dialog`, pre-existing).
 - `tsc --noEmit`: clean.
@@ -2300,28 +2840,28 @@ Drop-in hotfix on top of v2.4.4. **Fourteen bugs total**: six user-reported (A �
 ### Verification — HARDCORE LIVE E2E (Windows 10 + RTX 3060 Ti + ComfyUI 0.12.0 via Computer-Use)
 - **Bug A**: Modal "Install MP4 support?" appears on Generate when `VHS_VideoCombine` missing. **Full install path live-verified** end-to-end: git clone of Kosinkadink/ComfyUI-VideoHelperSuite into `custom_nodes/`, pip install (opencv-python + imageio-ffmpeg), ComfyUI stop+start, reconnect-poll, workflow rebuild, actual Wan-video sampling phase started ("Loading text encoder... 2s"). Cancel path also verified (modal closes cleanly, returns to "Ready to generate").
 - **Bug B**: Suspended ComfyUI via `NtSuspendProcess` while user navigates back to Create tab → triggers `useEffect` re-mount, `pollStatus` re-starts, detects ComfyUI down. Live-verified entire UI sequence: (1) "ComfyUI loading (12s)" elapsed-counter banner, (2) switch to actionable "ComfyUI is taking unusually long (86s)" panel after 60s threshold, (3) failure-mode explanation text rendered, (4) "View logs" toggle works (button label flips to "Hide logs"), (5) empty-logs fallback message renders ("No startup logs captured yet — ComfyUI hasn't emitted anything to stdout."), (6) "Kill process" button actually kills the spawned ComfyUI process (verified via PID gone + port 8188 free), (7) state machine transitions cleanly to "ComfyUI not responding" with Retry, (8) Retry click respawns ComfyUI which comes back online.
-- **Bug C**: Disabled the qwen2.5:0.5b blob (`sha256-c5396e...`) → triggered LU's startup health scan → banner "Ollama 0.20.7 broke 1 of your model. qwen2.5:0.5b" appeared + inline "stale — refresh? ↻ Refresh" chip next to Lichtschalter. Clicked "Refresh all" → `pullModel` triggered → DownloadBadge showed completion within seconds. Note: Ollama 0.20.7 transforms ALL blob errors (missing OR 0-byte corrupted) into the `"X does not support generate"` pattern, so the new `missing-blob` regex primarily protects users on older Ollama versions (Anson192's exact scenario on RTX 4090). Both error paths route to the same one-click repair UX.
-- **Bug D**: Linux webkit env-var function unit-tested cross-platform via 5 cargo tests (sets-both-when-unset, preserves user DMABUF override, preserves user COMPOSITING override, preserves empty-string as explicit unset, idempotent). **LIVE-VERIFIED on REAL Arch Linux + Wayland 2026-05-17**: installed Arch (kernel 7.0.8) in a VirtualBox VM, booted into a headless `sway` session (WLR_BACKENDS=headless, WLR_RENDERER=pixman, WLR_HEADLESS_OUTPUTS=1), built the LU release binary on the guest (`cargo build --release`, 7m 01s), and ran it twice: (a) defaults — `apply_linux_webkit_workarounds()` auto-sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` + `WEBKIT_DISABLE_COMPOSITING_MODE=1`, LU survives + window opens; (b) user override — `WEBKIT_DISABLE_DMABUF_RENDERER=0 WEBKIT_DISABLE_COMPOSITING_MODE=0`, fix respects the override (still works on this particular Mesa setup, would crash on emilmjt-style broken DMABUF stacks). `grim` screenshots captured the actual LU onboarding screen ("Locally Uncensored", "Private, local AI chat. No servers, no tracking, everything stays on your machine.", "Get Started" button, 5-dot pagination) at 1280x800, **742 unique pixel colors** — definitive proof the window is no longer an empty black rectangle. Screenshots at `LU-E2E-Test-Kit/scripts/arch_live_e2e_screenshots/bugd-scenario1-fix-active.png` + `…-bypassed.png`.
-- **Bug E**: PEP 668 detection + venv creation unit-tested cross-platform via 13 cargo tests across `install.rs::tests` and `python.rs::tests`. Path-layout tests cover both Windows (`venv/Scripts/python.exe`) and Unix (`venv/bin/python`) layouts. Resolver tests use real tempdirs to verify the `Some(path)` vs `None` gating. Diagnose tests cover Arch's exact `error: externally-managed-environment` string from rzgrozt's report plus the shorter `error: externally-managed` variant and confirm the suggested distro-install commands (`pacman -S python-virtualenv`, `apt install python3-venv`, `dnf install python3-virtualenv`) appear in the user-facing hint. **Plus a HARDCORE LIVE E2E test (`pep668_e2e_live_detect_and_create_venv`, `#[ignore]`'d so it runs on demand) drives the full flow against a real Python install whose stdlib has a real `EXTERNALLY-MANAGED` marker file. The test verifies: (1) `is_pep668_protected` returns true against the marker-planted Python, (2) `create_comfyui_venv` succeeds and produces the venv-Python at `<ComfyUI>/venv/{Scripts|bin}/python(.exe)`, (3) the nested venv's pip runs without inheriting the PEP 668 block (the whole point of the fix), (4) a second `create_comfyui_venv` call is idempotent. Setup + run scripted in `LU-E2E-Test-Kit/scripts/pep668_live_test.ps1`: robocopies the system Python to a writable temp dir, plants the marker in the copy's stdlib (NOT the real system Python — that would wedge every pip on the box), runs cargo with `LU_PEP668_TEST_PYTHON` set, cleans up. Result: all 4 phases passed against Python 3.11.7 + planted marker on 2026-05-17.** **AND — on top of the Windows simulation — Bug E was ALSO live-verified against a REAL Arch Linux ISO booted in a VirtualBox VM on 2026-05-17. The Arch live ISO ships Python 3.14.4 with the actual `/usr/lib/python3.14/EXTERNALLY-MANAGED` marker (multiline Arch text mentioning `pacman -S python-xyz`, identical to what rzgrozt's installer saw). Seven assertions all passed against this real environment: detection logic returns `YES`, `python -m venv` succeeds, venv Python lands at `/tmp/foo/venv/bin/python` (matching the Unix branch of `venv_python_path`), pip inside the venv is unblocked (downloads requests metadata without `externally-managed` error), idempotency holds, and the Rust-side equivalence of the shell probe matches verbatim. See `LU-E2E-Test-Kit/scripts/arch_live_e2e.md` for the full transcript. This live test also uncovered Bug F (separate fix above).**
+- **Bug C**: Disabled the qwen2.5:0.5b blob (`sha256-c5396e...`) → triggered LU's startup health scan → banner "Ollama 0.20.7 broke 1 of your model. qwen2.5:0.5b" appeared + inline "stale — refresh? ↻ Refresh" chip next to Lichtschalter. Clicked "Refresh all" → `pullModel` triggered → DownloadBadge showed completion within seconds. Note: Ollama 0.20.7 transforms ALL blob errors (missing OR 0-byte corrupted) into the `"X does not support generate"` pattern, so the new `missing-blob` regex primarily protects users on older Ollama versions (a user's exact scenario on RTX 4090). Both error paths route to the same one-click repair UX.
+- **Bug D**: Linux webkit env-var function unit-tested cross-platform via 5 cargo tests (sets-both-when-unset, preserves user DMABUF override, preserves user COMPOSITING override, preserves empty-string as explicit unset, idempotent). **LIVE-VERIFIED on REAL Arch Linux + Wayland 2026-05-17**: installed Arch (kernel 7.0.8) in a VirtualBox VM, booted into a headless `sway` session (WLR_BACKENDS=headless, WLR_RENDERER=pixman, WLR_HEADLESS_OUTPUTS=1), built the LU release binary on the guest (`cargo build --release`, 7m 01s), and ran it twice: (a) defaults — `apply_linux_webkit_workarounds()` auto-sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` + `WEBKIT_DISABLE_COMPOSITING_MODE=1`, LU survives + window opens; (b) user override — `WEBKIT_DISABLE_DMABUF_RENDERER=0 WEBKIT_DISABLE_COMPOSITING_MODE=0`, fix respects the override (still works on this particular Mesa setup, would crash on a user-style broken DMABUF stacks). `grim` screenshots captured the actual LU onboarding screen ("Locally Uncensored", "Private, local AI chat. No servers, no tracking, everything stays on your machine.", "Get Started" button, 5-dot pagination) at 1280x800, **742 unique pixel colors** — definitive proof the window is no longer an empty black rectangle. Screenshots at `LU-E2E-Test-Kit/scripts/arch_live_e2e_screenshots/bugd-scenario1-fix-active.png` + `…-bypassed.png`.
+- **Bug E**: PEP 668 detection + venv creation unit-tested cross-platform via 13 cargo tests across `install.rs::tests` and `python.rs::tests`. Path-layout tests cover both Windows (`venv/Scripts/python.exe`) and Unix (`venv/bin/python`) layouts. Resolver tests use real tempdirs to verify the `Some(path)` vs `None` gating. Diagnose tests cover Arch's exact `error: externally-managed-environment` string from a user's report plus the shorter `error: externally-managed` variant and confirm the suggested distro-install commands (`pacman -S python-virtualenv`, `apt install python3-venv`, `dnf install python3-virtualenv`) appear in the user-facing hint. **Plus a HARDCORE LIVE E2E test (`pep668_e2e_live_detect_and_create_venv`, `#[ignore]`'d so it runs on demand) drives the full flow against a real Python install whose stdlib has a real `EXTERNALLY-MANAGED` marker file. The test verifies: (1) `is_pep668_protected` returns true against the marker-planted Python, (2) `create_comfyui_venv` succeeds and produces the venv-Python at `<ComfyUI>/venv/{Scripts|bin}/python(.exe)`, (3) the nested venv's pip runs without inheriting the PEP 668 block (the whole point of the fix), (4) a second `create_comfyui_venv` call is idempotent. Setup + run scripted in `LU-E2E-Test-Kit/scripts/pep668_live_test.ps1`: robocopies the system Python to a writable temp dir, plants the marker in the copy's stdlib (NOT the real system Python — that would wedge every pip on the box), runs cargo with `LU_PEP668_TEST_PYTHON` set, cleans up. Result: all 4 phases passed against Python 3.11.7 + planted marker on 2026-05-17.** **AND — on top of the Windows simulation — Bug E was ALSO live-verified against a REAL Arch Linux ISO booted in a VirtualBox VM on 2026-05-17. The Arch live ISO ships Python 3.14.4 with the actual `/usr/lib/python3.14/EXTERNALLY-MANAGED` marker (multiline Arch text mentioning `pacman -S python-xyz`, identical to what a user's installer saw). Seven assertions all passed against this real environment: detection logic returns `YES`, `python -m venv` succeeds, venv Python lands at `/tmp/foo/venv/bin/python` (matching the Unix branch of `venv_python_path`), pip inside the venv is unblocked (downloads requests metadata without `externally-managed` error), idempotency holds, and the Rust-side equivalence of the shell probe matches verbatim. See `LU-E2E-Test-Kit/scripts/arch_live_e2e.md` for the full transcript. This live test also uncovered Bug F (separate fix above).**
 
 ## [2.4.4] - 2026-05-11
 
-Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit, and GitHub Discussions between 2026-05-04 and 2026-05-11. Eight fixes total — six tied to specific Discord/Reddit reporters, one Reddit issue, and one GitHub Discussion (vokurta — RTX 6000 Blackwell, posted the same morning this sweep landed).
+Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit, and GitHub Discussions between 2026-05-04 and 2026-05-11. Eight fixes total — six tied to specific Discord/Reddit reporters, one Reddit issue, and one GitHub Discussion (a user — RTX 6000 Blackwell, posted the same morning this sweep landed).
 
 ### Fixed — onboarding (LM Studio + ComfyUI)
-- **LM Studio system-wide install path now detected** (Bug #2 — techx69, Discord 06.05.). `lmstudio_lms_path()` previously only looked under `~/.lmstudio/bin/`, `%LOCALAPPDATA%\Programs\LM Studio\` and `where lms`, so a "for all users" install in `C:\Program Files\LM Studio\` came back as `lms_present: false`. New lookup walks `%PROGRAMFILES%`, `%PROGRAMFILES(X86)%`, `%PROGRAMW6432%`, plus a Windows registry sweep of `Uninstall\…\InstallLocation` for any subkey whose DisplayName starts with "LM Studio". (`winreg = "0.55"` added to `[target.'cfg(windows)'.dependencies]`.)
-- **LM Studio models-on-disk soft-detect.** `lmstudio_server_status` now returns `models_detected` + `model_count` from a bounded walk of `~/.lmstudio/models/` for GGUF files. The onboarding "No local backend detected" branch now flips into the "LM Studio detected" CTA whenever either `lms_present && !running` OR `models_detected && !running` is true — so users with GGUFs but no resolved `lms.exe` (techx69's exact shape) get "LM Studio is installed (N models detected) but its server isn't currently running" instead of being pushed into a 570 MB re-install.
-- **Multi-ComfyUI disambiguation in the onboarding ComfyUI step** (Bug #3 — ninjastic2008, Discord 05.05.). New Tauri command `detect_all_comfyui_installs` returns a `Vec<ComfyUIInstall>` with `{ path, complete, has_embedded_python, source }`. The onboarding effect now calls it first; when more than one match exists, the user picks explicitly via a clickable list (each row shows "ready / needs setup" + "found via …" + a "bundles python_embeded" badge). The chosen path is persisted via the existing `set_comfyui_path` command so `start_comfyui` hits it. Single-hit and zero-hit cases keep the previous auto-pick / install-fresh flow.
-- **ComfyUI install: Cancel button + disk-pressure pre-flight + ETA** (Bug #1 — techx69, Discord 06.05.). The 45-minute hang case on a 100%-busy drive used to leave the user with no way out. New Tauri command `cancel_comfyui_install` flips a `Arc<AtomicBool>` in `AppState.comfyui_install_cancel`; the install thread polls it between every step and inside the pip retry loop, kills the active git or pip child on cancel, and lands the status in `"cancelled"` so the polling UI clears. Pre-flight uses `sysinfo::Disks` to detect <5 GB free on the target drive and pushes a `⚠`-prefixed warning into the install logs (rendered as a yellow band above the live log card). Progress card now shows a rolling ETA (`download_total - download_progress` / `download_speed`) next to the elapsed timer.
-- **PyTorch wheel routing now respects GPU compute capability** (Bug #10 — vokurta, GitHub Discussion #37, 11.05.). `install_comfyui` probes `nvidia-smi --query-gpu=compute_cap` and picks `https://download.pytorch.org/whl/cu128` when any visible GPU reports SM ≥ 12.0 (Blackwell — RTX 50xx, RTX 6000 Pro), `cu121` otherwise. The probe is best-effort; failure falls back to cu121 so existing Ampere/Hopper installs don't regress. Fixes `CUDA error: no kernel image is available for execution on the device` at `CLIPTextEncode` on Blackwell silicon.
+- **LM Studio system-wide install path now detected** (Bug #2 —, Discord 06.05.). `lmstudio_lms_path()` previously only looked under `~/.lmstudio/bin/`, `%LOCALAPPDATA%\Programs\LM Studio\` and `where lms`, so a "for all users" install in `C:\Program Files\LM Studio\` came back as `lms_present: false`. New lookup walks `%PROGRAMFILES%`, `%PROGRAMFILES(X86)%`, `%PROGRAMW6432%`, plus a Windows registry sweep of `Uninstall\…\InstallLocation` for any subkey whose DisplayName starts with "LM Studio". (`winreg = "0.55"` added to `[target.'cfg(windows)'.dependencies]`.)
+- **LM Studio models-on-disk soft-detect.** `lmstudio_server_status` now returns `models_detected` + `model_count` from a bounded walk of `~/.lmstudio/models/` for GGUF files. The onboarding "No local backend detected" branch now flips into the "LM Studio detected" CTA whenever either `lms_present && !running` OR `models_detected && !running` is true — so users with GGUFs but no resolved `lms.exe` (a user's exact shape) get "LM Studio is installed (N models detected) but its server isn't currently running" instead of being pushed into a 570 MB re-install.
+- **Multi-ComfyUI disambiguation in the onboarding ComfyUI step** (Bug #3 —, Discord 05.05.). New Tauri command `detect_all_comfyui_installs` returns a `Vec<ComfyUIInstall>` with `{ path, complete, has_embedded_python, source }`. The onboarding effect now calls it first; when more than one match exists, the user picks explicitly via a clickable list (each row shows "ready / needs setup" + "found via …" + a "bundles python_embeded" badge). The chosen path is persisted via the existing `set_comfyui_path` command so `start_comfyui` hits it. Single-hit and zero-hit cases keep the previous auto-pick / install-fresh flow.
+- **ComfyUI install: Cancel button + disk-pressure pre-flight + ETA** (Bug #1 —, Discord 06.05.). The 45-minute hang case on a 100%-busy drive used to leave the user with no way out. New Tauri command `cancel_comfyui_install` flips a `Arc<AtomicBool>` in `AppState.comfyui_install_cancel`; the install thread polls it between every step and inside the pip retry loop, kills the active git or pip child on cancel, and lands the status in `"cancelled"` so the polling UI clears. Pre-flight uses `sysinfo::Disks` to detect <5 GB free on the target drive and pushes a `⚠`-prefixed warning into the install logs (rendered as a yellow band above the live log card). Progress card now shows a rolling ETA (`download_total - download_progress` / `download_speed`) next to the elapsed timer.
+- **PyTorch wheel routing now respects GPU compute capability** (Bug #10 —, GitHub Discussion #37, 11.05.). `install_comfyui` probes `nvidia-smi --query-gpu=compute_cap` and picks `https://download.pytorch.org/whl/cu128` when any visible GPU reports SM ≥ 12.0 (Blackwell — RTX 50xx, RTX 6000 Pro), `cu121` otherwise. The probe is best-effort; failure falls back to cu121 so existing Ampere/Hopper installs don't regress. Fixes `CUDA error: no kernel image is available for execution on the device` at `CLIPTextEncode` on Blackwell silicon.
 
 ### Fixed — chat surface
-- **TokenCounter now reflects the Settings `maxTokens` override live** (Bug #4 — phantomderp, Discord 05.05.). The component used to read `getModelMaxTokens(activeModel)` once per model switch and ignore subsequent settings changes, so a slider move from default → 16384 stayed pinned to the model's manifest value (e.g. 8.2k). It now subscribes to `useSettingsStore` so Zustand re-renders on every settings update; the effective ceiling is `settings.maxTokens > 0 ? settings.maxTokens : modelMax`, and the tooltip surfaces both when the user is overriding.
-- **DownloadBadge X-button actually cancels the Rust pull stream** (Bug #5 — phantomderp, Discord 05.05.). `modelStore.dismissPull` used to just delete the entry from `activePulls` — Rust's `pull_model_stream` kept emitting `pull-progress` events and the badge respawned within 100 ms while the disk kept writing. The action now aborts the entry's `AbortController` (which fires the existing `cancel` handler installed by `useModels.pullModel`) AND best-effort invokes `cancel_model_pull` directly. Five new unit tests in `src/stores/__tests__/modelStore-dismiss.test.ts` cover abort propagation, Rust invocation, synchronous state removal, the no-op-when-not-present case, and the late-progress-event guard.
-- **Agent-Mode hint when a model tries to call tools without the toggle on** (Bug #7 — phantomderp, Discord 04.05.). `MessageBubble` now runs `extractToolCallsFromContent` on every assistant message; when a call is detected, the conversation is in normal (non-agent) mode, AND the active model passes `isAgentCompatible`, an amber banner renders below the message: "This model tried to call a tool, but Agent Mode is off for this chat. Turn it on …" with a one-click Enable Agent button. Previously the user saw the raw JSON dump rendered as Markdown and assumed the model was broken.
+- **TokenCounter now reflects the Settings `maxTokens` override live** (Bug #4 —, Discord 05.05.). The component used to read `getModelMaxTokens(activeModel)` once per model switch and ignore subsequent settings changes, so a slider move from default → 16384 stayed pinned to the model's manifest value (e.g. 8.2k). It now subscribes to `useSettingsStore` so Zustand re-renders on every settings update; the effective ceiling is `settings.maxTokens > 0 ? settings.maxTokens : modelMax`, and the tooltip surfaces both when the user is overriding.
+- **DownloadBadge X-button actually cancels the Rust pull stream** (Bug #5 —, Discord 05.05.). `modelStore.dismissPull` used to just delete the entry from `activePulls` — Rust's `pull_model_stream` kept emitting `pull-progress` events and the badge respawned within 100 ms while the disk kept writing. The action now aborts the entry's `AbortController` (which fires the existing `cancel` handler installed by `useModels.pullModel`) AND best-effort invokes `cancel_model_pull` directly. Five new unit tests in `src/stores/__tests__/modelStore-dismiss.test.ts` cover abort propagation, Rust invocation, synchronous state removal, the no-op-when-not-present case, and the late-progress-event guard.
+- **Agent-Mode hint when a model tries to call tools without the toggle on** (Bug #7 —, Discord 04.05.). `MessageBubble` now runs `extractToolCallsFromContent` on every assistant message; when a call is detected, the conversation is in normal (non-agent) mode, AND the active model passes `isAgentCompatible`, an amber banner renders below the message: "This model tried to call a tool, but Agent Mode is off for this chat. Turn it on …" with a one-click Enable Agent button. Previously the user saw the raw JSON dump rendered as Markdown and assumed the model was broken.
 
 ### Fixed — image / video creation
-- **Workflow-architecture mismatch surfaces a clear install path** (Bug #6 — vvvxxxvvv_80435 Discord 04.05., Turbulent_Tomato7559 Reddit 10.05.). When the active ComfyUI lacks the wrapper nodes for the chosen video model (CogVideoX → `CogVideoXSampler`, FramePack → `FramePackSampler`, Pyramid Flow → `PyramidFlowSampler`, Allegro → community wrapper), `determineStrategy` now returns an `installHint: { pack, url }` alongside the error. The dynamic builder throws a typed `WorkflowUnavailableError` instead of a generic `Error`. `useCreate` recognises that subclass and surfaces the message + install-guide path instead of falling through to the legacy builder (which hits the same `UNETLoader` trap). New helper `checkVideoOutputCapability` lets the Create flow surface a yellow "output will be animated .webp" heads-up when `VHS_VideoCombine` is missing — same root cause as Turbulent_Tomato7559's Reddit report ("videos generate as .webp").
+- **Workflow-architecture mismatch surfaces a clear install path** (Bug #6 — Discord 04.05. Reddit 10.05.). When the active ComfyUI lacks the wrapper nodes for the chosen video model (CogVideoX → `CogVideoXSampler`, FramePack → `FramePackSampler`, Pyramid Flow → `PyramidFlowSampler`, Allegro → community wrapper), `determineStrategy` now returns an `installHint: { pack, url }` alongside the error. The dynamic builder throws a typed `WorkflowUnavailableError` instead of a generic `Error`. `useCreate` recognises that subclass and surfaces the message + install-guide path instead of falling through to the legacy builder (which hits the same `UNETLoader` trap). New helper `checkVideoOutputCapability` lets the Create flow surface a yellow "output will be animated .webp" heads-up when `VHS_VideoCombine` is missing — same root cause as a user's Reddit report ("videos generate as .webp").
 
 ### Tests
 - `vitest`: 93 files / 2264 tests green (was 92 / 2254 — +5 for Bug #5 cancel propagation in `modelStore-dismiss.test.ts`, +5 for Bug #6 install-hint coverage in `dynamic-workflow-strategy.test.ts`).
@@ -2358,7 +2898,7 @@ Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit,
 - **Picker resets when the selected model is no longer in the list** — instead of locking on a dead choice, the picker drops the selection back to the placeholder when its current model isn't present in the freshly-fetched list.
 
 ### Fixed — Remote Access dev-mode (carries forward from `[Unreleased]` block)
-- **Remote Access in `npm run dev` now surfaces a clear actionable message instead of a cryptic 404 + JSON.parse stacktrace** — reported on Discord in `#bug-reports` by @phantomderp on v2.4.2: clicking the LAN button printed `POST http://localhost:5173/local-api/start-remote-server [HTTP/1.1 404 Not Found]` and clicking Internet showed an `Error: HTTP 404` toast plus `Uncaught (in promise) SyntaxError: JSON.parse: unexpected character at line 1 column 1 of the JSON data`. Root cause: Remote Access is a Tauri-only feature (a Rust axum server, JWT auth, Cloudflare tunnel binary management, mobile-UI static serve — ~3700 lines in `src-tauri/src/commands/remote.rs`). When v2.4.2 added the corresponding `/local-api/*` paths to `src/api/backend.ts`'s endpoint map, no matching middleware was added to `vite.config.ts`, so dev-mode clicks fell through to vite's default 404 HTML page, which the frontend then tried to JSON.parse. End-user impact: zero — the installed `.exe` routes through Tauri's `invoke()` and works as designed. Developer impact: a confusing dead-end when iterating on the UI from `npm run dev`. Mirroring the entire feature in Node middleware would be a maintenance trap, so we keep dev lean and instead: (1) `Sidebar.handleDispatch` and the `remoteStore.startServer` / `restart` / `startTunnel` actions all check `isTauri()` first and short-circuit with `REMOTE_DEV_MODE_ERROR` — a single source-of-truth string that points at `npm run tauri:dev` (Tauri-aware dev mode where Remote works fully) or the installed app; (2) all 12 Remote-related vite middlewares are stubbed to return `HTTP 501 + { error, devModeOnly: true }` as a backstop in case any future caller bypasses the store guards.
+- **Remote Access in `npm run dev` now surfaces a clear actionable message instead of a cryptic 404 + JSON.parse stacktrace** — reported on Discord in `#bug-reports` by a user on v2.4.2: clicking the LAN button printed `POST http://localhost:5173/local-api/start-remote-server [HTTP/1.1 404 Not Found]` and clicking Internet showed an `Error: HTTP 404` toast plus `Uncaught (in promise) SyntaxError: JSON.parse: unexpected character at line 1 column 1 of the JSON data`. Root cause: Remote Access is a Tauri-only feature (a Rust axum server, JWT auth, Cloudflare tunnel binary management, mobile-UI static serve — ~3700 lines in `src-tauri/src/commands/remote.rs`). When v2.4.2 added the corresponding `/local-api/*` paths to `src/api/backend.ts`'s endpoint map, no matching middleware was added to `vite.config.ts`, so dev-mode clicks fell through to vite's default 404 HTML page, which the frontend then tried to JSON.parse. End-user impact: zero — the installed `.exe` routes through Tauri's `invoke()` and works as designed. Developer impact: a confusing dead-end when iterating on the UI from `npm run dev`. Mirroring the entire feature in Node middleware would be a maintenance trap, so we keep dev lean and instead: (1) `Sidebar.handleDispatch` and the `remoteStore.startServer` / `restart` / `startTunnel` actions all check `isTauri()` first and short-circuit with `REMOTE_DEV_MODE_ERROR` — a single source-of-truth string that points at `npm run tauri:dev` (Tauri-aware dev mode where Remote works fully) or the installed app; (2) all 12 Remote-related vite middlewares are stubbed to return `HTTP 501 + { error, devModeOnly: true }` as a backstop in case any future caller bypasses the store guards.
 
 ### Tests
 - `vitest`: 2254 / 2254 green (+3 new tests for the LM-Studio runtime-missing rewrite, +5 from the carried-forward Remote dev-mode short-circuit set, +2 adjusted constants-validation cases).
@@ -2381,26 +2921,26 @@ Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit,
 ### Notes
 - Drop-in upgrade from v2.4.2. No breaking changes, no localStorage migration. Auto-update prompts on next launch.
 - **Heads-up — extra-active first week.** Build environment for this release was different from usual. CI ships the same x64 + Linux installers as always, but to catch anything that slipped through the live-test pass: `#bug-reports` / `#help-*` / GitHub will be checked daily for the next ~5 days. If something behaves off after updating, please drop a note — fix turnaround should be fast (a v2.4.4 hotfix lands the same way auto-update did v2.4.3).
-- **Carrying forward into next sweep:** AMD video-generation "could not detect model type" + empty-output reports on Threadripper / RX 7900 XTX (vvvxxxvvv on Discord). Internet-Remote feature-request to support `npm run dev`. Beads memory-plugin design (Discussion #34).
+- **Carrying forward into next sweep:** AMD video-generation "could not detect model type" + empty-output reports on Threadripper / RX 7900 XTX (a user on Discord). Internet-Remote feature-request to support `npm run dev`. Beads memory-plugin design (Discussion #34).
 
 ## [2.4.2] - 2026-04-26
 
 ### Fixed
-- **Updates tab no longer shows a stale "Latest Version" after a manual binary upgrade** — reported on Discord by @diimmortalis: "I tried and failed to auto-update from the .deb package in i think 2.3.7, and now the updates tab says `Current Version: 2.4.1 | Latest Version: 2.3.8`." Root cause: zustand's `persist` middleware partializes `latestVersion` into localStorage, so when a user updates the binary out-of-band the persisted "latest" snapshot survives even though it's now older than what they're running. `checkForUpdate()` has a 6h cooldown, so the stale value lingers for hours. Fix: added `onRehydrateStorage` to `updateStore` that compares persisted `latestVersion` against `currentVersion` via the existing `isNewerVersion` helper and resets `latestVersion = null, updateAvailable = false, releaseNotes = null, lastChecked = null` when the persisted snapshot isn't strictly newer. Plus a UI hardening pass in `SettingsPage`'s `UpdateSection`: the "Latest Version" row now only renders when the persisted value really is newer than current, so even a missed rehydration can't display the inversion.
-- **Agent toggle now correctly enables for uncensored / abliterated variants of agent-capable bases** — reported by @diimmortalis on Discord with `LEONW24/Qwen3.5-9B-Uncensored:Q4_K_M`. The previous `isAgentCompatible` carried a deliberately narrow allow-list for abliterated/uncensored model names (`['qwen3-coder', 'hermes3', 'hermes-3', 'hermes']`) that over-rejected popular Qwen 3.x, Llama 3.x, Gemma 4, Mistral, and Qwen 2.5 abliterations even though those families retain native tool-calling weights through abliteration. Fix: the abliterated/uncensored branch now strips the `-abliterated` / `-uncensored` / `-instruct` / `-chat` / `:tag` suffixes and checks the remaining base name against the same canonical `AGENT_COMPATIBLE` list as the vanilla path. Three regression tests added in `model-compatibility.test.ts` covering the diimmortalis case + `mannix/llama3.1-8b-abliterated` + `huihui_ai/qwen2.5-abliterated`.
-- **CivitAI model search now uses the API key from the Workflow finder + shows a clear empty-state hint** — reported by @diimmortalis: "CivitAI model search doesn't seem to work — i think it's because the api-key was only accepted for the Workflow finder under the Create Tab, but i'm not finding any errors in the console or network tab, just says it's getting back an empty model list." Fix: `searchCivitaiModels(query, type, apiKey?)` in `discover.ts` now appends `&token=<apiKey>` when set and adds `nsfw=true` to surface adult content (matching LU's positioning). The DiscoverModels CivitAI panel reads the same key the Workflow finder writes via `workflowStore.civitaiApiKey`. New `civitaiSearched` state distinguishes "before-first-search" from "search-returned-zero" and renders an empty-state hint — `No matches for "<query>". Try a broader query, or add your CivitAI API key in the Workflow finder for the full catalog.` — instead of leaving the user staring at a silent empty list.
-- **Import Workflow now shows a visible success confirmation** — reported by @diimmortalis: "doesn't seem to persist manually entered json, and doesn't document where the file would be stored. There's no feedback or console output when clicking the 'Import' button." The import was actually persisting fine, but the UI cleared the inputs on success and emitted zero feedback, so the click looked like a no-op. Fix: added `importSuccess` state to `WorkflowSearchModal` and an emerald-green confirmation row that reads `Imported "<name>" and assigned to <modelName>.` after a successful URL or JSON paste; auto-clears after 4s.
-- **Newly downloaded ComfyUI models surface in the dropdown more reliably** — reported on GitHub Discussion #22 by @Draekzy and @cprovencher-beep. Two timing-related races were stacking: (1) `refreshComfyModels` was single-shot and silently returned `false` if ComfyUI was mid-startup or busy, leaving the cache stale; (2) the `comfyui-model-downloaded` event handler in `useCreate` called `fetchModels()` exactly once, so if ComfyUI's directory scan took longer than the `/api/refresh` round-trip the immediate fetch saw the pre-scan list. Fix: `refreshComfyModels(maxAttempts = 3)` retries with 1s + 2s backoff on transient failure, and the post-download handler now schedules `fetchModels()` immediately + at +2s + at +6s with proper timer cleanup on unmount. Live-traced in DevTools: a single dispatched event now produces 8 `/api/refresh` calls inside 8s, where pre-fix it produced 1. Doesn't address adjacent root causes like file-permission issues (running ComfyUI as admin to access models) or a misconfigured `Settings → ComfyUI → Path` — those are separate problems.
+- **Updates tab no longer shows a stale "Latest Version" after a manual binary upgrade** — reported on Discord by a user: "I tried and failed to auto-update from the .deb package in i think 2.3.7, and now the updates tab says `Current Version: 2.4.1 | Latest Version: 2.3.8`." Root cause: zustand's `persist` middleware partializes `latestVersion` into localStorage, so when a user updates the binary out-of-band the persisted "latest" snapshot survives even though it's now older than what they're running. `checkForUpdate()` has a 6h cooldown, so the stale value lingers for hours. Fix: added `onRehydrateStorage` to `updateStore` that compares persisted `latestVersion` against `currentVersion` via the existing `isNewerVersion` helper and resets `latestVersion = null, updateAvailable = false, releaseNotes = null, lastChecked = null` when the persisted snapshot isn't strictly newer. Plus a UI hardening pass in `SettingsPage`'s `UpdateSection`: the "Latest Version" row now only renders when the persisted value really is newer than current, so even a missed rehydration can't display the inversion.
+- **Agent toggle now correctly enables for uncensored / abliterated variants of agent-capable bases** — reported by a user on Discord with `LEONW24/Qwen3.5-9B-Uncensored:Q4_K_M`. The previous `isAgentCompatible` carried a deliberately narrow allow-list for abliterated/uncensored model names (`['qwen3-coder', 'hermes3', 'hermes-3', 'hermes']`) that over-rejected popular Qwen 3.x, Llama 3.x, Gemma 4, Mistral, and Qwen 2.5 abliterations even though those families retain native tool-calling weights through abliteration. Fix: the abliterated/uncensored branch now strips the `-abliterated` / `-uncensored` / `-instruct` / `-chat` / `:tag` suffixes and checks the remaining base name against the same canonical `AGENT_COMPATIBLE` list as the vanilla path. Three regression tests added in `model-compatibility.test.ts` covering the case + `mannix/llama3.1-8b-abliterated` + `huihui_ai/qwen2.5-abliterated`.
+- **CivitAI model search now uses the API key from the Workflow finder + shows a clear empty-state hint** — reported by a user: "CivitAI model search doesn't seem to work — i think it's because the api-key was only accepted for the Workflow finder under the Create Tab, but i'm not finding any errors in the console or network tab, just says it's getting back an empty model list." Fix: `searchCivitaiModels(query, type, apiKey?)` in `discover.ts` now appends `&token=<apiKey>` when set and adds `nsfw=true` to surface adult content (matching LU's positioning). The DiscoverModels CivitAI panel reads the same key the Workflow finder writes via `workflowStore.civitaiApiKey`. New `civitaiSearched` state distinguishes "before-first-search" from "search-returned-zero" and renders an empty-state hint — `No matches for "<query>". Try a broader query, or add your CivitAI API key in the Workflow finder for the full catalog.` — instead of leaving the user staring at a silent empty list.
+- **Import Workflow now shows a visible success confirmation** — reported by a user: "doesn't seem to persist manually entered json, and doesn't document where the file would be stored. There's no feedback or console output when clicking the 'Import' button." The import was actually persisting fine, but the UI cleared the inputs on success and emitted zero feedback, so the click looked like a no-op. Fix: added `importSuccess` state to `WorkflowSearchModal` and an emerald-green confirmation row that reads `Imported "<name>" and assigned to <modelName>.` after a successful URL or JSON paste; auto-clears after 4s.
+- **Newly downloaded ComfyUI models surface in the dropdown more reliably** — reported on GitHub Discussion #22 by two users. Two timing-related races were stacking: (1) `refreshComfyModels` was single-shot and silently returned `false` if ComfyUI was mid-startup or busy, leaving the cache stale; (2) the `comfyui-model-downloaded` event handler in `useCreate` called `fetchModels()` exactly once, so if ComfyUI's directory scan took longer than the `/api/refresh` round-trip the immediate fetch saw the pre-scan list. Fix: `refreshComfyModels(maxAttempts = 3)` retries with 1s + 2s backoff on transient failure, and the post-download handler now schedules `fetchModels()` immediately + at +2s + at +6s with proper timer cleanup on unmount. Live-traced in DevTools: a single dispatched event now produces 8 `/api/refresh` calls inside 8s, where pre-fix it produced 1. Doesn't address adjacent root causes like file-permission issues (running ComfyUI as admin to access models) or a misconfigured `Settings → ComfyUI → Path` — those are separate problems.
 
 ### Carrying forward from master (commit 9eb1329)
-- **Remote Access "Server stopped — restart does nothing" silent-failure path is fixed** — reported on issue #29 by @phantomderp13. Internet remote rethrows on failure instead of swallowing the error, orphan tunnels are cleaned up, and the inline error surfaces in the UI.
-- **Anti-Virus false-positive groundwork** — reported on issue #33 by @spiritwarri0r. Bundle metadata + signed installer carry forward; v2.4.1 already addressed most ESET / Avast hits.
+- **Remote Access "Server stopped — restart does nothing" silent-failure path is fixed** — reported on issue #29 by a user. Internet remote rethrows on failure instead of swallowing the error, orphan tunnels are cleaned up, and the inline error surfaces in the UI.
+- **Anti-Virus false-positive groundwork** — reported on issue #33 by a user. Bundle metadata + signed installer carry forward; v2.4.1 already addressed most ESET / Avast hits.
 
 ### Docs
-- **Blog correction: SillyTavern image generation** — reported by @diimmortalis. The "Best local AI apps 2026" comparison and the "Locally Uncensored vs SillyTavern" deep-dive both incorrectly listed SillyTavern as having no image generation support. SillyTavern does support image generation through its Stable Diffusion / ComfyUI extension; the table cell + descriptive text now reflect that, while keeping the built-in vs extension distinction honest.
+- **Blog correction: SillyTavern image generation** — reported by a user. The "Best local AI apps 2026" comparison and the "Locally Uncensored vs SillyTavern" deep-dive both incorrectly listed SillyTavern as having no image generation support. SillyTavern does support image generation through its Stable Diffusion / ComfyUI extension; the table cell + descriptive text now reflect that, while keeping the built-in vs extension distinction honest.
 
 ### Tests
-- Test suite 2244 → 2246 (+2 regression assertions in `updateStore.test.ts` pinning the diimmortalis 2.3.8/2.4.1 inversion case).
+- Test suite 2244 → 2246 (+2 regression assertions in `updateStore.test.ts` pinning the a user 2.3.8/2.4.1 inversion case).
 - 3 inverted assertions in `model-compatibility.test.ts` flipped to match the new unified abliterated handling — the previous "abliterated NOT compatible" expectations were encoding the bug, not desired behavior.
 
 ### Verification
@@ -2408,7 +2948,7 @@ Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit,
 - `cargo test`: 44 / 44 green
 - Built v2.4.2 installer + silent-installed over the prior v2.4.1 binary on a real Windows machine, then reproduced each bug's mechanism in the running app:
   - B1: seeded `latestVersion: '2.3.8'` into localStorage + reloaded — Settings → Updates correctly shows `Current Version: v2.4.2` + "You are on the latest version", no stale row.
-  - B2: 7-case assertion table run in DevTools console — diimmortalis's exact model + 3 other abliterated bases all return true, plus 3 negative cases (embedding model + unknown-base abliteration) correctly stay false.
+  - B2: 7-case assertion table run in DevTools console — a user's exact model + 3 other abliterated bases all return true, plus 3 negative cases (embedding model + unknown-base abliteration) correctly stay false.
   - B3: searching "flux" in CivitAI panel renders the empty-state hint as designed.
   - B4: pasted ComfyUI JSON twice with different names → both workflows persisted + assigned, visible in the WORKFLOW dropdown.
   - B5: instrumented `window.fetch`, dispatched the download-completed event once, traced 8 `/api/refresh` calls within 8s spanning the immediate / +2s / +6s × 3-attempt-retry pattern.
@@ -2420,7 +2960,7 @@ Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit,
 ## [2.4.1] - 2026-04-24
 
 ### Fixed
-- **CreateTopControls: picker dropdown hardened against any non-array list value** — reported on Discord by @phantomderp on the `#bug-reports` channel: "the web ui crashes when clicking on the model list at the top in the create tab". His workaround was to patch `activeList?.map(...)` in the source, which stopped the crash but "the list doesn't work anymore" because the `.length` branch above still evaluates on undefined. We already did the straightforward fix in v2.3.9 / v2.4.0 (added `imageModelList` / `videoModelList` to `createStore` as runtime-only state, populated by `useCreate.fetchModels`), but there's still a pathological path where the field arrives as something other than an array: stale persisted state from a very old install, Zustand rehydration racing the first render of `CreateTopControls`, a corrupted localStorage entry from an external tool, or simply an old .exe that predates aa31bab. The read site now passes the list through `Array.isArray(rawList) ? rawList : []`, so undefined / null / object / string / number / anything weird all render as the empty-state card instead of taking the app down.
+- **CreateTopControls: picker dropdown hardened against any non-array list value** — reported on Discord by a user on the `#bug-reports` channel: "the web ui crashes when clicking on the model list at the top in the create tab". His workaround was to patch `activeList?.map(...)` in the source, which stopped the crash but "the list doesn't work anymore" because the `.length` branch above still evaluates on undefined. We already did the straightforward fix in v2.3.9 / v2.4.0 (added `imageModelList` / `videoModelList` to `createStore` as runtime-only state, populated by `useCreate.fetchModels`), but there's still a pathological path where the field arrives as something other than an array: stale persisted state from a very old install, Zustand rehydration racing the first render of `CreateTopControls`, a corrupted localStorage entry from an external tool, or simply an old .exe that predates aa31bab. The read site now passes the list through `Array.isArray(rawList) ? rawList : []`, so undefined / null / object / string / number / anything weird all render as the empty-state card instead of taking the app down.
 
 ### Tests
 - Test suite 2216 → 2226 (+7 regression tests in `createStore.test.ts` — new "activeList fallback contract (mirrors CreateTopControls)" describe block covers undefined / null / object-with-wrong-shape / string / real-populated-array cases, plus a `.length && .map never throw on the fallback` guard).
@@ -2443,15 +2983,15 @@ Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit,
 - **Double-launch no longer spawns a second LU process** — clicking the shortcut twice (or "Run" in the NSIS installer after install) used to produce two `locally-uncensored.exe` PIDs. Both triads wrote to `%APPDATA%/Locally Uncensored/store_backup.json` racing each other, occasionally overwriting a just-flushed backup mid-write. Fixed with `tauri-plugin-single-instance`: the 2nd launch now focuses + un-minimizes the existing window instead of creating a new process. Found during the internal 2.3.9 Ultra E2E pass.
 - **Settings → Agent Permissions → "Reset tutorial" button actually resets the tutorial now** — the onClick called `setTutorialCompleted()` which unconditionally sets `tutorialCompleted: true`. Clicking it on a fresh install silently *skipped* the tour, and clicking it after seeing the tour did nothing at all. Added a new `resetTutorial()` action in `agentModeStore` that sets `tutorialCompleted: false`, wired the button to it, added a regression test in `stores.test.ts`.
 - **Discover tab no longer shows the HuggingFace download path twice** — both the section subtitle and a second `<p>` below the download grid rendered "Saves to: …" / "Downloads save to: …". Removed the duplicate.
-- **Linux window can be dragged again** — on Ubuntu 24.04 the title-bar drag threw `Unhandled Promise Rejection: window.start_dragging not allowed. Permissions associated with this command: core:window:allow-start-dragging` and left the window anchored in place (keyboard tiling still worked, so nobody noticed on tile-first setups). Reported on Discord by @diimmortalis. Added `core:window:allow-start-dragging` to `src-tauri/capabilities/default.json`.
+- **Linux window can be dragged again** — on Ubuntu 24.04 the title-bar drag threw `Unhandled Promise Rejection: window.start_dragging not allowed. Permissions associated with this command: core:window:allow-start-dragging` and left the window anchored in place (keyboard tiling still worked, so nobody noticed on tile-first setups). Reported on Discord by a user. Added `core:window:allow-start-dragging` to `src-tauri/capabilities/default.json`.
 - **"Re-run onboarding" actually reruns onboarding now** — first cut of the button deleted the marker file + flipped `settings.onboardingDone` + reloaded, but `AppShell.tsx`'s mount-time "migration" block saw the missing marker and happily wrote it back, dropping the user straight into the main app instead of the wizard. The migration is now gated on `settings.onboardingDone === true` so it only fires for legitimate NSIS-update-after-onboarding scenarios, not for the intentionally-missing marker of a Re-run click. Caught during E2E of the 2.4.0 RC. Regression test in `AppShell-backup-triad.test.ts`.
 - **HuggingFace search filename heuristic no longer doubles quant suffixes** — typing "tinyllama Q4" into Model Manager → Discover → Text → (search) returned repos like `hieupt/TinyLlama-1.1B-Chat-v1.0-Q4_K_M-GGUF`, and the client then guessed the inner filename as `TinyLlama-1.1B-Chat-v1.0-Q4_K_M-Q4_K_M.gguf` — doubled tag, guaranteed 404 when you clicked download. Extracted the guess into `deriveQ4FilenameFromRepo()`, added a case-insensitive quant-suffix detector (`Q[0-9]+_K_[MSL]`, `Q[0-9]_[0-9]+`, `IQ[0-9]_[A-Z]+`, `UD-Q/-IQ`, `BF16/FP16/F16/F32`). If the suffix is already in the repo name, the `.gguf` is appended directly; otherwise `-Q4_K_M.gguf` stays as before. Full E2E with a curated model (Gemma 4 E4B @ 4.6 GB) confirmed the Model Storage override path is honored — bytes land in the picked folder, LM Studio's default folder is not touched. 9 new regression tests in `discover-hf-filename.test.ts`.
 
 ### Added
 - **Settings → Privacy section** — explicit in-app statement of what the app does and doesn't do with your data. Until 2.3.9 this only existed in the README, which meant if you couldn't be bothered to open GitHub you were taking the claim on faith. Now Settings lists: 100% local by default, no telemetry/analytics, only network calls are the GitHub updater and cloud-provider APIs you configure yourself; + where your data lives on disk (`%APPDATA%/Locally Uncensored`).
 - **Settings → Onboarding → "Re-run onboarding" button** — once you'd clicked through the first-launch wizard it was gone forever unless you hit "Reset to Defaults" (which wipes every other preference). Now Settings has a dedicated "Onboarding" section with a button that clears the `onboarding_done` marker on disk + resets the in-app flag + reloads. Useful when you want to redo the hardware scan, show the app to a friend, or just re-read the agent-mode tour. The `set_onboarding_done` Rust command now accepts `Option<bool>` so callers can also clear the marker, not only set it.
-- **Settings → Model Storage: configurable HuggingFace GGUF download path** — requested in Discord by @diimmortalis (dual-boot Ubuntu user wanting the HF downloads on a shared partition instead of `/home/$USER/locally-uncensored/models`). New `hfDownloadPathOverride` in settings — leave empty to keep the previous auto-detect-from-provider behaviour, or pick a folder via the native picker. `DiscoverModels.tsx` now prefers the override over the auto-detected LM-Studio path. Takes effect immediately without restart.
-- **CONTRIBUTING.md — ComfyUI CORS note for contributors bringing their own instance** — LU's auto-started ComfyUI already passes `--enable-cors-header "*"`, but contributors who point `npm run tauri:dev` at their own long-running ComfyUI see a `403` + `request with non matching host and origin localhost:8188 != localhost:5173` warning. Flagged on Discord by @diimmortalis after they self-diagnosed + self-fixed. Docs now spell out the workaround.
+- **Settings → Model Storage: configurable HuggingFace GGUF download path** — requested in Discord by a user (dual-boot Ubuntu user wanting the HF downloads on a shared partition instead of `/home/$USER/locally-uncensored/models`). New `hfDownloadPathOverride` in settings — leave empty to keep the previous auto-detect-from-provider behaviour, or pick a folder via the native picker. `DiscoverModels.tsx` now prefers the override over the auto-detected LM-Studio path. Takes effect immediately without restart.
+- **CONTRIBUTING.md — ComfyUI CORS note for contributors bringing their own instance** — LU's auto-started ComfyUI already passes `--enable-cors-header "*"`, but contributors who point `npm run tauri:dev` at their own long-running ComfyUI see a `403` + `request with non matching host and origin localhost:8188 != localhost:5173` warning. Flagged on Discord by a user after they self-diagnosed + self-fixed. Docs now spell out the workaround.
 
 ### Changed
 - Test suite 2205 → 2216 (+11 regression tests: `resetTutorial` flips `tutorialCompleted` back to `false`, AppShell onboarding-marker migration is gated on `onboardingDone`, 9 cases for `deriveQ4FilenameFromRepo` covering Q-tag / IQ-tag / UD- / BF16 / lowercase / mid-string / no-GGUF variants).
@@ -2464,18 +3004,18 @@ Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit,
 ## [2.3.9] - 2026-04-23
 
 ### Fixed
-- **Create view no longer takes down the whole app when no image or video model is installed** — reported on Discord by @figuringitallout on a fresh Windows install. Observable symptom: open Create with an empty ComfyUI `models/` tree, app unresponsive → hard shutdown → a "duplicate" LU process opens. Two layered root causes, both fixed:
+- **Create view no longer takes down the whole app when no image or video model is installed** — reported on Discord by a user on a fresh Windows install. Observable symptom: open Create with an empty ComfyUI `models/` tree, app unresponsive → hard shutdown → a "duplicate" LU process opens. Two layered root causes, both fixed:
   - (1) `classifyModel()` in `src/api/comfyui.ts` used to happily dereference `name.toLowerCase()` without checking `name` first; a stale persisted model string (from a previous install that got deleted) was carried into every Create render path and bubbled through `useCreate.generate`, `ParamPanel`, and the dynamic-workflow builder. Now `classifyModel(name: string | null | undefined)` returns `'unknown'` when `!name`.
   - (2) `src/hooks/useCreate.ts:fetchModels` only cleared the persisted image/video model names when ComfyUI returned a non-empty list. With 0 models, the stale strings stayed alive forever. Now fetchModels explicitly `state.setImageModel('', 'unknown')` + `state.setVideoModel('')` when the corresponding list is empty after the startup-race retries expire.
   - (3) `src/components/create/CreateView.tsx` renders a dedicated empty-state card when `connected === true && modelsLoaded && currentModeModels.length === 0`. The card shows `PackageOpen` icon + "No {image|video} models installed" + a **Go to Model Manager** primary button (calls `useUIStore.getState().setView('models')`) + a **Refresh list** secondary action (calls `fetchModels()`). `OutputDisplay` / `PromptInput` / `ParamPanel` / I2V + I2I uploads / preflight banners all suppress during the empty state so no downstream code can hit the old crash path. The Mode switcher (Image / Video) stays so the user can switch sides and get a matching empty-state.
 
-- **CreateTopControls no longer crashes the Create header toggle + dropdown** — the header-level model picker + ComfyUI Lichtschalter lives at `src/components/create/CreateTopControls.tsx` and used to destructure four fields (`imageModelList`, `videoModelList`, `comfyRunning`, `setComfyRunning`) from `useCreateStore()` that were never added to the store. Clicking the dropdown threw `TypeError: can't access property "length", activeList is undefined`; clicking the Lichtschalter during starting/stopping threw `setComfyRunning is not a function`. Reported on Discord by @diimmortalis (with a precise console-log dump, bless them — Ubuntu 24.04 + `npm run dev`). Fix: the four missing fields are now part of `createStore` as runtime-only (not persisted) state; `useCreate.fetchModels` + `useCreate.checkConnection` mirror their values into the store so the header control always has a live list + the right toggle state.
+- **CreateTopControls no longer crashes the Create header toggle + dropdown** — the header-level model picker + ComfyUI Lichtschalter lives at `src/components/create/CreateTopControls.tsx` and used to destructure four fields (`imageModelList`, `videoModelList`, `comfyRunning`, `setComfyRunning`) from `useCreateStore()` that were never added to the store. Clicking the dropdown threw `TypeError: can't access property "length", activeList is undefined`; clicking the Lichtschalter during starting/stopping threw `setComfyRunning is not a function`. Reported on Discord by a user (with a precise console-log dump, bless them — Ubuntu 24.04 + `npm run dev`). Fix: the four missing fields are now part of `createStore` as runtime-only (not persisted) state; `useCreate.fetchModels` + `useCreate.checkConnection` mirror their values into the store so the header control always has a live list + the right toggle state.
 - **Backend Selector modal no longer spams on repeat** — users with multiple local backends (Ollama + LM Studio, Ollama + vLLM, etc) reported on Discord that the "N local backends detected" modal kept re-appearing every 5-10 seconds, regardless of whether they clicked Skip or Use selected. The pre-existing `sessionStorage` guard wasn't enough in the face of WebView2 reloads (which the backup-restore triad can trigger) or cache evictions. Fix: (1) added a persistent `hideBackendSelector` flag in `providerStore` so the user's opt-out survives reloads; (2) the modal now has a pre-checked "Don't show this again" tickbox; (3) a permanent explanatory line "You can add, remove, or switch backends anytime in **Settings → Providers**" (with the link clickable — it navigates you there); (4) dismissing the modal with the tickbox checked persists the opt-out. Users who want the modal back at some point can uncheck the box before dismissing.
 - **LU always starts in the Chat sidebar tab, not Code** — on a fresh install or an NSIS update, the left-sidebar tab (Chat / Code / Remote) could land on Code because `codexStore`'s persist middleware saved `chatMode` between sessions. Newcomers clicking around Code without any conversations got an empty screen. `codexStore` now excludes `chatMode` from `partialize` so the default (`'lu'`) is used on every fresh boot. If a user wants to stay in Codex or Claude Code mid-session, they pick it from the sidebar each time; `workingDirectory` still persists so Codex remembers the last project path.
 - Tiny grammar fix in the Create empty-state copy: "Install **an image** model" / "Install **a video** model" (was "Install a image model" in both branches).
 
 ### Added
-- **CONTRIBUTING.md — Dev Setup now documents all three local dev workflows** (`npm run tauri:dev` for hot-reload with Rust rebuilds, `npm run dev` for browser-only UI work, `npm run tauri:build` for a full NSIS installer). Reported in Discord by @k-wilkinson (sourceodin) as a missing-docs ask. Clarifies that Tauri invokes only resolve under `tauri:dev`.
+- **CONTRIBUTING.md — Dev Setup now documents all three local dev workflows** (`npm run tauri:dev` for hot-reload with Rust rebuilds, `npm run dev` for browser-only UI work, `npm run tauri:build` for a full NSIS installer). Reported in Discord by a user as a missing-docs ask. Clarifies that Tauri invokes only resolve under `tauri:dev`.
 
 ### Changed
 - Bumped `package.json` 2.3.7 → 2.3.9 (was lagging behind `src-tauri/tauri.conf.json`). Bumped `src-tauri/Cargo.toml` 2.3.7 → 2.3.9 (also lagging). Website + download URLs + schema.org metadata updated to 2.3.9.
@@ -2508,7 +3048,7 @@ Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit,
 - **qwen2.5-coder:3b** — after the `stripRanges` + `extractedFromContent` fix, chat UI is visually identical to gemma4's (tool blocks + single summary, zero raw JSON).
 - **hermes3:8b** — clean native tool-call flow.
 - **llama3.1:8b** — clean native tool-call flow (freshly pulled for this verification).
-- **llama3.2:1b** — plumbing correct; the 1B model hallucinated a Unix-style `/Users/ddrob/Desktop/tiny.py` path that landed at `C:/Users/ddrob/Desktop/tiny.py` on Windows instead of in the workdir. Model-quality artefact, not a Codex bug. Documented for users on the smallest class of models.
+- **llama3.2:1b** — plumbing correct; the 1B model hallucinated a Unix-style `/Users/alice/Desktop/tiny.py` path that landed at `C:/Users/alice/Desktop/tiny.py` on Windows instead of in the workdir. Model-quality artefact, not a Codex bug. Documented for users on the smallest class of models.
 
 ### Changed
 - Test suite 2202 → 2202 (full regression) after `tool-call-repair` gained `extractToolCallsWithRanges` + `stripRanges` + `findBalancedBraceEnd` + `findPrecedingOpenBrace`.
@@ -2519,7 +3059,7 @@ Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit,
 ## [2.3.7] - 2026-04-22
 
 ### Added
-- **Configurable Ollama endpoint (remote Ollama + `OLLAMA_HOST` env var support)** — GitHub Issue #31 by @k-wilkinson. The pre-2.3.7 app hardcoded `http://localhost:11434` in four places (the frontend `ollamaUrl()` helper used by every `/tags`/`/chat`/`/show`/`/pull`/`/generate` call, the Vite dev-proxy target, the Ollama provider's dev-mode `apiUrl()`, and the Rust `pull_model_stream` URL), so setting `OLLAMA_HOST=0.0.0.0:11434`, `192.168.1.x:11434` or any non-default port was silently ignored — the app reported "No local backend detected", model dropdowns stayed empty, Settings → Providers → Ollama → Endpoint field had zero effect, and the Test button always said Failed even when `curl` against the configured endpoint returned data. Now all four layers flow from a single `ollama_base` field that reads, in priority order, the persisted GUI value from `%APPDATA%/locally-uncensored/config.json`, the `OLLAMA_HOST` env var at startup (same semantics as Ollama itself), then the default. Accepts bare `host:port`, scheme-less host, or full URL. The Vite dev-proxy target is computed from `OLLAMA_HOST` at server startup so `OLLAMA_HOST=… npm run dev` also just works. The Rust SSRF allow-list in `proxy_localhost` was widened to accept the configured Ollama + ComfyUI hosts (everything else still blocked). 19 regression tests in `backend-urls.test.ts`.
+- **Configurable Ollama endpoint (remote Ollama + `OLLAMA_HOST` env var support)** — GitHub Issue #31 by a user. The pre-2.3.7 app hardcoded `http://localhost:11434` in four places (the frontend `ollamaUrl()` helper used by every `/tags`/`/chat`/`/show`/`/pull`/`/generate` call, the Vite dev-proxy target, the Ollama provider's dev-mode `apiUrl()`, and the Rust `pull_model_stream` URL), so setting `OLLAMA_HOST=0.0.0.0:11434`, `192.168.1.x:11434` or any non-default port was silently ignored — the app reported "No local backend detected", model dropdowns stayed empty, Settings → Providers → Ollama → Endpoint field had zero effect, and the Test button always said Failed even when `curl` against the configured endpoint returned data. Now all four layers flow from a single `ollama_base` field that reads, in priority order, the persisted GUI value from `%APPDATA%/locally-uncensored/config.json`, the `OLLAMA_HOST` env var at startup (same semantics as Ollama itself), then the default. Accepts bare `host:port`, scheme-less host, or full URL. The Vite dev-proxy target is computed from `OLLAMA_HOST` at server startup so `OLLAMA_HOST=… npm run dev` also just works. The Rust SSRF allow-list in `proxy_localhost` was widened to accept the configured Ollama + ComfyUI hosts (everything else still blocked). 19 regression tests in `backend-urls.test.ts`.
 
 ### Fixed
 - **`pull_model_stream` Rust command was hardcoded to `http://localhost:11434/api/pull`** — same root cause as Issue #31 but in a second place. Model-pull downloads ignored any user-configured Ollama endpoint. Now reads from `state.ollama_base`.
@@ -2533,7 +3073,7 @@ Hotfix sweep covering the v2.4.3 follow-up reports collected on Discord, Reddit,
 ## [2.3.6] - 2026-04-21
 
 ### Added
-- **Configurable ComfyUI host (remote ComfyUI support)** — Settings → ComfyUI → Host. Previously only the port was configurable; the host was hardcoded `localhost`, which meant users running ComfyUI in Docker, on a LAN machine, or on a headless homelab server couldn't point LU at it. The Host field accepts any hostname or IP. When the host resolves to the local machine (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) the Start/Stop/Restart/Install/Path controls stay visible; when it's remote LU hides those controls and shows an amber hint that you manage the Python process on the server yourself. Requested in GitHub Discussion #1 by @ShoaibSajid (desktop LU + Ollama on server-1 + ComfyUI on server-1 docker). The mobile Remote proxy also honors the new host so mobile-dispatched ComfyUI calls reach the configured backend. 17 regression tests in `backend-urls.test.ts`.
+- **Configurable ComfyUI host (remote ComfyUI support)** — Settings → ComfyUI → Host. Previously only the port was configurable; the host was hardcoded `localhost`, which meant users running ComfyUI in Docker, on a LAN machine, or on a headless homelab server couldn't point LU at it. The Host field accepts any hostname or IP. When the host resolves to the local machine (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) the Start/Stop/Restart/Install/Path controls stay visible; when it's remote LU hides those controls and shows an amber hint that you manage the Python process on the server yourself. Requested in GitHub Discussion #1 by a user (desktop LU + Ollama on server-1 + ComfyUI on server-1 docker). The mobile Remote proxy also honors the new host so mobile-dispatched ComfyUI calls reach the configured backend. 17 regression tests in `backend-urls.test.ts`.
 
 ### Fixed
 - **ComfyUI port now actually persists across restarts** — pre-existing bug: `set_comfyui_port` wrote `comfyui_port` to `%APPDATA%/locally-uncensored/config.json`, but `AppState::new()` never read it back on startup. Users who set a custom port (e.g. because 8188 was taken) got their change reverted to 8188 on the next launch. New `load_comfy_config_values()` helper runs at startup and applies persisted port + host. Bundled with the host feature since they share the same config-load path.

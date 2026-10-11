@@ -1,6 +1,6 @@
 /**
  * The LoRA strength the stack holds is the number in the graph ComfyUI gets,
- * on every path that loads a LoRA (Discord 2026-10-02, throwaway050558: LoRAs
+ * on every path that loads a LoRA (Discord 2026-10-02: LoRAs
  * made for -10 to 10, negative included).
  *
  * There are three such paths in dynamic-workflow.ts:

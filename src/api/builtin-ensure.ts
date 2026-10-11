@@ -56,7 +56,7 @@ interface BundledList {
 /** The GGUFs the engine can be started on: the app models dir AND the folder
  *  named under Model Storage, exactly the set the picker lists.
  *
- *  Discord 2026-10-01 (samvenice, 3.0.3, RTX 4090): a group chat of two models
+ *  Discord 2026-10-01 (3.0.3, RTX 4090): a group chat of two models
  *  from that folder answered with the loaded one only. The other speaker got
  *  "The LU Engine has X loaded, but this request asked for Y", because the
  *  lookup here walked the app dir alone, found no Y, and called a model the
@@ -287,7 +287,7 @@ async function loadBuiltinModel(modelName: string): Promise<void> {
     // Returning quietly here sent the send straight into a dead port, and
     // the user got "proxy_localhost_stream_chunked: error sending request
     // for url (http://127.0.0.1:8127/v1/chat/completions)" as their first
-    // impression of the app (applejames, Discord 2026-08-01, fresh install
+    // impression of the app (Discord 2026-08-01, fresh install
     // on Windows 10 — they gave up on the built-in engine and moved to
     // Ollama). Say what is actually wrong instead.
     throw new Error(
@@ -468,7 +468,7 @@ const OK: BuiltinEngineDiagnosis = { ok: true, reason: '', repaired: false }
 const NOT_OURS: BuiltinEngineDiagnosis = { ok: false, reason: '', repaired: false }
 
 /**
- * GH #118 (nayffy, 2026-08-27): the Built-in Engine test in Settings, AI
+ * GH #118 (2026-08-27): the Built-in Engine test in Settings, AI
  * Backends answered with nothing but a red dot while the console carried
  * `GET http://127.0.0.1:8127/v1/models net::ERR_CONNECTION_REFUSED`. A refused
  * connection to a server the app owns is not a verdict, it is a question the

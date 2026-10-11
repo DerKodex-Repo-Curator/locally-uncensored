@@ -338,7 +338,7 @@ function Divider() { return <span className="w-px h-5 bg-white/[0.08] mx-0.5" />
 
 // Die Anleitung zum Malen der Maske. Sie stand bis zum 19.09.2026 gross und
 // gelb im Promptfenster, bei jedem Bearbeitungslauf aufs Neue. Entscheid von
-// David: "zu einer einmal wegklickbaren Info machen, wenn man die Paint Mask
+// Der Inhaber: "zu einer einmal wegklickbaren Info machen, wenn man die Paint Mask
 // oeffnet. Komplett raus aus dem Promptfenster."
 //
 // Sie steht jetzt dort, wo sie gebraucht wird, naemlich ueber der Leinwand, und

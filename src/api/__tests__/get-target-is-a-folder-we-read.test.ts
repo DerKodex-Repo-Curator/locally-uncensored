@@ -1,5 +1,5 @@
 /**
- * .__nothing_, Discord help-chat 2026-09-02 (Windows 11 25H2, RTX 5060, LU
+ * Discord help-chat 2026-09-02 (Windows 11 25H2, RTX 5060, LU
  * 2.6.7, ComfyUI backend): FramePack F1 and Wan 2.1 install through our own Get
  * button and never appear in the picker. Moving the files into a different
  * ComfyUI folder by hand fixed it.

@@ -131,7 +131,7 @@ export function splitUnclosedThink(content: string): { content: string; thinking
  *
  * Measured on the installed 2.6.2 build 2026-08-06, Coding + Ollama + hermes,
  * hf.co/DevQuasar/huihui-ai.Qwen3-4B-abliterated-GGUF. Read off the page:
- * "…without stopping. Let's start with the first step. </think>". David has
+ * "…without stopping. Let's start with the first step. </think>". The owner has
  * been reporting exactly this: a visible think between the steps that is not
  * styled as thinking.
  *

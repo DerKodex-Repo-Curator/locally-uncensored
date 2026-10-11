@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Fund M2 und M1 (05.10.2026, Vorlagen: apps/web/components/create/
- * experimental/__tests__/musik-laenge.test.tsx und
- * musik-liedtext-und-stil.test.tsx).
+ * Fund M2 und M1 (05.10.2026, Vorlagen: zwei Tests der Web-App).
  *
  * M2: der Laengen-Regler in Musik stand bei jedem Modell da, wirkte bei den
  * vier Studio-Musikmodellen aber nicht. Er steht nur, wo das Modell eine Laenge

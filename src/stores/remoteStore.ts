@@ -111,7 +111,7 @@ export function remoteBackendArgs(
 }
 
 /**
- * Reported on Discord by @phantomderp on v2.4.2 — clicking LAN/Internet
+ * Reported on Discord by a user on v2.4.2 — clicking LAN/Internet
  * while running from source via plain `npm run dev` produced an HTTP 404
  * + cryptic `JSON.parse: unexpected character` stacktrace. Remote Access
  * is fundamentally a Tauri-only feature: a Rust axum server, JWT auth,
@@ -219,7 +219,7 @@ interface RemoteState {
   tunnelLoading: boolean
   // True from the moment an *internet* dispatch begins until the Cloudflare
   // tunnel either comes up or fails. While set, the UI must NOT show a QR
-  // code — David 2026-06-15: the QR may only appear once Cloudflare is
+  // code — 2026-06-15: the QR may only appear once Cloudflare is
   // actually connected (otherwise it briefly points at the LAN IP, which is
   // useless over the internet and confused users into thinking it was broken).
   awaitingTunnel: boolean

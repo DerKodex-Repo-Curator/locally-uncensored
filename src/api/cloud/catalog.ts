@@ -25,6 +25,25 @@ export interface CloudCatalog {
   monthly_credits: number
 }
 
+/** A catalog entry as the server sends it. `native_label` is the app's own
+ *  name for an entry the cloud lists under a neutral name on its own domain
+ *  (the open media models). Absent on every other entry and on a server that
+ *  does not send the field yet. */
+type WireModel = CloudModel & { native_label?: unknown }
+
+/** The catalog as the app shows it: where the server names an entry for the
+ *  app, that name is the label. This is the one place the two names meet, so
+ *  the store, its persisted copy and every picker, shelf and gallery line
+ *  read the app's name without knowing there was another. */
+export function desktopCatalog(wire: Omit<CloudCatalog, 'models'> & { models: WireModel[] }): CloudCatalog {
+  return {
+    ...wire,
+    models: wire.models.map(({ native_label, ...m }) =>
+      typeof native_label === 'string' && native_label.trim() ? { ...m, label: native_label } : m,
+    ),
+  }
+}
+
 export async function getCatalog(): Promise<CloudCatalog> {
   // v=2: this build understands op-specialized models (trainers, lipsync,
   // voice, music, extend, motion) — without the flag the server serves only
@@ -35,5 +54,5 @@ export async function getCatalog(): Promise<CloudCatalog> {
   // response already carries, and cloudCatalogStore/runCredits key off the
   // PRESENCE of those fields, never a version number (portplan Abschnitt 4/7).
   const res = await cloudFetch('/api/jobs/catalog?v=2')
-  return jsonOrError<CloudCatalog>(res)
+  return desktopCatalog(await jsonOrError<Parameters<typeof desktopCatalog>[0]>(res))
 }

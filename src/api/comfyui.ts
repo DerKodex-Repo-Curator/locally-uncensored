@@ -3,6 +3,7 @@ import { log } from "../lib/logger"
 import { LU_CLIENT_PREFIX } from "./comfyui-ws"
 import { nodeComboOptions } from "./comfyui-enum"
 import { resolveRunSeed } from '../lib/run-seed'
+import { blobFromUrl } from '../lib/render/data-url'
 // Audit W-T2: videoDecodeNode/promptFilenamePrefix kamen hier bis eben per
 // `await import('./dynamic-workflow')` mitten in den Buildern herein — ein
 // dynamischer Import, der nur den Zyklus comfyui ↔ dynamic-workflow
@@ -76,7 +77,7 @@ export interface GenerateParams {
   // SDXL/SD1.5 checkpoint path — same contract as the web app's builder.
   maskImage?: string
   growMaskBy?: number   // Mask edge feather in pixels (VAEEncodeForInpaint grow_mask_by, default 6)
-  // F2 (cinemazverev GH#4), extended for multi-LoRA (konata 2026-06-09:
+  // F2 (GH#4), extended for multi-LoRA (a user 2026-06-09:
   // "agent cannot load multiple loras"): one filename or an ordered list.
   // Multiple LoRAs are CHAINED — LoraLoader N feeds (model, clip) into
   // LoraLoader N+1, exactly like stacking them in the ComfyUI graph editor.
@@ -84,7 +85,7 @@ export interface GenerateParams {
   // a single number applies to every LoRA, an array maps per-LoRA by index.
   lora?: string | string[]
   loraStrength?: number | number[]
-  // F3 (vanja-san GH#4): override the checkpoint's bundled VAE with an
+  // F3 (GH#4): override the checkpoint's bundled VAE with an
   // explicit VAELoader. 'auto' / undefined / empty = keep the
   // checkpoint VAE.
   vae?: string
@@ -100,7 +101,7 @@ export interface VideoParams extends GenerateParams {
   inputImage?: string  // Uploaded image filename for I2V models (SVD, FramePack)
   // SVD motion strength (motion_bucket_id, 1–255). Lower = more faithful to the
   // source still / calmer motion; 127 (SVD default) drifts hard. We default ~90
-  // for I2V fidelity (David 2026-06-11). Honoured only by the SVD path.
+  // for I2V fidelity (2026-06-11). Honoured only by the SVD path.
   motionBucketId?: number
 }
 
@@ -111,7 +112,7 @@ export interface ComfyUIOutput {
 }
 
 /**
- * Bug R (v2.4.7 — silentrunningcaUSA GH Discussion #6, 2026-05-20).
+ * Bug R (v2.4.7 — GH Discussion #6, 2026-05-20).
  *
  * Pre-v2.4.7 LU only scraped `images` / `gifs` / `videos` from a ComfyUI
  * history `outputs[nodeId]` payload. That worked for the canonical SaveImage
@@ -120,7 +121,7 @@ export interface ComfyUIOutput {
  * SaveImageHTML, audio save nodes, etc.) post under different keys —
  * `audio`, `result`, `files`, `latents`, `meshes`, model-specific keys.
  * The file lands in ComfyUI's `output/` folder but never makes it into LU's
- * gallery, exactly the symptom silentrunningcaUSA reported.
+ * gallery, exactly the symptom a user reported.
  *
  * Generic extractor: scan every key on the node output, collect any array
  * whose entries look like `{ filename, subfolder?, type? }`. Defaults fill
@@ -185,6 +186,31 @@ export interface ClassifiedModel {
   /** What the file carries besides the diffusion model, read from its header
    *  (commands/model_sniff.rs). Absent when the header was not readable. */
   parts?: { textEncoder: boolean; vae: boolean }
+  /** Whether a video model starts from an image, where a catalogue says so
+   *  (the Mac's MLX catalogue, api/mlx-video.ts). Absent on a ComfyUI file,
+   *  whose name is all there is to go by (isI2VModel, isT2VCapable). */
+  startImage?: 'none' | 'optional' | 'required'
+  /** How many images an edit with this model takes in all, where a catalogue
+   *  says so (the Mac's MLX catalogue, api/mlx-image.ts). 0: it makes images
+   *  from text alone. Absent on a ComfyUI file, where the family decides
+   *  (lib/edit-references). */
+  editImages?: number
+  /** The model runs at its own steps and guidance, and Create's sliders do not
+   *  reach it (a pack of the Mac's second image engine that is tuned to one
+   *  count, lib/image-engines). Absent everywhere else. */
+  ownSampling?: boolean
+  /** A run with this model takes the LoRA stack from the Mac's LoRA folder
+   *  (a pack of the Mac's second image engine, lib/image-engines). Absent
+   *  everywhere else: on a ComfyUI host the stack is ComfyUI's. */
+  mlxLoras?: boolean
+  /** What a clip of this model is, where the Mac's video catalogue says so
+   *  (api/mlx-video.ts): how many frames it has by default, the rate it plays
+   *  at, the grid its frame count sits on, the size it is made at and whether
+   *  the model reads a negative prompt. The Mac's video engines take a length
+   *  and, where the entry says so, a negative prompt, so this is all Create
+   *  has to set for them. Absent on a ComfyUI file, where the family's
+   *  defaults stand. */
+  mlxVideo?: { frames: number; fps: number; frameStep: number; width: number; height: number; negativePrompt: boolean; recommendedRamGB?: number; measuredRunSecondsPerClipSecond?: number }
 }
 
 /** The ComfyUI\models folders that hold files a user installs, none of which
@@ -350,7 +376,7 @@ export function classifyModel(name: string | null | undefined): ModelType {
   if (lower.includes('flux-2') || lower.includes('flux2')) return 'flux2'
   if (lower.includes('flux')) return 'flux'
 
-  // Krea 2 (K9, GH #136 atobo): CivitAI ships these as a single checkpoint
+  // Krea 2 (K9, GH #136): CivitAI ships these as a single checkpoint
   // file, but the base model is a decoupled UNETLoader + CLIPLoader(type=
   // "krea2") + VAE pipeline, NOT a self-contained CheckpointLoaderSimple
   // graph. Before this check the name fell through to 'unknown', which
@@ -445,14 +471,23 @@ export function isT2VCapable(name: string): boolean {
  *  of them disagreed a real user hit a wall. SVD-only boxes showed
  *  "No matches" yet never offered the starter bundle, and a fresh boot
  *  submitted a persisted SVD pick into the T2V lane, which builds SVD's
- *  LoadImage graph and dies on "Custom validation failed" (David 2026-08-01). */
+ *  LoadImage graph and dies on "Custom validation failed" (2026-08-01). */
 export function canRunVideoIntent(name: string, intent: string): boolean {
   return intent === 'animate' || intent === 'extend' ? isI2VModel(name) : isT2VCapable(name)
 }
 
-/** The video models the CURRENT intent can actually run (see canRunVideoIntent). */
+/** Can this model run the given video intent? The catalogue's own word
+ *  where the entry carries one, the name otherwise (canRunVideoIntent). An MLX
+ *  display name is not a file name: "MLX LTX-2.3 Dev" reads as image to video
+ *  by name and fails on a start image in the engine. */
+export function canRunVideoLane(m: ClassifiedModel, intent: string): boolean {
+  if (!m.startImage) return canRunVideoIntent(m.name, intent)
+  return intent === 'animate' || intent === 'extend' ? m.startImage !== 'none' : m.startImage !== 'required'
+}
+
+/** The video models the CURRENT intent can actually run (see canRunVideoLane). */
 export function videoLaneModels(list: ClassifiedModel[], intent: string): ClassifiedModel[] {
-  return list.filter((m) => canRunVideoIntent(m.name, intent))
+  return list.filter((m) => canRunVideoLane(m, intent))
 }
 
 /** Where a bundle keeps the thing that actually generates. The rest of a
@@ -471,7 +506,7 @@ const BUNDLE_MODEL_SUBFOLDERS = new Set(['diffusion_models', 'checkpoints', 'une
  * again does exactly the same thing, forever.
  *
  * Measured on the box 2026-08-15 on Extend Video, and it is the other half of
- * what Voxyl AI and Aldrich Ironhart reported on 2026-08-13. The C8 fix cured
+ * what Two users reported on 2026-08-13. The C8 fix cured
  * the frozen status line; this cures the reason the card stayed at all.
  *
  * The other lanes need no such pick: their gate is a plain length check on
@@ -609,7 +644,7 @@ export async function checkComfyConnection(): Promise<boolean> {
  * Retries on transient failures because in production we hit two real-world
  * race conditions:
  *  1. ComfyUI is mid-startup and `/api/refresh` 404s briefly (Discord report
- *     from Draekzy: logs show repeated localhost:8188 connect errors after a
+ *     from a user: logs show repeated localhost:8188 connect errors after a
  *     fresh download lands).
  *  2. ComfyUI is busy executing a workflow and accepts the refresh but doesn't
  *     finish the directory scan before we query `/object_info`.
@@ -651,7 +686,7 @@ function isCpuDevice(dev: unknown): boolean {
 /**
  * The largest real VRAM figure in a /system_stats payload, in bytes, or null.
  *
- * Zhorts, GitHub #123: the Model Manager fit check showed "62 GB GPU · 62 GB
+ * GitHub #123: the Model Manager fit check showed "62 GB GPU · 62 GB
  * RAM" on a box with a 16 GB RX 9070 XT and 64 GB of RAM, the same number
  * twice, while the Settings page a tab away had the correct 16 GB. This is
  * where the 62 came from. ROCm was not detected, so his ComfyUI ran on the
@@ -819,7 +854,7 @@ export async function getCLIPModels(): Promise<string[]> {
 }
 
 /**
- * F2 (cinemazverev GH#4): list LoRA files ComfyUI knows about. Pulls the same
+ * F2 (GH#4): list LoRA files ComfyUI knows about. Pulls the same
  * enum LoraLoader's `lora_name` dropdown shows, which is anything the user
  * dropped into `<comfyui>/models/loras/`.
  */
@@ -959,7 +994,7 @@ export async function filterPartialFiles(filenames: string[]): Promise<Set<strin
     // server's hardcoded path guesses, a custom/remote comfy host, etc.). But
     // these filenames came FROM ComfyUI's own /object_info enums, so ComfyUI
     // can load them — never hide a model ComfyUI vouches for just because a
-    // secondary size probe missed it (konata 2026-06-07: "no image model"
+    // secondary size probe missed it (a user 2026-06-07: "no image model"
     // even though ComfyUI had Juggernaut/RealVis installed).
     const incomplete = new Set(results.filter(r => r.exists === true && !r.complete).map(r => r.filename))
     if (incomplete.size > 0) {
@@ -1023,7 +1058,7 @@ const SNIFF_TYPES: Record<string, ModelType> = {
 const SNIFF_OVERRULES = (t: ModelType) => isImageModelType(t)
 
 /**
- * Discord 2026-09-26..28 (boromirofgeo, haschbar, s3aldra): a CivitAI name
+ * Discord 2026-09-26..28: a CivitAI name
  * says nothing reliable about the architecture, and every name LU could not
  * place went to the checkpoint loader ("Node 1 (CheckpointLoaderSimple):
  * Value not in list"). The file header does say it. Rewrites `type` in place
@@ -1350,7 +1385,7 @@ export const ANIMATEDIFF_SUBFOLDER = 'custom_nodes/ComfyUI-AnimateDiff-Evolved/m
  * THE table: every folder the Get button writes into, and the loader that
  * lists it back.
  *
- * .__nothing_ (Discord help-chat, 2026-09-02): FramePack F1 and Wan 2.1
+ * A user (Discord help-chat, 2026-09-02): FramePack F1 and Wan 2.1
  * installed through the Get button and appeared in no picker. The folder half
  * of that is fixed where a file is written (src-tauri/.../comfy_folders.rs,
  * which asks the running ComfyUI instead of guessing). This is the other half:
@@ -1694,7 +1729,7 @@ export async function findMatchingVAE(modelType: ModelType): Promise<string> {
     const isWan22Vae = (v: string) => /wan[._]?2[._]?2/.test(lower(v))
     // Same reason the HunyuanVideo 1.5 VAE is excluded here: it is 32-channel,
     // so the last-resort hunyuan fallback would trade a missing-file message
-    // for the tensor crash FramePack was dying with (bob80817, D#104).
+    // for the tensor crash FramePack was dying with (D#104).
     const match = vaes.find(v => /wan[._]?2[._]?1/.test(lower(v)))
       || vaes.find(v => lower(v).includes('wan') && !isWan22Vae(v))
       || vaes.find(v => lower(v).includes('hunyuan') && !isHunyuan15Vae(v))
@@ -1763,7 +1798,7 @@ export async function findMatchingVAE(modelType: ModelType): Promise<string> {
 }
 
 /**
- * Resolve the FLUX v1 text-encoder PAIR for DualCLIPLoader (C2, aldrich
+ * Resolve the FLUX v1 text-encoder PAIR for DualCLIPLoader (C2, a user
  * follow-up): modern ComfyUI removed 'flux' from the single CLIPLoader's type
  * enum, so FLUX v1 conditioning must come from DualCLIPLoader, which needs
  * BOTH encoders — clip_name1 = T5-XXL, clip_name2 = CLIP-L. Throws the same
@@ -1977,7 +2012,7 @@ export async function findMatchingCLIP(modelType: ModelType, activeModelName?: s
 }
 
 /**
- * K2 (mrvideogame9829/sockenmonster, Discord "HELP WITH MODELS"/help-18,
+ * K2 (a user, Discord "HELP WITH MODELS"/help-18,
  * 2026-09-15/17): the Talking Character (lipsync) and Motion (animate)
  * builders hardcoded `audio_encoder_name: 'wav2vec2_large_english_fp16.
  * safetensors'` straight into AudioEncoderLoader, never checked against
@@ -2030,7 +2065,7 @@ export async function submitWorkflow(workflow: ComfyApiGraph, clientId?: string)
   // Portable / cu126 / AMD build doesn't pass it, so the browser blocks the
   // POST during preflight and the only thing the user sees is the JS error
   // "Failed to fetch". The proxy bypasses the SOP entirely (it's a Rust HTTP
-  // call, not a browser one). Bug: GH disc #35, Discord oogletree + reload__.
+  // call, not a browser one). Bug: GH disc #35, Discord.
   const url = comfyuiUrl('/prompt')
   const res = await localFetch(url, {
     method: 'POST',
@@ -2091,7 +2126,7 @@ export async function cancelGeneration(): Promise<void> {
 }
 
 /**
- * Clear ComfyUI's PENDING queue (David 2026-06-16). /interrupt only stops the
+ * Clear ComfyUI's PENDING queue (2026-06-16). /interrupt only stops the
  * job that is currently executing; anything still queued (e.g. a duplicate that
  * slipped in, or a second gen the model emitted) would start the instant the
  * running one ends. On a user "Stop" we want EVERYTHING gone, so we clear the
@@ -2229,7 +2264,7 @@ export async function isPromptQueued(promptId: string): Promise<boolean> {
 export async function uploadImage(file: File): Promise<string> {
   // Guard: ComfyUI's /upload/image answers an opaque HTTP 400 for an empty or
   // unreadable file. Catch the empty-blob case up front with a clear message
-  // (konata 2026-06-14: "Video generation failed: Failed to upload image: HTTP 400").
+  // (a user 2026-06-14: "Video generation failed: Failed to upload image: HTTP 400").
   if (!file || file.size === 0) {
     throw new Error('Failed to upload image: the source image is empty (0 bytes), it could not be read from ComfyUI.')
   }
@@ -2242,7 +2277,7 @@ export async function uploadImage(file: File): Promise<string> {
 
   // Tauri (packaged): post the multipart from Rust. The raw browser fetch()
   // below was the ONLY non-proxy fetch left in the app, and it 400'd on some
-  // WebView2 builds (multipart/boundary/CORS-preflight quirks; konata
+  // WebView2 builds (multipart/boundary/CORS-preflight quirks;
   // 2026-06-14 "Failed to upload image: HTTP 400"). reqwest's multipart is
   // machine-independent and removes WebView2 as a variable — matching the
   // "everything via the Rust proxy" pattern (WebView2-149 finding). Dev/browser
@@ -2376,7 +2411,7 @@ export async function fetchComfyImageBase64(url: string): Promise<string> {
   // the picture it had just made from the prompt alone, i.e. hallucinated it:
   // exactly the failure the provider-aware fix cured on Windows.
   if (url.startsWith('blob:') || url.startsWith('data:')) {
-    const buf = await (await fetch(url)).arrayBuffer()
+    const buf = await (await blobFromUrl(url)).arrayBuffer()
     return bytesToBase64(new Uint8Array(buf))
   }
   return bytesToBase64(await fetchLocalhostBytes(url))
@@ -2553,7 +2588,7 @@ export async function buildWanVideoWorkflow(params: VideoParams): Promise<ComfyA
   }
 
   // Use SaveAnimatedWEBP if available, otherwise fall back to SaveImage (frame
-  // sequence). Prompt-based prefix (David 2026-06-11) — the dynamic builder got
+  // sequence). Prompt-based prefix (2026-06-11) — the dynamic builder got
   // this in c40d13f, this legacy T2V path still wrote locally_uncensored_vid.
   const vidPrefix = promptFilenamePrefix(params.prompt, true)
   if (hasSaveWEBP) {

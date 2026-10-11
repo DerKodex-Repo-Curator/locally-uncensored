@@ -5,7 +5,7 @@
 //
 //  - neuerServer: der Stand ab 02.10.2026. Jedes Studio-Modell der mitgelieferten
 //    Registrierung steht im Katalog, mit `tier`, `weights` und `quote_required`.
-//    Genau das schickt der Server (apps/web/app/api/jobs/catalog/route.ts) fuer
+//    Genau das schickt der Server (the web app) fuer
 //    die Eintraege aus CLOUD_MODELS.
 //  - alterServer: der Stand VOR dem 02.10.2026 (Produktion bis zum Deploy). Die
 //    Modelle sind die Ids aus katalog-vor-02-10-2026.json, die der Web-Stand

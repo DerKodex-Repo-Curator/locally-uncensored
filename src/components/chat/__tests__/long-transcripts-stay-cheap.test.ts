@@ -54,7 +54,7 @@ describe('every message stays mounted — no window, no slice', () => {
   it('the column cap is still there, and it is the derived one', () => {
     // W1 introduced a cap here; a virtualisation rewrite is exactly the kind
     // of change that quietly drops it. Since 05.09.2026 the cap is no longer
-    // `--lu-measure`: David asked for a transcript that overhangs the prompt
+    // `--lu-measure`: the owner asked for a transcript that overhangs the prompt
     // box by about 20 percent on each side, and that number is derived from
     // the composer width in composer-width.ts instead of standing next to it.
     expect(list).toContain('TRANSCRIPT_MAX_PX')

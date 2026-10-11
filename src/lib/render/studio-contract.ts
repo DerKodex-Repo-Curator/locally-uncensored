@@ -3,7 +3,7 @@ import definitions from './studio-models.json'
 import schemas from './provider-schemas.json'
 import endpoints from './provider-endpoints.json'
 export type Schema = { type?: string; properties?: Record<string, Schema>; required?: string[]; enum?: unknown[]; default?: unknown; minimum?: number; maximum?: number; minItems?: number; maxItems?: number; items?: Schema; description?: string; disabled?: boolean; format?: string }
-// Stufe und Herkunft jedes Cloud-Modells (02.10.2026, Entscheid von David).
+// Stufe und Herkunft jedes Cloud-Modells (02.10.2026, Entscheid des Inhabers).
 // `tier` ordnet die Waehler: 'best' steht oben, 'older' gesammelt unten.
 // `weights` sagt, ob genau diese Version offene Gewichte hat ('open'), nur ihre
 // Familie ('open-family') oder nie ('closed'). Beides traegt JEDES Modell.

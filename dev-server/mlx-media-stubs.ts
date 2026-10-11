@@ -2,7 +2,7 @@ import type { Connect } from 'vite'
 import type { RouteMount } from './routes'
 
 /**
- * K7 (GH #135, eloieloie, `npm run dev` without Tauri): "Unknown backend
+ * K7 (GH #135, `npm run dev` without Tauri): "Unknown backend
  * command: install_mlx_diffusion". The MLX image/video pipeline
  * (`src-tauri/src/commands/media_cmds.rs`) is an in-process Mac-only Rust
  * module, a Python sidecar Rust spawns directly, with no dev-server
@@ -45,9 +45,14 @@ export function registerMlxMediaStubs(routes: RouteMount): void {
     '/local-api/mlx-start',
     '/local-api/mlx-unload',
     '/local-api/mlx-generate',
+    '/local-api/mlx-loras',
+    '/local-api/mlx-loras-open-folder',
+    '/local-api/mlx-lora-delete',
+    '/local-api/mlx-output-trash',
     '/local-api/mlx-image-models',
     '/local-api/mlx-image-install-model',
     '/local-api/mlx-image-install-status',
+    '/local-api/mlx-image-cancel-install',
     '/local-api/mlx-image-delete-model',
     '/local-api/install-mlx-diffusion',
     '/local-api/set-hf-token',
@@ -57,7 +62,9 @@ export function registerMlxMediaStubs(routes: RouteMount): void {
     '/local-api/video-install-mlx',
     '/local-api/video-install-model',
     '/local-api/video-install-model-status',
+    '/local-api/video-cancel-model-install',
     '/local-api/video-delete-model',
+    '/local-api/video-stage-start-image',
     '/local-api/video-generate',
     '/local-api/video-progress',
     '/local-api/video-cancel',

@@ -2,7 +2,7 @@
 /**
  * Der lokale Modellwaehler ordnet nach Stufe, wie der Cloud-Waehler.
  *
- * 02.10.2026, David: "Best" oben mit kleiner Marke, Aeltere gesammelt unten
+ * 02.10.2026: "Best" oben mit kleiner Marke, Aeltere gesammelt unten
  * unter "Older models", nichts wird versteckt, Reihenfolge innerhalb einer
  * Stufe bleibt wie die Liste sie liefert.
  */

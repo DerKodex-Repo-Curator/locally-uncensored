@@ -4,9 +4,9 @@
 // opened its port. It says nothing about whether the numbers coming out of the
 // graphics card are numbers. Three reporters have now described the difference:
 //
-//   * GitHub 128 (Caldeiradas, 2026-09-09): endless question marks.
-//   * Discord half_676767 (2026-09-09): the same runaway stream.
-//   * Discord buzz0070615 (2026-08-17): character salad.
+//   * GitHub 128 (2026-09-09): endless question marks.
+//   * Discord (2026-09-09): the same runaway stream.
+//   * Discord (2026-08-17): character salad.
 //
 // The only one who named his hardware had a 2 GB card and a 3B model. On the
 // 12 GB RTX 3060 here the same upstream Vulkan build answers coherent English
@@ -1103,11 +1103,9 @@ mod tests {
 
     #[test]
     fn nothing_listening_is_no_verdict_at_all() {
-        // A port that was bound and released: nothing answers, and the probe
+        // A port that refuses the connection: nothing answers, and the probe
         // must come back empty rather than call that garbled.
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
-        drop(listener);
+        let (port, _held) = crate::test_support::refusing_port();
         assert!(probe_engine(port, Duration::from_secs(2)).is_none());
     }
 

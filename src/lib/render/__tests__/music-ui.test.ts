@@ -1,4 +1,4 @@
-// Regression guard for #108 (ElBiggus): the local Music tab printed cloud
+// Regression guard for #108: the local Music tab printed cloud
 // facts. It hid the lyrics box while claiming the model writes its own lyrics,
 // described a box that was not on screen, implied other music models were
 // downloadable, and said the length slider bills per second on a machine where

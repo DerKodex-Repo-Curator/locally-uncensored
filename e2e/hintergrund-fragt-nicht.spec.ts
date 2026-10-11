@@ -7,7 +7,7 @@ import { openNewChat } from './support/ui'
  * Drei Unteragenten in einem Zug, und der Nutzer wird kein einziges Mal
  * unterbrochen.
  *
- * Auftrag 2.3 (David, 04.09.2026): "hintergrund bzw multiagents sollen NIEMALS
+ * Auftrag 2.3 (04.09.2026): "hintergrund bzw multiagents sollen NIEMALS
  * freigabe brauchen. ist bei claude code desktop auch nicht so richtig?"
  *
  * Gemessen wurde vorher genau das Gegenteil: delegate_task liegt in der

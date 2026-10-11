@@ -12,7 +12,7 @@ export const CREDITS_EXHAUSTED_EVENT = 'lu:credits-exhausted'
 /** Which cap said no, drives the dialog title and copy. 'credits' = the
  *  shared pool, 'video_budget' = the monthly video sub-budget (top-ups
  *  bypass it), 'trainings' = no included run remains and the top-up wallet
- *  cannot cover the selected training. Matches apps/web/lib/credits-
+ *  cannot cover the selected training. Matches the web app-
  *  exhausted.ts, so the same server code reads the same on both apps
  *  (R5-51). */
 export type ExhaustedReason = 'credits' | 'video_budget' | 'trainings'
@@ -20,7 +20,7 @@ export type ExhaustedReason = 'credits' | 'video_budget' | 'trainings'
 /**
  * Wohin der Knopf fuehrt: auf die Preisseite, nicht in einen Kauf.
  *
- * R5-51, Entscheid David vom 12.09.2026. Der Knopf ging bis dahin auf die
+ * R5-51, Entscheid vom 12.09.2026. Der Knopf ging bis dahin auf die
  * Aufladeseite, also mitten in einen Kauf hinein, und traf damit fuer den
  * Kunden eine Entscheidung, die er noch gar nicht getroffen hatte: wer leer
  * ist, hat die Wahl zwischen einem Plan und einem Paket, und die Uebersicht

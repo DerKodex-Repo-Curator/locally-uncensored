@@ -6,7 +6,7 @@ import type { RenderKind, RenderOp } from './cloud-jobs'
 // suggestion; the role decides which other models the customer may pick
 // instead. See lib/render/preset-models.ts.
 // `models` grenzt die Auswahl dieses Schrittes auf eine Teilmenge seiner Rolle
-// ein. 19.09.2026, Entscheid von David: bei Horror passen Prefect Pony und
+// ein. 19.09.2026, Entscheid des Inhabers: bei Horror passen Prefect Pony und
 // Neta Lumina nicht, auch wenn sie offen sind. Die Rolle bleibt, was sie ist;
 // der Schritt sagt, welche ihrer Mitglieder er wirklich verantworten kann.
 export interface PresetStep { model: string; kind: RenderKind; op: RenderOp; title: string; role: StepRole; models?: string[] }

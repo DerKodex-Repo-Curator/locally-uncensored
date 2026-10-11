@@ -1,5 +1,5 @@
 /**
- * Discord 2026-09-26..28 (boromirofgeo, haschbar, tbjdrw): Edit came back with
+ * Discord 2026-09-26..28: Edit came back with
  * "ComfyUI rejected workflow: ... Node 1 (CheckpointLoaderSimple): Value not
  * in list" or "Node 2 (CLIPLoader): Value not in list". The builder picked the
  * loader from the file NAME, so a file LU cannot place that sits in

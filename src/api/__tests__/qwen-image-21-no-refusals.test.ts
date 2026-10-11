@@ -142,7 +142,7 @@ describe('which encoder a run takes', () => {
     expect(qwenEncoderOptions([FREE])).toEqual([])
     expect(qwenEncoderOptions([FREE, OFFICIAL, KREA_ENCODER, T2I])).toEqual([
       { id: 'official', label: 'Qwen3-VL 8B' },
-      { id: 'unfiltered', label: 'Qwen3-VL 8B, no refusals' },
+      { id: 'unfiltered', label: 'Qwen3-VL 8B, No Filter' },
     ])
   })
 
@@ -298,10 +298,10 @@ describe.each(QWEN21_WEIGHTS)('what the family can do does not depend on the enc
 
 // ── The Model Manager bundle ────────────────────────────────────────────
 
-describe('bundle Qwen-Image 2.1 (No Refusals)', () => {
+describe('bundle Qwen-Image 2.1 (No Filter)', () => {
   const all = getImageBundles()
   const official = all.find((b) => b.name === 'Qwen-Image 2.1 (Generate and Edit)')!
-  const bundle = all.find((b) => b.name === 'Qwen-Image 2.1 (No Refusals)')!
+  const bundle = all.find((b) => b.name === 'Qwen-Image 2.1 (No Filter)')!
   const file = (b: typeof bundle, folder: string) => b.files.find((f) => f.subfolder === folder)!
 
   it('exists once, under Image, in the list without refusals, right after the official one', () => {

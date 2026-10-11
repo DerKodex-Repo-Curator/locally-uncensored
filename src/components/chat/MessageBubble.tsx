@@ -2,7 +2,7 @@ import { ChatAttachment } from './ChatAttachment'
 import { ChatFileChip } from './ChatFileChip'
 import { FILE_ONLY_TEXT } from '../../lib/chat-files'
 import { motion } from 'framer-motion'
-import { User, Copy, Check, Pencil, RefreshCw, X, Wrench, Trash2, Scissors, Unlink } from 'lucide-react'
+import { User, Copy, Check, Pencil, RefreshCw, X, Wrench, Trash2, Scissors, Unlink, Film, Music } from 'lucide-react'
 import { useState, useRef, useEffect, useMemo, memo } from 'react'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { closeOpenMarkdown } from '../../lib/streaming-markdown'
@@ -13,6 +13,8 @@ import { groupAgentBlocks } from '../../lib/tool-call-groups'
 import { VramSwitchCard } from './VramSwitchCard'
 import { SpeakerButton } from './SpeakerButton'
 import { ChatArtifactCard } from './ChatArtifactCard'
+import { CreateOrders } from './create/CreateOrders'
+import { messageHasCreateOrder } from '../../lib/create/chat-control'
 import { displayModelName } from '../../api/providers/model-name'
 import { modelDisplayLabel } from '../../lib/model-label'
 import type { Message } from '../../types/chat'
@@ -28,7 +30,7 @@ import { isAgentCompatible } from '../../lib/model-compatibility'
 import { ContextMenu } from '../ui/ContextMenu'
 import { buildMessageMenu, type MessageMenuHandlers } from '../ui/menu-actions'
 import { MONOGRAM, MONOGRAM_INVERT } from '../layout/brand'
-import { AVATAR_SLOT } from './avatar-slot'
+import { AVATAR_SLOT, MODEL_MARK, MODEL_MARK_SLOT } from './avatar-slot'
 import { MOTION_S } from '../ui/motion'
 import { Hinweis } from '../ui/Hinweis'
 import { RefusalNotice } from './RefusalNotice'
@@ -69,11 +71,12 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
   const editRef = useRef<HTMLTextAreaElement>(null)
   const isUser = message.role === 'user'
 
-  // Bug #7 (phantomderp v2.4.3): the Codex-style "model parrots tool-call
+  // Bug #7 (a user v2.4.3): the Codex-style "model parrots tool-call
   // JSON as plaintext" only happens when the active chat does NOT have
   // agent mode on. Detect the JSON pattern and show a one-click "Enable
   // agent" banner instead of leaving the user staring at a JSON dump.
   const activeConversationId = useChatStore((s) => s.activeConversationId)
+  const hasCreateOrder = !isUser && messageHasCreateOrder(message)
   const deleteMessage = useChatStore((s) => s.deleteMessage)
   const updateMessageContent = useChatStore((s) => s.updateMessageContent)
   const isAgentActive = useAgentModeStore((s) =>
@@ -90,7 +93,7 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
   // Chat Tools (v2.5.3) gives plain chat web/file/image/video WITHOUT Agent Mode.
   // When it's on, the "turn Agent Mode on" banners below are wrong + contradictory
   // (the tool IS available in normal chat) — they predate Chat Tools and only
-  // checked `!isAgentActive`. Suppress them when Chat Tools is enabled. David
+  // checked `!isAgentActive`. Suppress them when Chat Tools is enabled. The owner
   // 2026-06-16: web build, Agent off + Chat Tools on, image_generate emitted →
   // bubble showed "Turn Agent Mode on" even though the tool was already running.
   const chatToolsEnabled = useSettingsStore((s) => s.settings.chatToolsEnabled !== false)
@@ -287,25 +290,22 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: MOTION_S.base }}
     >
-      {/* Avatar — EIN Slot, zwei Inhalte (Audit §4, „Zwei Avatar-Systeme:
-          Assistent rahmenlos, User als gerahmte Box").
-          Vorher trug nur die Nutzerseite Rahmen und Flaeche, das Monogramm sass
-          nackt auf der Pane. Zwei Silhouetten in einer Spalte, die der Blick
-          beim Scrollen als Taktgeber benutzt — der Sprecherwechsel war an der
-          Form nicht ablesbar, nur am Inhalt.
-          Jetzt: derselbe Chip fuer beide, und das Monogramm bekommt dabei
-          nebenbei einen definierten Untergrund statt der jeweiligen Pane. */}
-      <div className={AVATAR_SLOT}>
-        {isUser ? (
-          userAvatarDataUrl
+      {/* The avatar column (avatar-slot.ts): a chip for the user, the bare mark for the model. */}
+      {isUser ? (
+        <div className={AVATAR_SLOT}>
+          {userAvatarDataUrl
             ? <img src={userAvatarDataUrl} alt="" className="w-full h-full object-cover" />
-            : <User size={11} className="text-gray-400" />
-        ) : (
-          <img src={MONOGRAM} alt="" className={`w-[70%] h-[70%] object-contain opacity-80 ${MONOGRAM_INVERT}`} />
-        )}
-      </div>
+            : <User size={11} className="text-gray-400" />}
+        </div>
+      ) : (
+        <div className={MODEL_MARK_SLOT} data-testid="model-mark">
+          <img src={MONOGRAM} alt="" className={`${MODEL_MARK} ${MONOGRAM_INVERT}`} />
+        </div>
+      )}
 
-      <div className="max-w-[80%] space-y-0.5">
+      {/* A reply with a Create order takes the full width in a narrow window:
+          the card and the result need the room. */}
+      <div className={(hasCreateOrder ? 'min-w-0 flex-1 sm:flex-none sm:max-w-[80%]' : 'max-w-[80%]') + ' space-y-0.5'}>
         {/* Name the model that produced this answer. Group chats have always
             done this; since the R5 re-measure (2026-08-30) every assistant
             turn carries it, because the app had no model name at a single
@@ -328,7 +328,7 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
           </div>
         )}
         {/* Thinking block — auto-expands while this (last) turn is still
-            producing so the reasoning streams LIVE, then collapses (David 2026-06-04). */}
+            producing so the reasoning streams LIVE, then collapses (2026-06-04). */}
         {!isUser && message.thinking && (
           <ThinkingBlock thinking={message.thinking} streaming={!!isLast && !message.content?.trim() && !message.usage} />
         )}
@@ -356,7 +356,7 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
             )
               .map((group, gruppenIndex, gruppen) => {
                 // Consecutive tool calls render as ONE band that morphs from
-                // tool to tool and collapses to "N steps" when done (David
+                // tool to tool and collapses to "N steps" when done (the owner
                 // 2026-07-31) instead of a chip per call.
                 if (group.kind === 'tools') {
                   return (
@@ -413,6 +413,10 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
           </>
         )}
 
+        {/* Create in chat: order, progress and results, from the store of this
+            conversation's orders. */}
+        {hasCreateOrder && <CreateOrders message={message} conversationId={activeConversationId} />}
+
         {/* Feature EE (v2.5.0) — VRAM hand-off status card. Self-hides unless
             an actual model swap is in flight; gated to the last assistant
             message so a swap shows only in the active turn. */}
@@ -423,6 +427,19 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
           <div className="flex gap-1 flex-wrap">
             {message.files.map((file, i) => (
               <ChatFileChip key={`${file.sha256}-${i}`} file={file} />
+            ))}
+          </div>
+        )}
+
+        {/* Clips and sound tracks for Create: name and kind only, the bytes
+            stay in the session. */}
+        {isUser && message.media && message.media.length > 0 && (
+          <div className="flex flex-wrap justify-end gap-1" data-testid="chat-media-chips">
+            {message.media.map((clip, i) => (
+              <span key={i} className="flex max-w-[200px] items-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 t-micro text-gray-500 dark:border-white/10 dark:text-gray-400">
+                {clip.kind === 'video' ? <Film size={11} className="shrink-0" /> : <Music size={11} className="shrink-0" />}
+                <span className="truncate">{clip.name}</span>
+              </span>
             ))}
           </div>
         )}
@@ -503,7 +520,7 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
                   {/* Cut-off marker: a turn the model did not finish on its own
                       terms (length budget / dropped connection). The benchmark
                       screen has always flagged cut-offs; the chat did not, so a
-                      truncated answer read as complete (David 2026-08-08). */}
+                      truncated answer read as complete (2026-08-08). */}
                   {truncationNotice(message.finishReason) && (
                     // Ruhig, nicht laut: die Antwort ist kuerzer als geplant,
                     // kaputt ist nichts. Die Zeile stand vorher in Gelb und in
@@ -537,7 +554,7 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
                   {/* A reasoning-only reply used to print a stand-in sentence
                       here ("The model only produced internal reasoning and no
                       answer"). That is our text in the model's mouth (G14-3,
-                      David 2026-08-07), and on an agent surface the loop's job
+                      2026-08-07), and on an agent surface the loop's job
                       is to CONTINUE past such a round (G17), not to explain
                       it. The thinking block above already shows what happened.
                       The hint below survives because it is a labelled app hint
@@ -580,7 +597,7 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
 
         </div>
 
-        {/* Chat-tools artifacts (David 2026-06-12): files the model "wrote" in
+        {/* Chat-tools artifacts (2026-06-12): files the model "wrote" in
             plain chat, rendered inline with preview + Download, never on disk. */}
         {!isUser && message.artifacts && message.artifacts.length > 0 && (
           <div className="space-y-1">
@@ -594,7 +611,7 @@ function MessageBubbleImpl({ message, onRegenerate, onEdit, pendingApprovalId, o
             field, and before the action bar so it reads as part of the turn. */}
         {declined && <RefusalNotice />}
 
-        {/* Action bar UNDER the message (David 2026-06-06: "eigene Leiste unter
+        {/* Action bar UNDER the message (2026-06-06: "eigene Leiste unter
             der Nachricht" instead of cramped hover-icons in the corner). Bigger
             targets; assistant left, user right. */}
         {/* Hidden while this very turn still streams: the bar used to hang on

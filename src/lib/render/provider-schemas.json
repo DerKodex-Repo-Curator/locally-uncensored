@@ -971,7 +971,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ace-step-1.5": {
+  "base/ace-step-1.5": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -1008,7 +1008,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ace-step/prompt-to-audio": {
+  "base/ace-step/prompt-to-audio": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -1043,7 +1043,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/chroma": {
+  "base/chroma": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -1095,7 +1095,7 @@
       "enable_sync_mode"
     ]
   },
-  "wavespeed-ai/flux-2-dev/text-to-image": {
+  "base/flux-2-dev/text-to-image": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -1136,7 +1136,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/flux-dev": {
+  "base/flux-dev": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -1230,7 +1230,7 @@
       "enable_sync_mode"
     ]
   },
-  "wavespeed-ai/flux-dev-lora-trainer": {
+  "base/flux-dev-lora-trainer": {
     "additionalProperties": false,
     "properties": {
       "data": {
@@ -1280,7 +1280,7 @@
       "lora_rank"
     ]
   },
-  "wavespeed-ai/flux-dev-lora-ultra-fast": {
+  "base/flux-dev-lora-ultra-fast": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -1396,7 +1396,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/flux-schnell": {
+  "base/flux-schnell": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -1473,7 +1473,7 @@
       "enable_sync_mode"
     ]
   },
-  "wavespeed-ai/flux-schnell-lora": {
+  "base/flux-schnell-lora": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -1580,7 +1580,7 @@
       "enable_sync_mode"
     ]
   },
-  "wavespeed-ai/hidream-i1-dev": {
+  "base/hidream-i1-dev": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -1625,7 +1625,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/hunyuan-image-2.1": {
+  "base/hunyuan-image-2.1": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -1677,7 +1677,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/hunyuan-video-1.5/image-to-video": {
+  "base/hunyuan-video-1.5/image-to-video": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -1726,7 +1726,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/hunyuan-video-1.5/text-to-video": {
+  "base/hunyuan-video-1.5/text-to-video": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -1777,7 +1777,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/hunyuan-video-foley": {
+  "base/hunyuan-video-foley": {
     "additionalProperties": false,
     "properties": {
       "prompt": {
@@ -1803,7 +1803,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/infinitetalk": {
+  "base/infinitetalk": {
     "additionalProperties": false,
     "properties": {
       "audio": {
@@ -1851,7 +1851,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/infinitetalk-fast": {
+  "base/infinitetalk-fast": {
     "additionalProperties": false,
     "properties": {
       "audio": {
@@ -1888,7 +1888,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/infinitetalk/multi": {
+  "base/infinitetalk/multi": {
     "additionalProperties": false,
     "properties": {
       "image": {
@@ -1949,7 +1949,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/latentsync": {
+  "base/latentsync": {
     "additionalProperties": false,
     "properties": {
       "audio": {
@@ -1971,7 +1971,7 @@
       "video"
     ]
   },
-  "wavespeed-ai/ltx-2-19b/image-to-video": {
+  "base/ltx-2-19b/image-to-video": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2018,7 +2018,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2-19b/image-to-video-lora": {
+  "base/ltx-2-19b/image-to-video-lora": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2095,7 +2095,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2-19b/text-to-video": {
+  "base/ltx-2-19b/text-to-video": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -2147,7 +2147,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2-19b/text-to-video-lora": {
+  "base/ltx-2-19b/text-to-video-lora": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -2229,7 +2229,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2-19b/video-lora-trainer": {
+  "base/ltx-2-19b/video-lora-trainer": {
     "additionalProperties": false,
     "properties": {
       "data": {
@@ -2279,7 +2279,7 @@
       "lora_rank"
     ]
   },
-  "wavespeed-ai/ltx-2.3-spicy/image-to-video": {
+  "base/ltx-2.3-spicy/image-to-video": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2336,7 +2336,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2.3-spicy/image-to-video-lora": {
+  "base/ltx-2.3-spicy/image-to-video-lora": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2433,7 +2433,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2.3/image-to-video": {
+  "base/ltx-2.3/image-to-video": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2480,7 +2480,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2.3/image-to-video-lora": {
+  "base/ltx-2.3/image-to-video-lora": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2557,7 +2557,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2.3/text-to-video": {
+  "base/ltx-2.3/text-to-video": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -2609,7 +2609,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2.3/text-to-video-lora": {
+  "base/ltx-2.3/text-to-video-lora": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -2691,7 +2691,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2/video-extend": {
+  "base/ltx-2/video-extend": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2720,7 +2720,7 @@
       "duration"
     ]
   },
-  "wavespeed-ai/minimax-h3/image-edit": {
+  "base/minimax-h3/image-edit": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -2809,7 +2809,7 @@
       "enable_sync_mode"
     ]
   },
-  "wavespeed-ai/minimax-h3/image-to-video": {
+  "base/minimax-h3/image-to-video": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2875,7 +2875,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/minimax-h3/image-to-video-spicy": {
+  "base/minimax-h3/image-to-video-spicy": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2940,7 +2940,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/mmaudio-v2": {
+  "base/mmaudio-v2": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -2997,7 +2997,7 @@
       "mask_away_clip"
     ]
   },
-  "wavespeed-ai/neta-lumina": {
+  "base/neta-lumina": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -3049,7 +3049,7 @@
       "enable_sync_mode"
     ]
   },
-  "wavespeed-ai/open-video/image-to-video": {
+  "base/open-video/image-to-video": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -3107,7 +3107,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/open-video/image-to-video-lora": {
+  "base/open-video/image-to-video-lora": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -3205,7 +3205,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/prefect-pony-xl": {
+  "base/prefect-pony-xl": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -3257,7 +3257,7 @@
       "enable_sync_mode"
     ]
   },
-  "wavespeed-ai/qwen-image-lora-trainer": {
+  "base/qwen-image-lora-trainer": {
     "additionalProperties": false,
     "properties": {
       "data": {
@@ -3307,7 +3307,7 @@
       "lora_rank"
     ]
   },
-  "wavespeed-ai/qwen-image/edit": {
+  "base/qwen-image/edit": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -3365,7 +3365,7 @@
       "enable_sync_mode"
     ]
   },
-  "wavespeed-ai/qwen-image/edit-multiple-angles": {
+  "base/qwen-image/edit-multiple-angles": {
     "additionalProperties": false,
     "properties": {
       "distance": {
@@ -3453,7 +3453,7 @@
       "enable_sync_mode"
     ]
   },
-  "wavespeed-ai/qwen-image/text-to-image": {
+  "base/qwen-image/text-to-image": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -3505,7 +3505,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/qwen-image/text-to-image-lora": {
+  "base/qwen-image/text-to-image-lora": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -3587,7 +3587,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/qwen3-tts/text-to-speech": {
+  "base/qwen3-tts/text-to-speech": {
     "additionalProperties": false,
     "properties": {
       "language": {
@@ -3650,7 +3650,7 @@
       "style_instruction"
     ]
   },
-  "wavespeed-ai/qwen3-tts/voice-clone": {
+  "base/qwen3-tts/voice-clone": {
     "additionalProperties": false,
     "properties": {
       "audio": {
@@ -3700,7 +3700,7 @@
       "language"
     ]
   },
-  "wavespeed-ai/qwen3-tts/voice-design": {
+  "base/qwen3-tts/voice-design": {
     "additionalProperties": false,
     "properties": {
       "language": {
@@ -3745,7 +3745,7 @@
       "language"
     ]
   },
-  "wavespeed-ai/scail-2": {
+  "base/scail-2": {
     "additionalProperties": false,
     "properties": {
       "image": {
@@ -3799,7 +3799,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/steady-dancer": {
+  "base/steady-dancer": {
     "additionalProperties": false,
     "properties": {
       "image": {
@@ -3842,7 +3842,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.1/ditto": {
+  "base/wan-2.1/ditto": {
     "additionalProperties": false,
     "properties": {
       "prompt": {
@@ -3919,7 +3919,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2-spicy/image-to-video": {
+  "base/wan-2.2-spicy/image-to-video": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -3967,7 +3967,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2-spicy/image-to-video-lora": {
+  "base/wan-2.2-spicy/image-to-video-lora": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -4105,7 +4105,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2-spicy/video-extend": {
+  "base/wan-2.2-spicy/video-extend": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -4153,7 +4153,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2-spicy/video-extend-lora": {
+  "base/wan-2.2-spicy/video-extend-lora": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -4291,7 +4291,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2/animate": {
+  "base/wan-2.2/animate": {
     "additionalProperties": false,
     "properties": {
       "image": {
@@ -4345,7 +4345,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2/i2v-5b-720p-lora": {
+  "base/wan-2.2/i2v-5b-720p-lora": {
     "additionalProperties": false,
     "properties": {
       "image": {
@@ -4402,7 +4402,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2/i2v-720p": {
+  "base/wan-2.2/i2v-720p": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -4450,7 +4450,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2/i2v-720p-lora": {
+  "base/wan-2.2/i2v-720p-lora": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -4588,7 +4588,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2/t2v-5b-720p-lora": {
+  "base/wan-2.2/t2v-5b-720p-lora": {
     "additionalProperties": false,
     "properties": {
       "loras": {
@@ -4649,7 +4649,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2/t2v-720p": {
+  "base/wan-2.2/t2v-720p": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -4696,7 +4696,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/wan-2.2/t2v-720p-lora": {
+  "base/wan-2.2/t2v-720p-lora": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -4833,7 +4833,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/z-image-lora-trainer": {
+  "base/z-image-lora-trainer": {
     "additionalProperties": false,
     "properties": {
       "data": {
@@ -4883,7 +4883,7 @@
       "lora_rank"
     ]
   },
-  "wavespeed-ai/z-image/base-lora": {
+  "base/z-image/base-lora": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -4978,7 +4978,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/z-image/turbo": {
+  "base/z-image/turbo": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -5043,7 +5043,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/z-image/turbo-lora": {
+  "base/z-image/turbo-lora": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -5165,7 +5165,7 @@
       "resolution"
     ]
   },
-  "wavespeed-ai/longcat-avatar-1.5": {
+  "base/longcat-avatar-1.5": {
     "additionalProperties": false,
     "properties": {
       "audio": {
@@ -5208,7 +5208,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/longcat-avatar-1.5/multi": {
+  "base/longcat-avatar-1.5/multi": {
     "additionalProperties": false,
     "properties": {
       "image": {
@@ -6239,9 +6239,9 @@
         "x-ui-component": "textarea"
       },
       "voice_id": {
-        "description": "Desired voice ID. Use a voice ID you have trained (https://wavespeed.ai/models/minimax/voice-clone), or one of the following system voice IDs: Wise_Woman, Friendly_Person, Inspirational_girl, Deep_Voice_Man, Calm_Woman, Casual_Guy, Lively_Girl, Patient_Man, Young_Knight, Determined_Man, Lovely_Girl, Decent_Boy, Imposing_Manner, Elegant_Man, Abbess, Sweet_Girl_2, Exuberant_Girl.",
+        "description": "Desired voice ID. Use a voice ID you have trained, or one of the following system voice IDs: Wise_Woman, Friendly_Person, Inspirational_girl, Deep_Voice_Man, Calm_Woman, Casual_Guy, Lively_Girl, Patient_Man, Young_Knight, Determined_Man, Lovely_Girl, Decent_Boy, Imposing_Manner, Elegant_Man, Abbess, Sweet_Girl_2, Exuberant_Girl.",
         "type": "string",
-        "x-hint": "Desired voice ID. Use a voice ID you have trained (https://wavespeed.ai/models/minimax/voice-clone), or one of the following system voice IDs: Wise_Woman, Friendly_Person, Inspirational_girl, Deep_Voice_Man, Calm_Woman, Casual_Guy, Lively_Girl, Patient_Man, Young_Knight, Determined_Man, Lovely_Girl, Decent_Boy, Imposing_Manner, Elegant_Man, Abbess, Sweet_Girl_2, Exuberant_Girl",
+        "x-hint": "Desired voice ID. Use a voice ID you have trained, or one of the following system voice IDs: Wise_Woman, Friendly_Person, Inspirational_girl, Deep_Voice_Man, Calm_Woman, Casual_Guy, Lively_Girl, Patient_Man, Young_Knight, Determined_Man, Lovely_Girl, Decent_Boy, Imposing_Manner, Elegant_Man, Abbess, Sweet_Girl_2, Exuberant_Girl",
         "x-placeholder": "Please input your custom voice ID",
         "x-suggestions": [
           "Wise_Woman",
@@ -6913,9 +6913,9 @@
         "x-ui-component": "textarea"
       },
       "voice_id": {
-        "description": "Desired voice ID. Use a voice ID you have trained (https://wavespeed.ai/models/minimax/voice-clone), or one of the following system voice IDs: Wise_Woman, Friendly_Person, Inspirational_girl, Deep_Voice_Man, Calm_Woman, Casual_Guy, Lively_Girl, Patient_Man, Young_Knight, Determined_Man, Lovely_Girl, Decent_Boy, Imposing_Manner, Elegant_Man, Abbess, Sweet_Girl_2, Exuberant_Girl.",
+        "description": "Desired voice ID. Use a voice ID you have trained, or one of the following system voice IDs: Wise_Woman, Friendly_Person, Inspirational_girl, Deep_Voice_Man, Calm_Woman, Casual_Guy, Lively_Girl, Patient_Man, Young_Knight, Determined_Man, Lovely_Girl, Decent_Boy, Imposing_Manner, Elegant_Man, Abbess, Sweet_Girl_2, Exuberant_Girl.",
         "type": "string",
-        "x-hint": "Desired voice ID. Use a voice ID you have trained (https://wavespeed.ai/models/minimax/voice-clone), or one of the following system voice IDs: Wise_Woman, Friendly_Person, Inspirational_girl, Deep_Voice_Man, Calm_Woman, Casual_Guy, Lively_Girl, Patient_Man, Young_Knight, Determined_Man, Lovely_Girl, Decent_Boy, Imposing_Manner, Elegant_Man, Abbess, Sweet_Girl_2, Exuberant_Girl",
+        "x-hint": "Desired voice ID. Use a voice ID you have trained, or one of the following system voice IDs: Wise_Woman, Friendly_Person, Inspirational_girl, Deep_Voice_Man, Calm_Woman, Casual_Guy, Lively_Girl, Patient_Man, Young_Knight, Determined_Man, Lovely_Girl, Decent_Boy, Imposing_Manner, Elegant_Man, Abbess, Sweet_Girl_2, Exuberant_Girl",
         "x-placeholder": "Please input your custom voice ID",
         "x-suggestions": [
           "Wise_Woman",
@@ -7716,7 +7716,7 @@
       },
       "output_format": {
         "default": "mp3",
-        "description": "Output audio format after re-uploading to WaveSpeed CDN.",
+        "description": "Output audio format.",
         "enum": [
           "mp3",
           "wav",
@@ -8017,7 +8017,7 @@
       "generate_audio"
     ]
   },
-  "wavespeed-ai/wan-2.2/animate-2": {
+  "base/wan-2.2/animate-2": {
     "additionalProperties": false,
     "properties": {
       "image": {
@@ -8344,7 +8344,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/flashvsr": {
+  "base/flashvsr": {
     "additionalProperties": false,
     "properties": {
       "target_resolution": {
@@ -8373,7 +8373,7 @@
       "target_resolution"
     ]
   },
-  "wavespeed-ai/video-upscaler-pro": {
+  "base/video-upscaler-pro": {
     "additionalProperties": false,
     "properties": {
       "target_resolution": {
@@ -8402,7 +8402,7 @@
       "target_resolution"
     ]
   },
-  "wavespeed-ai/ultimate-video-upscaler": {
+  "base/ultimate-video-upscaler": {
     "additionalProperties": false,
     "properties": {
       "target_resolution": {
@@ -8499,7 +8499,7 @@
       "creativity"
     ]
   },
-  "wavespeed-ai/video-upscaler": {
+  "base/video-upscaler": {
     "additionalProperties": false,
     "properties": {
       "target_resolution": {
@@ -8528,7 +8528,7 @@
       "target_resolution"
     ]
   },
-  "wavespeed-ai/z-image/base": {
+  "base/z-image/base": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -8595,7 +8595,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/nucleus-image/text-to-image": {
+  "base/nucleus-image/text-to-image": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -8681,7 +8681,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/jib-mix-qwen-image/text-to-image": {
+  "base/jib-mix-qwen-image/text-to-image": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -8733,7 +8733,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/wan-2.2/text-to-image-realism": {
+  "base/wan-2.2/text-to-image-realism": {
     "additionalProperties": false,
     "properties": {
       "enable_base64_output": {
@@ -8785,7 +8785,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/qwen-image-2.1/text-to-image": {
+  "base/qwen-image-2.1/text-to-image": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -8865,7 +8865,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/qwen-image-2.1/edit": {
+  "base/qwen-image-2.1/edit": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -8955,7 +8955,7 @@
       "enable_base64_output"
     ]
   },
-  "wavespeed-ai/ltx-2.5/text-to-video": {
+  "base/ltx-2.5/text-to-video": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -9008,7 +9008,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/ltx-2.5/image-to-video": {
+  "base/ltx-2.5/image-to-video": {
     "additionalProperties": false,
     "properties": {
       "duration": {
@@ -9061,7 +9061,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/minimax-h3/text-to-video": {
+  "base/minimax-h3/text-to-video": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -9131,7 +9131,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/minimax-h3/reference-to-video": {
+  "base/minimax-h3/reference-to-video": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {
@@ -9230,7 +9230,7 @@
       "seed"
     ]
   },
-  "wavespeed-ai/minimax-h3/video-edit": {
+  "base/minimax-h3/video-edit": {
     "additionalProperties": false,
     "properties": {
       "aspect_ratio": {

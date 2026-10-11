@@ -80,7 +80,7 @@ describe('die Leiste fragt beide Laufquellen, nicht nur eine', () => {
     // Diese Zeile hat frueher die gelbe Fassung des Stillstands festgenagelt:
     // stand der Lauf, wurde der Kreisel bernsteinfarben, und genau das stand
     // hier als Muster. Die Regel hat sich am 04.09.2026 geaendert:
-    // David hat jedes Gelb aus der Oberflaeche geworfen, seitdem gibt es zwei
+    // Der Inhaber hat jedes Gelb aus der Oberflaeche geworfen, seitdem gibt es zwei
     // Toene und keinen dritten (`lib/hinweis.ts`), und ein Schritt, an dem
     // nichts mehr laeuft, ist kein halber Fehler, sondern ruhig. Die Aussage
     // des Tests ist dieselbe geblieben und haengt jetzt an der Bewegung

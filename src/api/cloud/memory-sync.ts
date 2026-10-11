@@ -29,7 +29,7 @@ export interface MemorySyncSession {
   pull(): Promise<SyncedMemoryRecord[]>
   /**
    * Die alte Kontokopie, wie sie vor dem heutigen Protokoll geschrieben wurde
-   * (R5-30, Entscheid David vom 12.09.2026). Roh und ungeprueft: was in dieser
+   * (R5-30, Entscheid vom 12.09.2026). Roh und ungeprueft: was in dieser
    * Zeile steht, hat eine aeltere Fassung dieser App geschrieben, und der
    * Leser prueft jedes Feld selbst.
    */

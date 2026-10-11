@@ -2,7 +2,7 @@
 //
 // A preset names one model per step, but the step is a job, not a model: any
 // endpoint that eats the same inputs and returns the same kind does that job.
-// 19.09.2026, Entscheid von David: the customer picks. So every step carries a
+// 19.09.2026, Entscheid des Inhabers: the customer picks. So every step carries a
 // role, and the role, not the preset, decides the choices.
 //
 // The lists below are declared, not guessed. A role is only useful when every
@@ -337,7 +337,7 @@ export function roleForModel(id: string): StepRole | undefined {
  *  the number that gets booked cannot drift apart.
  *
  *  Desktop port (P2): the web prices this from its own table
- *  (lib/billing/credits.ts, mediaCredits), which the desktop does not have
+ *  (the server's price table), which the desktop does not have
  *  (portplan Abschnitt 2.1: "Desktop hat keine eigene Preistabelle, Preise
  *  kommen aus /api/jobs/catalog"). Here the same number comes from the live
  *  catalog via cloudCatalogStore's runCredits (read-only import, that store

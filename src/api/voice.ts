@@ -1,6 +1,8 @@
 import { backendCall, isTauri } from "./backend";
 import { asString, prop } from "../types/json-guards";
+import { blobFromUrl } from "../lib/render/data-url";
 import { cloudFetch, jsonOrError, CloudJobError } from "./cloud/client";
+import { openMicrophone } from "./microphone";
 
 /**
  * Voice API.
@@ -121,7 +123,7 @@ export function speak(
  * utterances and chain them, which hit the well-known Chromium/WebView2 bug
  * where speak() issued right after cancel() silently no-ops — so onend for the
  * 2nd sentence never fired and playback died after the FIRST sentence (#77c,
- * ElBiggus: only "What do you call a fake noodle?" was read, never the punch
+ * A user: only "What do you call a fake noodle?" was read, never the punch
  * line). One utterance removes the chaining entirely; stopSpeaking() (cancel)
  * still interrupts instantly. A periodic resume() counters Chromium pausing the
  * synthesizer after ~15 s on a long answer.
@@ -177,7 +179,7 @@ export function stopSpeaking(): void {
  * A dictation failure whose message is already written FOR THE USER, so
  * useVoice shows it verbatim instead of the generic microphone hint.
  *
- * GitHub #115 (graysoncooper) had a second half behind the 415: the browser
+ * GitHub #115 had a second half behind the 415: the browser
  * transcribe path called res.json() on every answer. The /local-api gates
  * reply in text/plain, so a refusal died in the JSON parser, the thrown
  * SyntaxError carried no reason, and the bubble told the user to check the
@@ -434,7 +436,7 @@ export async function initTtsCheck(voice?: string): Promise<boolean> {
   // race — resolve_lu_python / the ComfyUI venv may not be ready when App.tsx
   // fires this — and caching `false` would stick for the whole session, so
   // every read-aloud silently fell back to the Windows SAPI voice and Piper
-  // never spoke at all (#77, ElBiggus). On a negative we leave ttsChecked
+  // never spoke at all (#77). On a negative we leave ttsChecked
   // false so the next caller (the lazy re-probe in useVoice, or Settings)
   // gets a fresh probe instead of the stale miss.
   // The cache is per voice: a positive for the voice that was selected earlier
@@ -559,11 +561,11 @@ export function parseWavPcm(
 
 /** Codec-free playback path: hand-parsed PCM into Web Audio, with Chromium's
  *  bundled decodeAudioData for compressed formats. Used when the media element
- *  fails (ElBiggus GH #77: on a Windows N edition without the Media Feature
+ *  fails (GH #77: on a Windows N edition without the Media Feature
  *  Pack, `new Audio(wav)` errors even though piper wrote a perfect wav —
  *  HTMLAudioElement decodes through Media Foundation, Web Audio does not). */
-async function playViaWebAudio(dataUrl: string): Promise<void> {
-  const bytes = await (await fetch(dataUrl)).arrayBuffer();
+async function playViaWebAudio(url: string): Promise<void> {
+  const bytes = await (await blobFromUrl(url)).arrayBuffer();
   const ctx = new AudioContext();
   try {
     const pcm = parseWavPcm(bytes);
@@ -753,7 +755,7 @@ export function createAudioRecorder(): AudioRecorder {
   return {
     start: async () => {
       pcmChunks = [];
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await openMicrophone();
       const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       audioCtx = new Ctx();
       inputRate = audioCtx.sampleRate;

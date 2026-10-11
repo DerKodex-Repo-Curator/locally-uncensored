@@ -762,8 +762,8 @@ export class WorkflowEngine {
       const stream = provider.chatStream(modelToUse, messages, {
         temperature: sampling.temperature,
         ...reasoningOptions,
-        // Bug AA v2.5.0 — keep num_ctx override for workflow steps too.
-        contextWindow: settings.contextWindowOverride || undefined,
+        // A workflow runs in the agent window, in every step alike.
+        window: 'agent',
         signal: this.abortController.signal,
       })
       for await (const chunk of stream) {
@@ -797,8 +797,7 @@ export class WorkflowEngine {
         const turn = await provider.chatWithTools(modelToUse, messages, allowedTools, {
           temperature: sampling.temperature,
           ...reasoningOptions,
-          // Bug AA v2.5.0 — same num_ctx override on tool calls.
-          contextWindow: settings.contextWindowOverride || undefined,
+          window: 'agent',
           signal: this.abortController.signal,
         })
         output = turn.content || ''
@@ -838,7 +837,7 @@ export class WorkflowEngine {
           {
             temperature: sampling.temperature,
             ...reasoningOptions,
-            contextWindow: settings.contextWindowOverride || undefined,
+            window: 'agent',
             signal: this.abortController.signal,
           },
           // klein 3: `streamProviderTurn` already streams under the hood

@@ -1,5 +1,5 @@
 /**
- * Fehler D, Symptom 2. Discord, aldrich_ironhart, 08.09.2026, Windows 11,
+ * Fehler D, Symptom 2. Discord, 08.09.2026, Windows 11,
  * LU 2.6.8, Ollama, Code Reiter: "during code generation the plan hangs at
  * step 2, sometimes restarts at 0".
  *

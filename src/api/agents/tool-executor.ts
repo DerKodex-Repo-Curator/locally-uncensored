@@ -18,6 +18,7 @@
 
 import type { AgentToolCall } from '../../types/agent-mode'
 import { toolResultIsFailure } from '../../lib/tool-result-failure'
+import { runForCall } from '../agent-context'
 import type { AgentRunContext } from '../agent-context'
 import { deriveSideEffectKey } from './side-effect-key'
 import { validateToolArgs, formatValidationErrors, type JsonSchema } from './args-validator'
@@ -398,7 +399,7 @@ async function runSingle(
   // Dispatch.
   try {
     const result = await raceAbort(
-      runtime.execute(req.toolName, dispatchedArgs, req.run, signal),
+      runtime.execute(req.toolName, dispatchedArgs, req.run && runForCall(req.run, req.id), signal),
       signal,
     )
     if (result === ABORTED) {

@@ -1,4 +1,4 @@
-// Bug BB v2.5.0 — BobbyT Discord 2026-05-26. GPU picker UI. Detects GPUs via
+// Bug BB v2.5.0 — Discord 2026-05-26. GPU picker UI. Detects GPUs via
 // the Rust `detect_gpus` command, lets the user pick vendor + indices, and
 // forwards the selection to AppState via `set_gpu_selection`. Applied on
 // next Ollama / ComfyUI spawn (current processes need a restart).
@@ -185,7 +185,7 @@ export function HardwareSettings() {
                     {/* An honest state beats a silent one: the card is listed
                         and selectable, and the line says what LU could not
                         verify, so nobody rebuilds a working install chasing
-                        a driver problem that is not there (numbrain). */}
+                        a driver problem that is not there. */}
                     {/* Ein Ton statt zwei. Die Zeile war gelb, sobald der
                         Rueckgabewert nicht 'info' sagte, und genau danach
                         fragte hypocritical_rj im Hilfe-Chat (26.08.): ob das

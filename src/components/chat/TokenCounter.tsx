@@ -24,7 +24,7 @@ export function TokenCounter() {
 
   // The denominator is the REAL context window the active model runs with —
   // provider-aware and shared with the Context dropdown so the two never drift
-  // (David: "muss immer stimmen"). Ollama = the num_ctx we send; LM Studio =
+  // (the owner: "muss immer stimmen"). Ollama = the num_ctx we send; LM Studio =
   // loaded_context_length (what it actually loaded), NOT the model's max.
   const ctx = useActiveContextWindow()
   // MUSS vor dem fruehen `return null` weiter unten stehen. Als dieser Hook
@@ -45,7 +45,7 @@ export function TokenCounter() {
   // (`thinking`) is never resent, so it is never counted — the old
   // conversation-high-water over totalTokens pinned this counter at "16.5k"
   // forever after one looping cloud reasoner burned its whole 16,384-token
-  // completion budget, while the next real prompt cost 65 tokens (David,
+  // completion budget, while the next real prompt cost 65 tokens (the owner,
   // 2026-07-12). An honest dip after compaction beats a sticky wrong maximum.
   // Messages PLUS the tool catalog: both are the request, both are billed, and
   // the catalog is the bigger half of what a fresh coding step costs. Leaving

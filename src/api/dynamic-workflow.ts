@@ -101,7 +101,7 @@ interface StrategyResult {
    * When `strategy === 'unavailable'` and the missing piece is an
    * installable custom-node pack, this hint tells the UI which one to
    * suggest. Surfaces in Create view as a clickable "open install guide"
-   * link so users like vvvxxxvvv_80435 (CogVideoX 1.5 5B → UNETLoader
+   * link so users like a user (CogVideoX 1.5 5B → UNETLoader
    * mismatch on v2.4.3) get a clear next step instead of just a
    * blocking error. (Bug #6)
    */
@@ -286,7 +286,7 @@ export function determineStrategy(
 
   // CogVideoX → Kijai wrapper nodes.
   //
-  // 2026-07-24 (bob80817-dev, D#88 "it says I'm missing custom nodes, but they
+  // 2026-07-24 (D#88 "it says I'm missing custom nodes, but they
   // are there"): he was right. The gate looked for `CogVideoXSampler`, which has
   // never existed in kijai/ComfyUI-CogVideoXWrapper — the real class is
   // `CogVideoSampler` (verified against a real checkout; `git log -S` upstream
@@ -442,7 +442,7 @@ function registrySpecsNamedIn(type: ModelType, message: string): ComponentSpec[]
 /**
  * Probe ComfyUI for the video output node we need. When neither VHS nor
  * SaveAnimatedWEBP is present, the workflow will fall back to SaveImage
- * (single frames on disk) — Turbulent_Tomato7559's "videos generate as
+ * (single frames on disk) — a user's "videos generate as
  * .webp" was caused by VHS missing while SaveAnimatedWEBP still produced
  * an animated still. UI calls this BEFORE Generate so users see a banner
  * rather than discovering after the fact.
@@ -461,7 +461,7 @@ export async function checkVideoOutputCapability(): Promise<{ mp4Capable: boolea
   }
 }
 
-/** Multi-LoRA (konata 2026-06-09) — normalize the `lora` param into an
+/** Multi-LoRA (a user 2026-06-09) — normalize the `lora` param into an
  *  ordered list. Accepts a single filename, an array, or a comma/semicolon-
  *  joined string (the most common LLM shape for "use lora A and lora B" —
  *  exactly the failing case where the joined string used to reach ComfyUI
@@ -571,7 +571,7 @@ function resolveLoaderName(req: string, installed: string[]): string | null {
  * (0 to 4096, step 32), with 32 as the floor so a tiny canvas cannot produce
  * a zero that would silently switch the node back to original size.
  */
-function qwenEditResolution(width: number, height: number): number {
+export function qwenEditResolution(width: number, height: number): number {
   const px = (v: number) => (Number.isFinite(v) && v > 0 ? v : 1024)
   const side = Math.sqrt(px(width) * px(height))
   return Math.min(4096, Math.max(32, Math.round(side / 32) * 32))
@@ -811,7 +811,7 @@ export async function buildDynamicWorkflow(
       : 'flux'
 
     // Resolve the text encoder from the LIVE ComfyUI node enum. CRITICAL
-    // (Bug C / aldrich "CLIPLoader: Value not in list"): do NOT silently fall
+    // (Bug C / a user "CLIPLoader: Value not in list"): do NOT silently fall
     // back to models.clips[0] / '' on a miss — an empty or wrong clip_name makes
     // ComfyUI reject the prompt with that exact cryptic error. The resolvers
     // throw actionable "download <encoder>" messages; propagate them as a
@@ -819,7 +819,7 @@ export async function buildDynamicWorkflow(
     // raw rejection. Pass the active UNet filename so the resolver prefers the
     // matching quant tier (fp4 model → fp4 encoder; fp8/bf16 → full precision).
     //
-    // C2 (aldrich follow-up, v2.5.3 fix #5): modern ComfyUI (v0.12.0 confirmed)
+    // C2 (a user follow-up, v2.5.3 fix #5): modern ComfyUI (v0.12.0 confirmed)
     // removed 'flux' from the single CLIPLoader's type enum — FLUX v1 text
     // encoding lives in DualCLIPLoader (clip_name1 = T5-XXL, clip_name2 =
     // CLIP-L, type 'flux'), which has shipped with every FLUX-era ComfyUI.
@@ -953,7 +953,7 @@ export async function buildDynamicWorkflow(
 
   // ─── Phase 1b: Optional LoRA chain + VAE + Skip-CLIP injection (F2 + F3) ───
   //
-  // LoRA chain (cinemazverev GH#4; multi-LoRA konata 2026-06-09): each
+  // LoRA chain (GH#4; multi-LoRA 2026-06-09): each
   // LoraLoader takes (model, clip) and outputs new (model, clip) — chaining
   // N loaders applies the LoRAs in order, exactly like stacking them in the
   // ComfyUI graph editor. We rewire both refs after every link so the rest
@@ -962,10 +962,10 @@ export async function buildDynamicWorkflow(
   // and a miss throws an actionable error instead of ComfyUI's opaque
   // "Value not in list".
   //
-  // VAE override (vanja-san GH#4): VAELoader replaces vaeSourceId. The
+  // VAE override (GH#4): VAELoader replaces vaeSourceId. The
   // checkpoint's bundled VAE stays unused.
   //
-  // Skip CLIP (vanja-san GH#4): CLIPSetLastLayer takes a negative
+  // Skip CLIP (GH#4): CLIPSetLastLayer takes a negative
   // `stop_at_clip_layer` index — passing -clipSkip mirrors A1111 /
   // ComfyUI conventions.
   //
@@ -1371,7 +1371,7 @@ export async function buildDynamicWorkflow(
     delete workflow[latentId]
   }
 
-  // ─── I2V override (Animate — local lane restored, David 2026-07-17) ───
+  // ─── I2V override (Animate — local lane restored, 2026-07-17) ───
   // A video request carrying an inputImage swaps the empty latent for the
   // family's image-to-video conditioning node. Covers every family core
   // ComfyUI can animate on this main path (WAN i2v, Hunyuan i2v, LTX,
@@ -1684,7 +1684,7 @@ function buildSVDWorkflow(params: VideoParams, seed: number, nodes: CategorizedN
 
   workflow[loaderId] = { class_type: 'ImageOnlyCheckpointLoader', inputs: { ckpt_name: params.model } }
   workflow[imageId] = { class_type: 'LoadImage', inputs: { image: params.inputImage || 'input_image.png' } }
-  // Aspect-fill the source into the SVD generation resolution (David 2026-06-11:
+  // Aspect-fill the source into the SVD generation resolution (2026-06-11:
   // a portrait/square still fed straight in came back squished and no longer
   // matched the input). crop:'center' scales to cover width×height then
   // centre-crops — so the conditioning sees the source at the right aspect with
@@ -1735,7 +1735,7 @@ export function snapWanLength(frames: number): number {
  * latent shape) and the shared UMT5-XXL text encoder. `ModelSamplingSD3`
  * applies Wan's sampling shift.
  *
- * I2V faithfulness (David 2026-06-11): an `ImageScale(crop:center)` aspect-fills
+ * I2V faithfulness (2026-06-11): an `ImageScale(crop:center)` aspect-fills
  * the source into the generation size, so the first frame matches the still
  * instead of being squished, the same fix proven on the SVD path.
  *
@@ -1778,7 +1778,7 @@ async function buildWan22Workflow(params: VideoParams, seed: number, nodes: Cate
   workflow[posId] = { class_type: 'CLIPTextEncode', inputs: { text: params.prompt, clip: [clipId, 0] } }
   workflow[negId] = { class_type: 'CLIPTextEncode', inputs: { text: params.negativePrompt || '', clip: [clipId, 0] } }
 
-  // Optional LoRA chain (D#80, game-master0): video LoRAs are model-only, so
+  // Optional LoRA chain (D#80): video LoRAs are model-only, so
   // patch the UNET with LoraLoaderModelOnly (no clip side) before the sampling
   // shift. Guarded on params.lora, a plain Wan 2.2 gen stays byte-identical.
   let wanModelSrc = unetId
@@ -1954,7 +1954,7 @@ async function buildMiniMaxH3Workflow(params: VideoParams, seed: number, allNode
   workflow[guiderId] = { class_type: 'BasicGuider', inputs: { model: [modelSrc, 0], conditioning: [encodeId, 0] } }
   // The H3 turbo LoRA says its step count in its name (minimax_h3_fl2v_turbo_
   // 8step_...), and the official template runs it at exactly that (Discord
-  // 2026-10-02, checkedlemon788's ComfyUI screenshot: turbo_steps 8). The
+  // 2026-10-02, a user's ComfyUI screenshot: turbo_steps 8). The
   // slider's 20 or more would only cost time on a 24 GB model.
   const turbo = loras.map((l) => H3_STEP_LORA.exec(l)).find((m) => m)
   // FastH3 is the 8 step checkpoint: the template runs exactly 8.
@@ -2170,7 +2170,7 @@ function requireRelease(allNodes: NodePresence, marker: string[], updateSentence
 
 /** UNET loader that understands GGUF quants: .gguf files load through the
  *  city96 GGUF pack's UnetLoaderGGUF, everything else through core UNETLoader. */
-/** Discord 2026-09-26/28 (boromirofgeo, haschbar): "Node 1
+/** Discord 2026-09-26/28: "Node 1
  *  (CheckpointLoaderSimple): Value not in list". The strategy comes from the
  *  file NAME, and a name LU cannot place ('unknown') falls to the checkpoint
  *  pipeline. For a file that sits in diffusion_models that is a guaranteed
@@ -2191,7 +2191,7 @@ function assertCheckpointListed(model: string, allNodes: NodePresence): void {
   )
 }
 
-/** Discord 2026-09-26 (tbjdrw): "Node 2 (CLIPLoader): Value not in list".
+/** Discord 2026-09-26: "Node 2 (CLIPLoader): Value not in list".
  *  Newer model families need a CLIPLoader type an older ComfyUI does not have
  *  yet (flux2, krea2, qwen_image). Only checked when the enum is readable. */
 function assertClipTypeKnown(clipType: string, type: ModelType, strategy: WorkflowStrategy, allNodes: NodePresence): void {
@@ -2356,7 +2356,7 @@ export function buildMusicWorkflow(params: LocalOpParams, seed: number, allNodes
   // image-model sampler (dpmpp_2m/karras etc. leaks in through the shared knobs).
   // And the 1.5 TURBO checkpoint is distilled for ~10 steps at cfg 1.0 — the
   // shared 'ace' default (50 steps, cfg 5) overcooks it into near-silence
-  // (measured: -43 dB mean output vs -18 dB at the turbo recipe, David's "quiet
+  // (measured: -43 dB mean output vs -18 dB at the turbo recipe, the owner's "quiet
   // noise" bug). Pin the turbo recipe by name; other ACE checkpoints keep the
   // composer's step/cfg but still sample on euler/simple.
   const isTurbo = /turbo/.test(params.model.toLowerCase())
@@ -2387,7 +2387,7 @@ export function buildMusicWorkflow(params: LocalOpParams, seed: number, allNodes
  * a silent talking-head clip is useless. Uses the Wan 2.1 VAE + UMT5 encoder
  * (the S2V-14B pairing from the official release).
  *
- * K2 (mrvideogame9829/sockenmonster, Discord "HELP WITH MODELS"/help-18,
+ * K2 (a user, Discord "HELP WITH MODELS"/help-18,
  * 2026-09-15/17): the CLIP/VAE/audio-encoder filenames below used to be
  * written straight into their loader nodes as literal strings, never checked
  * against what ComfyUI actually has installed. Whichever one the box didn't
@@ -2607,7 +2607,7 @@ async function buildFramePackWorkflow(params: VideoParams, seed: number, nodes: 
   const samplerId = String(n++)
   const decodeId = String(n++)
 
-  // VRAM-safe load (David 2026-06-11, live OOM on his RTX 3060 12GB):
+  // VRAM-safe load (2026-06-11, live OOM on his RTX 3060 12GB):
   // `quantization:'disabled' + base_precision:'bf16' + load_device:'main_device'`
   // UPCAST the fp8 13B weights to bf16 (~26 GB) and put the whole transformer on
   // the GPU at once → torch.OutOfMemoryError in LoadFramePackModel before a single
@@ -2630,7 +2630,7 @@ async function buildFramePackWorkflow(params: VideoParams, seed: number, nodes: 
   // FramePack is a HunyuanVideo 1.0 model. Its sampler allocates the history
   // buffer with 16 latent channels, and the HunyuanVideo 1.5 VAE encodes 32, so
   // pairing the two dies at the first section with "Expected size 32 but got
-  // size 16" (bob80817, D#104). `6fb83d31` pinned this to the 1.5 file while
+  // size 16" (D#104). `6fb83d31` pinned this to the 1.5 file while
   // fixing unrelated filename typos, which broke every FramePack run since.
   //
   // Resolved against the disk rather than pinned again: the resolver refuses a
@@ -2639,7 +2639,7 @@ async function buildFramePackWorkflow(params: VideoParams, seed: number, nodes: 
   // ComfyUI "value not in list" for a filename he never chose.
   workflow[vaeId] = { class_type: 'VAELoader', inputs: { vae_name: await findMatchingVAE('framepack') } }
   workflow[imageId] = { class_type: 'LoadImage', inputs: { image: params.inputImage || 'input_image.png' } }
-  // Scale the source to the resolved generation size before encoding (David
+  // Scale the source to the resolved generation size before encoding (the owner
   // 2026-06-11). FramePack otherwise samples at the full source resolution
   // (a 1024×1024 still → very slow + heavy on a 12 GB card). resolveI2VResolution
   // already picked an aspect-preserving size capped at 768 / snapped to 16;

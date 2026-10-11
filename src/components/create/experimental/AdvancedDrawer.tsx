@@ -1,10 +1,10 @@
 import { Drawer } from '../ui/Drawer'
 import { WorkflowFinder } from '../WorkflowFinder'
+import { isMlxImageHost } from '../../../api/mlx-image'
 import { useCreateStore } from '../../../stores/createStore'
 import {
   classifyModel,
-  isI2VModel,
-  isT2VCapable,
+  videoLaneModels,
 } from '../../../api/comfyui'
 import { ParamGroups } from './ParamGroups'
 import { StudioParams } from './StudioParams'
@@ -47,14 +47,7 @@ export function AdvancedDrawer({
   let effectiveVideoModel = videoModel
 
   if (videoModels.length > 0) {
-    const compatibleModels =
-      intent === 'animate' || intent === 'extend'
-        ? videoModels.filter((model) =>
-            isI2VModel(model.name),
-          )
-        : videoModels.filter((model) =>
-            isT2VCapable(model.name),
-          )
+    const compatibleModels = videoLaneModels(videoModels, intent)
 
     const storedModelIsCompatible =
       compatibleModels.some(
@@ -92,7 +85,9 @@ export function AdvancedDrawer({
         <>
           <ParamGroups />
 
-          {backend === 'local' && modelName && (
+          {/* Workflows are ComfyUI graphs. A Mac runs MLX and can run none,
+              so the row that asks for a tagged workflow is not shown there. */}
+          {backend === 'local' && modelName && !isMlxImageHost() && (
             <div className="border-t border-white/10 px-1 pb-4 pt-4">
               <WorkflowFinder
                 modelName={modelName}

@@ -27,7 +27,7 @@ afterEach(() => {
 })
 
 const line = () => screen.getByTestId('working-anchor').textContent ?? ''
-const props = (label?: string) => ({ isRunning: true, conversationId: 'c1', label })
+const props = (label?: string) => ({ isRunning: true, conversationId: 'c1', awaitingApproval: !!label })
 
 describe('the clock next to an approval wait', () => {
   it('starts at the card, then the run clock comes back', () => {

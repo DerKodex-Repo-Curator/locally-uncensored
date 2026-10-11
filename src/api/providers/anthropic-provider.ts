@@ -18,6 +18,7 @@ import { parseSSEWithEvents } from '../sse'
 import { idleAbortGuard, isStreamIdleTimeout } from '../stream-idle'
 import { sendWithTransientRetry } from './retry'
 import { parseRetryAfter } from '../../lib/http-status'
+import { requestLimitMessage } from '../../lib/request-limit'
 import {
   localFetch, localFetchStream, isPrivateOrLanHost, isDirectFetchAllowed,
   hostnameOf, ensureProxyAllowsHost,
@@ -741,6 +742,7 @@ export class AnthropicProvider implements ProviderClient {
   private async parseError(res: Response): Promise<ProviderError> {
     let message = 'Anthropic: Request failed'
     let code: string = 'network'
+    let serverMessage: string | undefined
 
     try {
       const data: unknown = await res.json()
@@ -752,7 +754,7 @@ export class AnthropicProvider implements ProviderClient {
       // not running said nothing but "Request failed" (counter-check
       // 2026-09-04).
       const err = prop(data, 'error')
-      const serverMessage = asString(prop(err, 'message')) ?? asString(err)
+      serverMessage = asString(prop(err, 'message')) ?? asString(err)
       if (serverMessage) message = serverMessage
     } catch { /* use default */ }
 
@@ -761,7 +763,7 @@ export class AnthropicProvider implements ProviderClient {
       message = 'Invalid Anthropic API key. Check Settings > Providers.'
     } else if (res.status === 429) {
       code = 'rate_limit'
-      message = 'Rate limited by Anthropic. Wait a moment and try again.'
+      message = requestLimitMessage({ said: serverMessage, retryAfterMs: parseRetryAfter(res) })
     } else if (res.status === 404) {
       code = 'not_found'
     } else if (res.status === 529) {

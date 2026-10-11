@@ -6,7 +6,7 @@ import type { Settings } from '../types/settings'
  *
  * R5-10/R5-11 (3.0.1-Liste), the orchestrator's decision on 18.09.2026 (two
  * earlier bauers left this "braucht Entscheid", see bau/w2ui.md; F2, review-
- * w2ui.md: this line previously attributed the decision to David, which the
+ * w2ui.md: this line previously attributed the decision to the owner, which the
  * 18.09.2026 review found unsupported by any written source and asked to be
  * corrected):
  *
@@ -25,7 +25,7 @@ import type { Settings } from '../types/settings'
  *    setting for the providers that do read it (Ollama, Anthropic; F3 /
  *    R5-13). This module never touches it.
  *
- * Mirrors apps/web/lib/sampling.ts (the 3.0.0 VORBILD) field for field, minus
+ * Mirrors the web app (the 3.0.0 VORBILD) field for field, minus
  * the web-only max-tokens warning copy this popup does not carry.
  */
 

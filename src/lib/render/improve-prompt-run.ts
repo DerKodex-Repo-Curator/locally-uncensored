@@ -14,7 +14,6 @@ import { getProviderForModel, getProviderIdFromModel } from '../../api/providers
 import { useModelStore } from '../../stores/modelStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { isThinkingCompatible } from '../model-compatibility'
-import { resolveAgentNumCtx } from '../agent-num-ctx'
 import { runInLane } from '../run-slot'
 import { helperModelFor, currentHelperModel } from '../cloud-helper-model'
 import type { AppMode } from '../../types/settings'
@@ -68,7 +67,6 @@ export async function improvePrompt(
   if (!activeModel || signal?.aborted) return { status: 'failed' }
   try {
     const { provider, modelId } = getProviderForModel(activeModel)
-    const providerId = getProviderIdFromModel(activeModel)
     const meta = models.find((m) => m.name === activeModel)
     const thinkMode = meta && 'thinkMode' in meta ? meta.thinkMode : undefined
     const canThink = thinkMode ? thinkMode === 'toggle' : isThinkingCompatible(activeModel)
@@ -93,16 +91,10 @@ export async function improvePrompt(
         // The clock starts when the call does, not while it waits behind a
         // chat turn on the local card.
         timer = setTimeout(stop, limit)
-        // The num_ctx the chat runs with, so a local model is not reloaded
-        // for this call.
-        const numCtx = await resolveAgentNumCtx(
-          modelId, providerId, useSettingsStore.getState().settings.contextWindowOverride, activeModel,
-        )
         const read = (async () => {
           const stream = provider.chatStream(modelId, buildImproveMessages(target, prompt), {
             temperature: 0.4,
             maxTokens: IMPROVE_MAX_TOKENS,
-            contextWindow: numCtx,
             // A model that can switch its reasoning off gets it off, one that
             // cannot gets the lowest rung. A rewrite has no use for a long think.
             thinking: canThink ? false : undefined,

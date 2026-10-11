@@ -1,5 +1,5 @@
-import { useRef, useState, useSyncExternalStore } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { motion, AnimatePresence, useIsPresent } from 'framer-motion'
 import { UploadCloud, ImagePlus, Scissors, Wand2, Sparkles, X, Loader2, Download, AlertTriangle, Image as ImageIcon, Film } from 'lucide-react'
 import { useCreateStore, type GalleryItem } from '../../../stores/createStore'
 import { createRunModel } from '../../../lib/render/create-studio'
@@ -27,6 +27,7 @@ import { getVideoBundles } from '../../../api/discover'
 import { lipsyncFitLine } from './lipsyncFit'
 import { useGraphicsCardGb } from '../../../hooks/useGraphicsMemory'
 import { ReferenceStrip } from './ReferenceStrip'
+import { FitStage } from './FitStage'
 import { BatchStrip, useBatchPickers } from './BatchStrip'
 import { addBatchFiles, useBatchOffered } from './batchRun'
 import { filesFromDrop } from './batchFiles'
@@ -35,6 +36,8 @@ import { useReferenceSlots } from './referenceSlots'
 import { SavedCharacterChips } from './SavedCharacters'
 import { loadPhotosAsReferences, sendPhotosToStudio } from './characterPhotos'
 import { MIN_TRAIN_IMAGES, maxTrainImages } from '../../../lib/train-image-cap'
+import { MAC_IMAGE_SETUP_SIZE, macVideoSetupCopy } from '../../../lib/mac-setup-sizes'
+import { macVideoSetupPlan, type MacVideoSetupPlan } from '../../../api/mlx-starter'
 
 interface Props {
   displayed?: GalleryItem
@@ -73,11 +76,13 @@ export function Stage({ displayed, onOpenMaskEditor, onEditResult, onAnimateResu
   const motionModelList = useCreateStore((s) => s.motionModelList)
   const { connected, modelsLoaded, mlxMissing } = useCreateExp()
   // On the cloud backend the utility ops (background removal, …) run on
-  // WaveSpeed's hosted endpoints — there's no local ComfyUI node to install,
+  // the render service's hosted endpoints — there's no local ComfyUI node to install,
   // so the capability is always ready. Only the local backend gates on the
   // node probe (which never runs without a local ComfyUI and would strand
   // cloud users on a dead "Open Model Manager" card).
-  const capReady = !meta.capability || backend === 'cloud' || !!caps[meta.capability]
+  // A capability is a set of ComfyUI nodes. The Mac's local lanes run on MLX
+  // and need none: its Edit is Qwen-Image 2.1 on the second image engine.
+  const capReady = !meta.capability || backend === 'cloud' || !!caps[meta.capability] || isMlxImageHost()
   // Local model files missing for this intent (fresh PC): gate the stage on a
   // one-click starter-bundle card. connected === false also gates — the same
   // button installs ComfyUI itself first. connected === null (still probing)
@@ -152,7 +157,9 @@ export function Stage({ displayed, onOpenMaskEditor, onEditResult, onAnimateResu
         onSendToEditor={displayed.type === 'image' && onEditResult ? () => onEditResult(displayed) : undefined}
         onAnimate={displayed.type === 'image' && onAnimateResult ? () => onAnimateResult(displayed) : undefined}
         onSaveCharacter={displayed.type === 'video' && onSaveCharacter ? () => onSaveCharacter(displayed) : undefined}
-        footer={meta.needsSource && source ? <ResultSourceActions /> : undefined}
+        // The source and its references stay on screen beside the result
+        // (FitStage), so the next run shows what it starts from.
+        side={meta.needsSource && source ? <ResultInputs /> : undefined}
       />
     )
   } else {
@@ -197,19 +204,37 @@ export function Stage({ displayed, onOpenMaskEditor, onEditResult, onAnimateResu
     <div className="flex-1 min-w-0 min-h-0 flex overflow-hidden p-2">
       <div className="flex-1 min-w-0 rounded-xl bg-gray-50 dark:bg-[#1e1e1e] ring-1 ring-black/[0.04] dark:ring-white/[0.05] flex flex-col overflow-hidden relative">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={intent + (isGenerating ? ':gen' : '')}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.12 }}
-            className="flex-1 min-h-0 flex flex-col"
-          >
-            {body}
-          </motion.div>
+          <StageLayer key={intent + (isGenerating ? ':gen' : '')}>{body}</StageLayer>
         </AnimatePresence>
       </div>
     </div>
+  )
+}
+
+/**
+ * One face of the stage, fading in and out.
+ *
+ * While a lane fades out, AnimatePresence keeps the card that is leaving as
+ * it was last drawn, buttons and their handlers included. A click in those
+ * 120 ms landed on it: Image chosen and "Download & install" pressed at once
+ * started the VIDEO setup (persona walk of the Mac app, 09.10.2026, Fund 28).
+ * A face that is leaving takes no click and no key any more. Nothing about
+ * what is drawn changes, so this holds for every host.
+ */
+export function StageLayer({ children }: { children: ReactNode }) {
+  const present = useIsPresent()
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.12 }}
+      className={cn('flex-1 min-h-0 flex flex-col', !present && 'pointer-events-none')}
+      inert={!present}
+      data-stage-layer={present ? 'present' : 'leaving'}
+    >
+      {children}
+    </motion.div>
   )
 }
 
@@ -239,7 +264,7 @@ function InputSlot() {
   // character (lib/saved-characters) instead of a file.
   const referenceSlots = useReferenceSlots()
 
-  // David 2026-07-10: ops never auto-adopt a gallery image — instead the slot
+  // 2026-07-10: ops never auto-adopt a gallery image — instead the slot
   // offers the recent gallery images as an EXPLICIT pick, next to drag&drop
   // and the file picker ("aus Galerie ODER vom Desktop").
   const galleryImages = gallery.filter((g) => g.type === 'image' && !g.unavailable).slice(0, 8)
@@ -389,8 +414,11 @@ function SourcePreview({ onOpenMaskEditor }: { onOpenMaskEditor: () => void }) {
   const cloudImageModel = useCreateStore((s) => s.cloudImageModel)
   // A cloud instruction editor (qwen-image-edit, every studio editor) takes no
   // mask: same model and same rule as the Create button in the Composer.
-  const noMask = backend === 'cloud' && intent === 'edit' &&
-    !editNeedsMask(modelForOp('image', 'edit', cloudImageModel || defaultCloudModel('image')?.id || ''))
+  // The Mac's local Edit is Qwen-Image 2.1 on the second image engine: an
+  // edit from the prompt alone. That model takes no mask on Windows either.
+  const noMask = intent === 'edit' && (backend === 'cloud'
+    ? !editNeedsMask(modelForOp('image', 'edit', cloudImageModel || defaultCloudModel('image')?.id || ''))
+    : isMlxImageHost())
   const batchCount = useCreateStore((s) => s.batchSources.length)
   const batchOffered = useBatchOffered()
   // The same run over several images: no mask (it belongs to one image), and
@@ -401,19 +429,22 @@ function SourcePreview({ onOpenMaskEditor }: { onOpenMaskEditor: () => void }) {
   // that swaps this component out, but the child subscription can fire first.
   if (!source) return null
 
-  return (
-    <div
-      className="flex-1 min-h-0 overflow-y-auto scrollbar-thin flex flex-col"
-      onDragOver={(e) => { if (batchOffered && e.dataTransfer.types.includes('Files')) e.preventDefault() }}
-      onDrop={(e) => {
-        if (!batchOffered || !e.dataTransfer.files.length) return
-        e.preventDefault()
-        void filesFromDrop(e.dataTransfer).then(addBatchFiles)
-      }}
-    >
-      <div className="m-auto flex flex-col items-center p-6 max-w-full">
+  const onDragOver: React.DragEventHandler<HTMLDivElement> = (e) => { if (batchOffered && e.dataTransfer.types.includes('Files')) e.preventDefault() }
+  const onDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
+    if (!batchOffered || !e.dataTransfer.files.length) return
+    e.preventDefault()
+    void filesFromDrop(e.dataTransfer).then(addBatchFiles)
+  }
+  // The picture. `maxHeight` is the height the stage has left for it
+  // (FitStage); until the stage is measured it keeps a share of the window.
+  const picture = (maxHeight?: string) => (
         <div className="relative">
-          <img src={source.url} alt="source" className={cn('max-h-[52vh] max-w-full object-contain rounded-[var(--radius-panel)] border border-white/[0.06]', intent === 'removebg' && 'lu-checker')} />
+          <img
+            src={source.url}
+            alt="source"
+            className={cn(!maxHeight && 'max-h-[52vh]', 'max-w-full object-contain rounded-[var(--radius-panel)] border border-white/[0.06]', intent === 'removebg' && 'lu-checker')}
+            style={maxHeight ? { maxHeight } : undefined}
+          />
           {mask && (
             <div className="absolute top-2 left-2 t-label text-gray-300 bg-black/50 px-2 py-1 rounded-md">mask painted</div>
           )}
@@ -425,6 +456,9 @@ function SourcePreview({ onOpenMaskEditor }: { onOpenMaskEditor: () => void }) {
             <X size={14} />
           </button>
         </div>
+  )
+  const controls = (
+      <>
         <ReferenceStrip />
         {!batchOn && (
           <div className="flex items-center gap-2 mt-4">
@@ -447,25 +481,52 @@ function SourcePreview({ onOpenMaskEditor }: { onOpenMaskEditor: () => void }) {
             : meta.allowsMask ? 'Leave the mask empty to restyle the whole image, or paint an area to change just that. Write your prompt below, then Create.'
             : 'Describe the motion below, then Create.'}
         </p>
-      </div>
-    </div>
+      </>
   )
+
+  // The picture takes the height the stage has left, and the reference
+  // strip, "Change image" and the hint are on screen with it. In a
+  // 1440 × 900 window they lay below the fold (persona walk, Fund 14).
+  return <FitStage picture={picture} side={controls} capVh={52} onDragOver={onDragOver} onDrop={onDrop} />
 }
 
 /**
- * Under a finished result on a tool that works from a source image: the same
- * way to the next image that the source preview offers before the run. The
- * box, 04.10.2026: after a cutout the only way to load another image was to
- * leave the tool and come back. "Change image" puts the new image on the
- * Stage; the list under it adds more for one run over all of them.
+ * Beside a finished result on a tool that works from a source image: what the
+ * next run starts from, and the way to the next image. After the first edit
+ * the source and the references were gone from the screen: whoever wanted
+ * "one image first, then with a reference" found no place for the reference,
+ * and nothing said whether the source still counted (persona walk,
+ * 09.10.2026, Fund 15). It does: Create runs on the same source again.
+ *
+ * "Change image" puts a new image on the Stage (the box, 04.10.2026: after a
+ * cutout the only way to load another image was to leave the tool and come
+ * back); the list under it adds more for one run over all of them.
  */
-function ResultSourceActions() {
+function ResultInputs() {
+  const source = useCreateStore((s) => s.source)
   const setSource = useCreateStore((s) => s.setSource)
+  const intent = useCreateStore((s) => s.intent())
   const batchCount = useCreateStore((s) => s.batchSources.length)
   const batchOn = useBatchOffered() && batchCount > 1
+  if (!source) return null
   return (
     <div className="flex flex-col items-center mt-3" data-testid="result-source-actions">
-      {!batchOn && <ChangeImageButton onChange={(r) => setSource(r)} />}
+      <div className="flex items-center gap-3">
+        <img
+          src={source.url}
+          alt="source"
+          className="w-16 h-16 shrink-0 rounded-lg object-cover border border-white/[0.06]"
+        />
+        <div className="flex flex-col items-start gap-1">
+          <p className="t-body text-gray-500 max-w-[12rem]">
+            {intent === 'edit' ? 'Create edits this image again.'
+              : intent === 'animate' ? 'Create animates this image again.'
+              : 'Create runs on this image again.'}
+          </p>
+          {!batchOn && <ChangeImageButton onChange={(r) => setSource(r)} />}
+        </div>
+      </div>
+      <ReferenceStrip />
       <BatchStrip />
     </div>
   )
@@ -498,7 +559,7 @@ function ChangeImageButton({ onChange }: { onChange: (r: Awaited<ReturnType<type
 }
 
 // ── Shared install-card chrome: spinner + streamed status + dismissible error ──
-// The Cancel button is not optional chrome. David 2026-07-25 clicked Download &
+// The Cancel button is not optional chrome. 2026-07-25 clicked Download &
 // install on Motion Control, got a spinner, and had no way to stop or even see
 // a 10.5 GB transfer. Cancel here aborts the install loop and kills the running
 // download in Rust; the partial file stays, so a later run resumes.
@@ -564,7 +625,7 @@ const CAP_COPY = {
 } as const
 
 /** While an install runs, the card must not keep saying "needs a one-time
- *  download" with a bare spinner under it, which is what made David ask whether
+ *  download" with a bare spinner under it, which is what made the owner ask whether
  *  anything was happening at all. Title and description both switch. */
 const BUSY_DESCRIPTION = {
   capability: 'This installs a small node pack and restarts ComfyUI. Cancel any time.',
@@ -575,7 +636,18 @@ const BUSY_DESCRIPTION = {
   bundle: 'Follow it in the Downloads tray up top. You can cancel any time, which stops the download and drops what it had so far.',
   // The MLX installer runs inside Rust and keeps going without this view, so
   // this line must not promise the Downloads tray or a real cancel.
-  macBundle: 'This runs in the background and survives leaving this tab. Settings → AI Backends → Local Media shows the same progress.',
+  // Per lane: the video setup said "under Image" as well, and sent the user
+  // to a rail where nothing was moving (persona walk, 09.10.2026).
+  macBundle: {
+    image: 'This runs in the background and survives leaving this tab. The Model Manager shows the same progress, under Image.',
+    video: 'This runs in the background and survives leaving this tab. The Model Manager shows the same progress, under Video.',
+  },
+} as const
+
+/** Where the Mac's Cancel sends the user to follow a setup it does not stop. */
+const MAC_CANCEL_TITLE = {
+  image: 'Stops showing progress here. The download itself keeps running. Follow it in Models, under Image.',
+  video: 'Stops showing progress here. The download itself keeps running. Follow it in Models, under Video.',
 } as const
 
 function CapabilityCard({ cap }: { cap: 'rmbg' | 'inpaint-nodes' | 'dwpose' }) {
@@ -622,14 +694,32 @@ const MAC_BUNDLE_COPY = {
   image: {
     icon: ImageIcon,
     title: 'Local image generation needs a one-time setup',
-    description: 'This sets up Apple MLX on this Mac and downloads the smallest image model to start with. More models, including unfiltered ones, are in Settings > AI Backends > Local Media.',
+    // The size is the one Settings and the Model Manager quote for the same
+    // setup. A button that starts gigabytes says how many before the click.
+    description: `This sets up Apple MLX on this Mac and downloads the smallest image model to start with, ${MAC_IMAGE_SETUP_SIZE} in all. More models, including unfiltered ones, are in Models, under Image.`,
   },
   video: {
     icon: Film,
     title: 'Local video generation needs a one-time setup',
-    description: 'This sets up Apple MLX video on this Mac and downloads the smallest video model. Video renders take minutes per clip, not seconds.',
+    // Before the catalogue has answered. What the card says after that is
+    // `macVideoSetupCopy` (lib/mac-setup-sizes), from the model the setup
+    // takes on this Mac.
+    description: 'This sets up Apple MLX video on this Mac and downloads a video model to start with. Video renders take minutes per clip, not seconds. More models are in Models, under Video.',
   },
 } as const
+
+/** The plan of the Mac's video setup, for the card. Null until it is read,
+ *  and when it could not be read: the card then says what it always can. */
+function useMacVideoSetupPlan(enabled: boolean, installing: boolean): MacVideoSetupPlan | null {
+  const [plan, setPlan] = useState<MacVideoSetupPlan | null>(null)
+  useEffect(() => {
+    if (!enabled || installing) return
+    let stale = false
+    macVideoSetupPlan().then((p) => { if (!stale) setPlan(p) }).catch(() => { /* the card keeps its plain text */ })
+    return () => { stale = true }
+  }, [enabled, installing])
+  return enabled ? plan : null
+}
 
 // ── Local model files missing → one-click starter bundle (fresh-PC path) ──
 const BUNDLE_COPY = {
@@ -687,12 +777,23 @@ function ModelInstallCard({ kind }: { kind: 'image' | 'video' | 'audio' | 'lipsy
   const runState = useSyncExternalStore(subscribeInstallRuns, () => getInstallRun(kind))
   const { status, err, running: installing } = runState
   const mac = isMlxImageHost()
-  const copy = (mac && (kind === 'image' || kind === 'video')) ? MAC_BUNDLE_COPY[kind] : BUNDLE_COPY[kind]
+  // The two lanes a Mac sets up itself. Every other lane is a cloud teaser
+  // there and never renders this card.
+  const macKind = mac && (kind === 'image' || kind === 'video') ? kind : null
+  const copy = macKind ? MAC_BUNDLE_COPY[macKind] : BUNDLE_COPY[kind]
   // The Mac lane runs its own MLX stack and has no ComfyUI bundle to name.
   const cardGb = useGraphicsCardGb()
+  // The Mac's video starter is chosen per Mac, so its card is written from
+  // the plan of the setup. Null everywhere else.
+  const macVideo = macVideoSetupCopy(MAC_BUNDLE_COPY.video, useMacVideoSetupPlan(macKind === 'video', installing))
+  const title = macKind === 'video' ? macVideo.title : copy.title
   const description = (kind === 'video' && !mac)
     ? copy.description + videoBundleLine(intent)
-    : kind === 'lipsync' ? copy.description + lipsyncFitLine(cardGb) : copy.description
+    : kind === 'lipsync' ? copy.description + lipsyncFitLine(cardGb)
+    : macKind === 'video' ? macVideo.description : copy.description
+  // A Mac no video starter runs on: the card says so and offers no download.
+  // A run that is already on its way, or left an error, keeps its body.
+  const nothingToInstall = macKind === 'video' && !macVideo.canInstall && !installing && !err
 
   const run = () => startInstallRun(kind, (onStatus, signal) =>
     installModelBundle(kind, onStatus, signal).catch((e: unknown) => {
@@ -705,15 +806,17 @@ function ModelInstallCard({ kind }: { kind: 'image' | 'video' | 'audio' | 'lipsy
     <EmptyState
       icon={copy.icon}
       tone="accent"
-      title={installing ? 'Setting this up for you' : copy.title}
-      description={installing ? (mac ? BUSY_DESCRIPTION.macBundle : BUSY_DESCRIPTION.bundle) : description}
+      title={installing ? 'Setting this up for you' : title}
+      description={installing ? (macKind ? BUSY_DESCRIPTION.macBundle[macKind] : BUSY_DESCRIPTION.bundle) : description}
     >
-      <InstallCardBody
-        run={run} installing={installing} status={status} err={err}
-        onDismiss={() => clearInstallRun(kind)}
-        onCancel={() => cancelInstallRun(kind)}
-        cancelTitle={mac ? 'Stops showing progress here. The download itself keeps running — pick it up in Settings → AI Backends → Local Media.' : undefined}
-      />
+      {!nothingToInstall && (
+        <InstallCardBody
+          run={run} installing={installing} status={status} err={err}
+          onDismiss={() => clearInstallRun(kind)}
+          onCancel={() => cancelInstallRun(kind)}
+          cancelTitle={macKind ? MAC_CANCEL_TITLE[macKind] : undefined}
+        />
+      )}
     </EmptyState>
   )
 }

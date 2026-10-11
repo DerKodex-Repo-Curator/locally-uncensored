@@ -9,6 +9,7 @@
 
 import { LU_ENGINE_NAME } from '../../lib/engine-name'
 import type { ResolvedContextWindow } from '../../lib/context-source'
+import type { WindowChoice } from '../../lib/context-window'
 
 export type ProviderId = 'ollama' | 'openai' | 'anthropic' | 'lu-cloud'
 
@@ -124,6 +125,9 @@ export interface ProviderModel {
    *  antwortet ohne Ablehnung. Fehlt das Feld, ist nichts gemessen und nichts
    *  versprochen. */
   unfiltered?: 'full' | 'partial'
+  /** Die zweite Marke des Katalogs (LU Cloud /models `unrestricted`): vom
+   *  Hersteller ohne Ablehnungsschicht herausgegeben. Nur Anzeige. */
+  unrestricted?: boolean
 
   id: string            // Model ID as provider knows it (e.g. "gpt-4o", "claude-sonnet-4-20250514")
   name: string          // Display name
@@ -132,6 +136,12 @@ export interface ProviderModel {
   contextLength?: number
   supportsTools?: boolean
   supportsVision?: boolean
+  /** May the two Create tools of the chat go to this model? Stated by the LU
+   *  Cloud models route (`create_in_chat`). Absent on every other endpoint. */
+  createInChat?: boolean
+  /** The server's `limited_capacity`: the model has little room for all
+   *  customers together. The picker notes it. Absent = no. */
+  limitedCapacity?: boolean
   /** Think-button capability (LU Cloud /models `think` field): 'toggle' shows
    *  the switch, 'always' reasons regardless, 'never' hides it. Absent =
    *  fall back to the local name-heuristic. */
@@ -224,20 +234,31 @@ export interface ChatOptions {
    * a model default above it would quietly upgrade the bill.
    */
   effortDefault?: string
-  // Bug AA v2.5.0, Kj103x Discord 2026-05-27. Ollama defaults `num_ctx` to
-  // 2048 if you don't pass it in /api/chat options, which silently caps RAG
-  // and long-turn chats even though the loaded model supports way more. When
-  // set, we forward this as `options.num_ctx` to Ollama. Other providers
-  // ignore it (they have their own context handling). 0/undefined = let the
-  // provider use its default.
-  contextWindow?: number
+  /**
+   * Which window this call runs in on an Ollama model. Named only by a turn a
+   * person started (`chat` or `agent`); left out, the call is sent the window
+   * the model was last sent and can never make Ollama load it again. The
+   * number itself is never a caller's business: `ollamaNumCtx` in
+   * api/ollama.ts resolves it. Other providers ignore the field (their window
+   * is set when the model is loaded).
+   */
+  window?: WindowChoice
+  /**
+   * A JSON schema the answer must match, for a caller that parses the answer
+   * as one JSON object (the computer control executor). Sent as the server's
+   * own constrained output where one exists: `response_format` on an
+   * OpenAI-compatible server, `format` on Ollama. LU Cloud and Anthropic
+   * ignore it, and the caller's parser has to cope with free text anyway.
+   * Read by chatWithTools only.
+   */
+  jsonSchema?: Record<string, unknown>
   signal?: AbortSignal
   // Tool definitions for a STREAMING tool turn. chatStream implementations
   // that support tools include these in the request and stream tool-call
   // deltas into the done-chunk's toolCalls; providers that cannot stream
   // tools ignore the field, and their callers keep using chatWithTools.
   // This is what lets Code/Agent mode stream on every transport instead of
-  // sitting silent until the whole call returns (David 2026-07-31).
+  // sitting silent until the whole call returns (2026-07-31).
   tools?: ToolDefinition[]
 }
 

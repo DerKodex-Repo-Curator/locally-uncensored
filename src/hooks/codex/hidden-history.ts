@@ -18,7 +18,7 @@ import { runLedger, type DecayMessage } from '../../lib/context-decay'
  *  2. DER WAISENSCHNITT. Die Deckelung allein WAERE EIN FEHLER: schneidet das
  *     Fenster mitten in ein Aufruf/Ergebnis-Paar, beginnt die behaltene Kette
  *     mit einem Ergebnis, dessen Aufruf draussen liegt. Ein strenger Anbieter
- *     (lu-cloud/DeepInfra) antwortet darauf mit 422 und der ganze
+ *     (lu-cloud) antwortet darauf mit 422 und der ganze
  *     Folgezug faellt aus. Deshalb gehoeren die beiden Schritte zusammen und
  *     nicht in zwei Zeilen quer durch einen `finally`-Block.
  *
@@ -37,7 +37,7 @@ export function capHiddenToolHistory(
   // Never start the kept slice on an orphan tool result — strict
   // providers 422 a result whose call fell outside the window.
   while (toolHistory.length > 0 && toolHistory[0].role === 'tool') toolHistory = toolHistory.slice(1)
-  // 3. DAS PROTOKOLL (Kundenfall 30.09.2026, swift_maple90: "when it stopped
+  // 3. DAS PROTOKOLL (Kundenfall 30.09.2026, a user: "when it stopped
   // i will continue the task then its start from again"). Was hier
   // wegfaellt, stand NICHT im sichtbaren Verlauf, die Blase zeigt nur den
   // Schlusstext. Nach "continue" sah das Modell die letzten 30 Schritte und

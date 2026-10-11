@@ -14,7 +14,7 @@ interface ToolGroup {
 }
 
 // Creative image/video. Surface BOTH generators for any creative request so
-// the model can chain image → video in one conversation (David: "ein Video
+// the model can chain image → video in one conversation (the owner: "ein Video
 // aus dem Bild soll die LLM auch machen können"). Without video_generate
 // here the keyword path dropped it (it was in no group + not ALWAYS_INCLUDE),
 // so a "now animate it" follow-up had no tool to call.

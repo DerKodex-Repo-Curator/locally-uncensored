@@ -118,7 +118,7 @@ export function loopPassSaysDone(answer: string): boolean {
  * genuinely done" — the point is the repeated re-examination, so a model that
  * declares victory early gets caught. An earlier version read it as a time
  * limit, and Qwen3-32B then tried to cram the whole task into 30 seconds
- * (David, 2026-07-25).
+ * (2026-07-25).
  *
  * Only a compact token at the very start counts, so "fix 20m of flakiness"
  * stays a task.

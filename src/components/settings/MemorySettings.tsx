@@ -38,7 +38,7 @@ const TYPE_DOT_COLORS: Record<MemoryType, string> = {
  * dem er wirklich landet.
  *
  * Die ersten beiden Saetze sind wortgleich mit
- * `apps/web/components/settings/MemorySettings.tsx`. Der dritte ist der Fall,
+ * the web app. Der dritte ist der Fall,
  * den es im Web nicht gibt: ein Server auf der eigenen Maschine schickt keine
  * Rechnung, und eine zu behaupten waere derselbe Fehler in die andere
  * Richtung.
@@ -79,7 +79,7 @@ function MemorySettingsPanel() {
   }, [])
   const [syncMessage, setSyncMessage] = useState('')
   /**
-   * Der Altpfad (R5-30, Entscheid David vom 12.09.2026). `legacyReview` ist
+   * Der Altpfad (R5-30, Entscheid vom 12.09.2026). `legacyReview` ist
    * der angesehene Befund, `confirmLegacyRemoval` das Haekchen darunter. Der
    * Befund lebt nur hier im Fenster: eine alte Kopie, die wir speichern, waere
    * wieder eine zweite Ablage.
@@ -112,7 +112,7 @@ function MemorySettingsPanel() {
   // Feature FF: reveal outdated (stale/superseded) entries, read-only.
   const [showOutdated, setShowOutdated] = useState(false)
   const [reembedState, setReembedState] = useState<'idle' | 'running' | 'done'>('idle')
-  // Import feedback (konata-session 2026-06-07): report how many memories were
+  // Import feedback (a user-session 2026-06-07): report how many memories were
   // imported — or why none were. The import used to fail silently.
   const [importMsg, setImportMsg] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -245,7 +245,7 @@ function MemorySettingsPanel() {
   // One Import button for BOTH .md and .json. The old UI wired the single
   // button only to the markdown picker, so the JSON path (jsonInputRef /
   // handleImportJSON) was unreachable — a user who imported a .json export saw
-  // nothing happen (konata-session 2026-06-07). Route by extension, fall back
+  // nothing happen (a user-session 2026-06-07). Route by extension, fall back
   // to sniffing the content, and always report the result.
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -421,7 +421,7 @@ function MemorySettingsPanel() {
         </div>
       )}
 
-      {/* Manual memory limit — override the context-derived count (David
+      {/* Manual memory limit — override the context-derived count (the owner
           2026-06-07: "memory limit selber setzen, nicht 32k = 15 memories").
           Blank = auto (tier-based).
 

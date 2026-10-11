@@ -103,7 +103,7 @@ pub fn install_whisper(
         // Arch / Debian 12+ / Fedora 38+ system Python is PEP 668 protected, so a
         // bare `pip install` dies with externally-managed-environment. When that's
         // the target (no ComfyUI venv absorbed it), install into the user site
-        // with the escape hatch so STT installs there too (joerack, Arch). No-op
+        // with the escape hatch so STT installs there too (Arch). No-op
         // on Windows/macOS and in any venv, which pip refuses `--user` for.
         args.extend(pip_escape_args_for(&target_python));
         // No cancel flag — this single pip install is short relative to the

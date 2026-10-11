@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Folder, Shield, Check, Plus, X } from 'lucide-react'
 import { Modal } from '../ui/Modal'
+import { ModalActions, ModalButton } from '../ui/ModalActions'
 import { useAgentModeStore } from '../../stores/agentModeStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { backendCall } from '../../api/backend'
@@ -106,7 +107,7 @@ export function AgentWorkspaceDialog({
       const res = await backendCall<string | null>('pick_folder', { asWorkspace: true })
       if (res) {
         // Commit + close right after the folder is chosen. Picking IS the
-        // decision — the dialog must go away (David 2026-06-06). Multi-repo
+        // decision — the dialog must go away (2026-06-06). Multi-repo
         // extras / remember-as-default are managed later via the badge.
         onChoose({ kind: 'folder', path: res, extraPaths: [] })
         return
@@ -170,12 +171,9 @@ export function AgentWorkspaceDialog({
   const phase: 'pick' | 'extras' = draft ? 'extras' : 'pick'
 
   return (
-    <Modal open={open} onClose={onClose} title="" ariaLabel="Agent workspace">
+    <Modal open={open} onClose={onClose} title={phase === 'pick' ? 'Where should the agent work?' : 'Add more repos?'} ariaLabel="Agent workspace">
       <div className="space-y-4">
-        <div className="text-center space-y-1">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-            {phase === 'pick' ? 'Where should the agent work?' : 'Add more repos?'}
-          </h3>
+        <div className="space-y-1">
           <p className="text-[0.7rem] text-gray-500">
             {phase === 'pick'
               ? 'Pick a folder to edit your real files, or use a separate workspace for this chat. You can change this later.'
@@ -303,27 +301,19 @@ export function AgentWorkspaceDialog({
         )}
 
         {error && (
-          <p className="t-micro text-red-500 text-center">{error}</p>
+          <p className="t-micro text-red-500">{error}</p>
         )}
 
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-lg text-[0.7rem] text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors"
-            data-conversation-id={conversationId}
-          >
+        <ModalActions>
+          <ModalButton variant="quiet" onClick={onClose} data-conversation-id={conversationId}>
             Cancel
-          </button>
+          </ModalButton>
           {phase === 'extras' && (
-            <button
-              onClick={handleSave}
-              className="px-3 py-1.5 rounded-lg text-[0.7rem] font-medium bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
-              data-testid="agent-workspace-save"
-            >
+            <ModalButton variant="primary" onClick={handleSave} data-testid="agent-workspace-save">
               Save
-            </button>
+            </ModalButton>
           )}
-        </div>
+        </ModalActions>
       </div>
     </Modal>
   )

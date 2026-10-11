@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { routeCloud, seedOnboardingDone, signInViaGate, cloudSwitch, cloudSwitchBehindModal, type CloudScenario } from './support/cloud-mock'
 
 /**
- * 2.5.7 cloud gate — the wall in front of Cloud mode (David's 4-options flow).
+ * 2.5.7 cloud gate — the wall in front of Cloud mode (the owner's 4-options flow).
  *
  * (a) signed in without a plan → the three plan buttons (name + monthly EUR
  *     price) open lu-labs.ai/pricing in the SYSTEM browser (asserted via the
@@ -31,7 +31,7 @@ test('signed in without a plan: plan buttons → browser, switch stays off', asy
 
   await expect(page.getByText(/no active plan/i)).toBeVisible({ timeout: 20_000 })
 
-  // David's 4 options: three plans (with the monthly price up front) + back
+  // The owner's 4 options: three plans (with the monthly price up front) + back
   // to Local. `€` in the pattern keeps "Max" from matching the window's
   // Maximize button.
   await expect(page.getByRole('button', { name: /^Hosted €19/ })).toBeVisible()

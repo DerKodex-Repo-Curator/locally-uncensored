@@ -1,7 +1,7 @@
 /**
  * What a bundle card should say: Installed, Installing, Retry or Get.
  *
- * GH #113, JonnFlauty on Windows 11 with an RTX 5070 Ti: a video download
+ * GH #113 on Windows 11 with an RTX 5070 Ti: a video download
  * failed midway, he retried, and afterwards the model "doesn't shown in the
  * installed section and for some reason every model in the list shown retry".
  *

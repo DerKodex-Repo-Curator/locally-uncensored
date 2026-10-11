@@ -109,7 +109,7 @@ describe('detectChatToolCapability', () => {
   })
 })
 
-// David 2026-06-20 — the real "football" chat: every media FOLLOW-UP missed the
+// 2026-06-20 — the real "football" chat: every media FOLLOW-UP missed the
 // single-message detector and dropped to plain chat, so the model planned in
 // circles or faked "(generating…)" and produced nothing.
 describe('isMediaContinuation', () => {

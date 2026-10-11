@@ -28,7 +28,7 @@ export type ComfyWSListener = (event: ComfyWSEvent) => void
 
 // Loader node class types that indicate model loading. The GGUF loaders must
 // be here too: without them a GGUF video run never shows "Loading model" and
-// sits on "Queued" until the first sampling event (David 2026-08-02).
+// sits on "Queued" until the first sampling event (2026-08-02).
 export const LOADER_NODES = new Set([
   'CheckpointLoaderSimple', 'UNETLoader', 'CheckpointLoader',
   'UnetLoaderGGUF', 'UnetLoaderGGUFAdvanced',

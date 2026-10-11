@@ -1,9 +1,12 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { ABSENT_PACKAGES } from './src/dev/absent-packages'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // The same replacements as in vite.config.ts: what is tested is what is built.
+  resolve: { alias: ABSENT_PACKAGES },
   test: {
     globals: true,
     environment: 'node',

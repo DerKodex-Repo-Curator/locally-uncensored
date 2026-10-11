@@ -191,10 +191,10 @@ describe('every bundle in the catalogue carries the two numbers', () => {
     ['Z-Image Base (Unfiltered, Quality)', 10, 16, 'big tight fits fits'],
     // Measured on the box, 03.10.2026 (RTX 3060, 12 GB): see the test below.
     ['Qwen-Image 2.1 (Generate and Edit)', 0, 12, 'tight fits fits fits'],
-    ['Qwen-Image 2.1 (No Refusals)', 0, 12, 'tight fits fits fits'],
+    ['Qwen-Image 2.1 (No Filter)', 0, 12, 'tight fits fits fits'],
     ['Noct Q (Qwen-Image 2.1, Unfiltered)', 0, 12, 'tight fits fits fits'],
     ['Qwen-Image 2.1 Prompt Enhancer (Official)', 0, 12, 'tight fits fits fits'],
-    ['Qwen-Image 2.1 Prompt Enhancer (No Refusals)', 0, 12, 'tight fits fits fits'],
+    ['Qwen-Image 2.1 Prompt Enhancer (No Filter)', 0, 12, 'tight fits fits fits'],
     ['DreamShaper XL Turbo V2 (Anime/Stylized)', 6, 8, 'fits fits fits fits'],
     ['ERNIE-Image Turbo', 24, 24, 'big big big fits'],
     ['ERNIE-Image Base', 24, 24, 'big big big fits'],
@@ -279,8 +279,8 @@ describe('every bundle in the catalogue carries the two numbers', () => {
   it('the box that measured it: Qwen-Image 2.1 and its enhancers fit a 12 GB card', () => {
     const image = getImageBundles()
     const measured = [
-      'Qwen-Image 2.1 (Generate and Edit)', 'Qwen-Image 2.1 (No Refusals)', 'Noct Q (Qwen-Image 2.1, Unfiltered)',
-      'Qwen-Image 2.1 Prompt Enhancer (Official)', 'Qwen-Image 2.1 Prompt Enhancer (No Refusals)',
+      'Qwen-Image 2.1 (Generate and Edit)', 'Qwen-Image 2.1 (No Filter)', 'Noct Q (Qwen-Image 2.1, Unfiltered)',
+      'Qwen-Image 2.1 Prompt Enhancer (Official)', 'Qwen-Image 2.1 Prompt Enhancer (No Filter)',
     ]
     for (const name of measured) {
       const b = image.find((x) => x.name === name)!

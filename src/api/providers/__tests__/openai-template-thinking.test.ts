@@ -1,7 +1,7 @@
 /**
  * The Think button has to reach the built-in engine.
  *
- * David, 2026-08-29: thinking was switched on, the model plainly did not
+ * 2026-08-29: thinking was switched on, the model plainly did not
  * think, and no thinking block ever appeared. The audit found nothing on the
  * wire that asks for it. `reasoning_effort` is an OpenAI-API concept; a server
  * that renders the MODEL'S OWN Jinja template has no reasoning mode of its
@@ -176,7 +176,7 @@ describe('a local server that refuses the field is not mistaken for one that can
  * inside <think></think> tags" to the system prompt for every OpenAI-compatible
  * endpoint that declared nothing. On a LOCAL backend that now arrives on top of
  * a template that has already opened the thought. That is the same double instruction
- * that trapped David's cloud Qwen3.6 in a reasoning loop on 2026-07-12, one
+ * that trapped the owner's cloud Qwen3.6 in a reasoning loop on 2026-07-12, one
  * layer down. Cloud endpoints that declare nothing keep the injection: it is
  * still the only thing that can ask them.
  */

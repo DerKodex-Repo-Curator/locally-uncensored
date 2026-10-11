@@ -1,4 +1,4 @@
-// Welche Stufe ein lokales ComfyUI-Modell traegt (02.10.2026, David).
+// Welche Stufe ein lokales ComfyUI-Modell traegt (02.10.2026).
 //
 // Die Cloud-Waehler lesen `tier` aus dem Katalog. Ein lokales Modell ist eine
 // Datei auf der Platte, und die Datei weiss nichts von einer Stufe, also wird sie

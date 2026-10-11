@@ -151,6 +151,11 @@ describe('jeder Eintrag hat eine vorhandene Aktion dahinter', () => {
     expect(byId(cloud, 'view-settings')).toBeDefined()
   })
 
+  it('Voice has no cloud service yet: the palette offers it in Local only', () => {
+    expect(byId(buildCommands(ctxWith({ localViewsAvailable: false })), 'view-voice')).toBeUndefined()
+    expect(byId(buildCommands(ctxWith({ localViewsAvailable: true })), 'view-voice')).toBeDefined()
+  })
+
   it('kein Eintrag ohne ausführbares run — nirgends eine Attrappe', () => {
     for (const cmd of buildCommands(ctxWith())) {
       expect(cmd.run).toBeTypeOf('function')
@@ -345,5 +350,37 @@ describe('die Palette benutzt den Dialog-Hausstandard, statt ihn nachzubauen', (
     // absichtlich, warum hier mal ein Animationsframe stand.
     expect(palette).not.toMatch(/requestAnimationFrame\s*\(/)
     expect(palette).toContain('setTimeout(() => cmd.run(), 0)')
+  })
+})
+
+/**
+ * Persona walk, 09.10.2026, Fund 27: in Cloud mode the palette offered "Use
+ * qwen2.5-7b-instruct-q4_k_m", a local model, while the Models tab was gone.
+ * The rule holds on every platform.
+ */
+describe('in Cloud mode the palette offers no local model', () => {
+  const STORE = [
+    { name: 'openai::qwen2.5-7b-instruct-q4_k_m', provider: 'openai' },
+    { name: 'llama3.3:latest', provider: 'ollama' },
+    { name: 'lu-cloud::glm-5', provider: 'lu-cloud' },
+  ]
+
+  it('offers what the chat model picker offers there', async () => {
+    const { paletteModels } = await import('../ui/command-actions')
+    const models = paletteModels(STORE, { cloud: true })
+    expect(models.map((m) => m.name)).toEqual(['lu-cloud::glm-5'])
+    const cmds = buildCommands(ctxWith({ models, activeModel: null, localViewsAvailable: false }))
+    expect(cmds.filter((c) => c.id.startsWith('model:')).map((c) => c.id)).toEqual(['model:lu-cloud::glm-5'])
+  })
+
+  it('in Local mode the list stays whole', async () => {
+    const { paletteModels } = await import('../ui/command-actions')
+    expect(paletteModels(STORE, { cloud: false })).toBe(STORE)
+  })
+
+  it('the palette asks before it builds its entries, and asks no platform', () => {
+    const palette = read('components', 'ui', 'CommandPalette.tsx')
+    expect(palette).toContain("models: paletteModels(models, { cloud: appMode === 'cloud' }),")
+    expect(palette).not.toContain('isMacOS')
   })
 })

@@ -27,7 +27,7 @@ export function CreditsMeter() {
   const state = gate.kind === 'ok' && imageCount > 1 ? meterState(quota, unitCost, kind, op) : gate
   // Every shortfall this chip can show is wallet-fixable now, trainings
   // included since a topup wallet can fund a run past the included count
-  // (server migration 0047), so all three send the customer to the credits
+  // (the server allows that), so all three send the customer to the credits
   // tab, not to a plan change.
   //
   // Der Knopf traegt die Flaeche des Zaehlers daneben und den Fehlerton als

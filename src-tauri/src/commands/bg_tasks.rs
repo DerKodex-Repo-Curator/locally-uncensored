@@ -13,7 +13,7 @@
 //! requests resolve from that buffer synchronously. This means the
 //! browser tab can close and reopen without losing any output.
 //!
-//! Ported 1:1 from uselu's `apps/bridge/src/commands/bg_tasks.rs` —
+//! Ported 1:1 from the bridge daemon —
 //! every body is identical; only the outermost layer is wrapped in
 //! `#[tauri::command]` for the desktop IPC bridge.
 
@@ -275,9 +275,9 @@ struct StartArgs {
     working_directory: Option<String>,
 }
 
-// ── Internal impls (verbatim from uselu, sans &AppState) ──────────────
+// ── Internal impls (verbatim from the web app, sans &AppState) ──────────────
 // The Tauri-command wrappers below delegate here. Tests bypass the
-// State-wrapping layer and call these directly — same as uselu's tests
+// State-wrapping layer and call these directly — same as the web app's tests
 // did against the originally `pub` fns with a hand-built `AppState`.
 
 pub(crate) async fn shell_task_start_impl(args: &Value) -> CmdResult {
@@ -329,6 +329,10 @@ pub(crate) async fn shell_task_start_impl(args: &Value) -> CmdResult {
     // shell binary's own environment is cleaned.
     let mut cmd = crate::process_util::foreign_system_command_tokio(&program);
     cmd.args(&args_vec);
+    // Same as the foreground twin: on a Mac the shell gets the PATH of the
+    // user's login shell, not the launchd PATH of a Finder-started app.
+    #[cfg(target_os = "macos")]
+    cmd.env("PATH", crate::finder_path::child_path());
     if let Some(cwd) = &cwd {
         cmd.current_dir(cwd);
     }
@@ -625,9 +629,13 @@ fn arm_exit_sweep() {
 fn arm_exit_sweep() {}
 
 pub(crate) async fn shell_task_list_impl(_args: &Value) -> CmdResult {
+    // Newest first reads better in the UI. The registry keeps the tasks in
+    // the order they were started, so the listing is that order turned round.
+    // It used to be sorted by `started_at`, a wall clock in whole seconds: two
+    // tasks started within the same second came out oldest first, and so did
+    // any pair the clock stepped back between.
     let mut tasks = REGISTRY.list();
-    // Reverse-chronological — newest first reads better in the UI.
-    tasks.sort_by_key(|t| std::cmp::Reverse(t.started_at));
+    tasks.reverse();
     Ok(json!({ "tasks": tasks }))
 }
 
@@ -750,9 +758,8 @@ mod tests {
         let r1 = shell_task_start_impl(&json!({ "command": echo_cmd("a") }))
             .await
             .unwrap();
-        // Force a deterministic ordering: started_at granularity is 1s so
-        // sleep through it before starting the second task.
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        // No pause between the two: both land in the same second of
+        // `started_at`, which is the case the listing used to get wrong.
         let r2 = shell_task_start_impl(&json!({ "command": echo_cmd("b") }))
             .await
             .unwrap();

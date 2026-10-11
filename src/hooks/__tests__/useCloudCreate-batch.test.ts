@@ -144,6 +144,9 @@ describe('each image is its own run and its own booking', () => {
 
     const s = useCreateStore.getState()
     expect(s.gallery.map((g) => g.sourceName).sort()).toEqual(['a.png', 'b.png', 'c.png'])
+    // A cutout has no prompt: the name of the run is its label, and the text
+    // left in the prompt field of another view is not written onto it.
+    expect(s.gallery.map((g) => [g.prompt, g.label])).toEqual(Array(3).fill(['', 'Background removed']))
     expect(s.batchSources).toEqual([])
     expect(s.batchRun).toBeNull()
     expect(s.error).toBeNull()

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { yieldSilentLocalRuns } from '../../lib/silent-runs'
 import { usePopoverPlatz } from '../../hooks/usePopoverPlatz'
 import { Menu, Loader2, Sun, Moon, RefreshCw, X, MoreVertical } from 'lucide-react'
 import { useUIStore } from '../../stores/uiStore'
@@ -11,6 +12,7 @@ import { UpdateBadge } from './UpdateBadge'
 import { DownloadBadge } from './DownloadBadge'
 import { CloudSwitch } from '../cloud/CloudSwitch'
 import { loadModel } from '../../api/ollama'
+import { log } from '../../lib/logger'
 import { getProviderIdFromModel } from '../../api/providers'
 import { ModelLoadError } from '../../lib/ollama-errors'
 import { useModels } from '../../hooks/useModels'
@@ -45,6 +47,9 @@ interface NavTarget {
 const NAV_TARGETS: readonly NavTarget[] = [
   { id: 'chat', label: 'Chat', view: 'chat' },
   { id: 'create', label: 'Create', view: 'create' },
+  // Voice has no cloud service yet, so with the Cloud switch on it goes the
+  // way Benchmark and Models go.
+  { id: 'voice', label: 'Voice', view: 'voice', localOnly: true },
   { id: 'compare', label: 'Compare', view: null },
   { id: 'benchmark', label: 'Benchmark', view: 'benchmark', localOnly: true },
   { id: 'models', label: 'Models', view: 'models', localOnly: true },
@@ -109,18 +114,24 @@ export function Header() {
     if (!modelToUse || loadingState !== 'idle') return
     setStaleError(null)
     setLoadingState('loading')
+    // A backend cannot swap a model that is still computing (lib/silent-runs.ts).
+    yieldSilentLocalRuns()
     try {
       await loadModel(modelToUse)
       // If the store still thinks this model is stale (e.g. a scan ran before
       // the user re-pulled externally), clear it.
       markHealthFresh(modelToUse)
     } catch (e) {
-      // Bug C (v2.4.5 — Anson192 GH #39): missing-blob errors get the same
+      // Bug C (v2.4.5 — GH #39): missing-blob errors get the same
       // one-click repair path as stale-manifest — `ollama pull <name>`
       // re-fetches missing blobs just like it refreshes stale manifests.
       if (e instanceof ModelLoadError && (e.kind === 'stale-manifest' || e.kind === 'missing-blob')) {
         setStaleError({ model: e.model, message: e.message })
         syncStaleToStore(e.model)
+      } else {
+        // This load has no control of its own on screen (it only follows a
+        // re-pull), so there is nothing to show. It ends at loadModel's limit.
+        log.warn('[header] reloading the model after a re-pull did not finish', { model: modelToUse, err: e })
       }
     }
     finally { setLoadingState('idle') }
@@ -465,7 +476,7 @@ export function Header() {
               onKeyDown={onMenuKeyDown}
               ref={moreMenuRef}
               style={moreMenu.style}
-              className={`absolute left-1/2 -translate-x-1/2 w-40 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xl z-50 flex flex-col gap-0.5 p-1.5 overflow-y-auto scrollbar-thin ${moreMenu.nachOben ? 'bottom-full mb-2' : 'top-full mt-2'}`}
+              className={`absolute left-1/2 -translate-x-1/2 w-40 rounded-lg lu-elevated z-50 flex flex-col gap-0.5 p-1.5 overflow-y-auto scrollbar-thin ${moreMenu.nachOben ? 'bottom-full mb-2' : 'top-full mt-2'}`}
             >
               {navTargets.map((t, i) => (
                 <button
@@ -530,7 +541,7 @@ export function Header() {
           </div>
         )}
 
-        {/* Purple Cloud light-switch (David 2026-07-10): left of Downloads,
+        {/* Purple Cloud light-switch (2026-07-10): left of Downloads,
             purple like the website. Gated: flipping ON without a usable
             account opens the CloudGateModal; the first successful flip runs
             the one-time cloud onboarding. */}

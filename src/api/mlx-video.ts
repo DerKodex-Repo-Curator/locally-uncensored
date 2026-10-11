@@ -2,7 +2,7 @@
  * MLX-video pipeline (Apple Silicon), running IN-PROCESS — Rust
  * (`commands::video`) spawns `python -m mlx_video.<family>.generate` as a
  * subprocess directly, no separate lu-bridge daemon. Ported from
- * uselu/apps/web/api/video.ts; the transport is a direct Tauri `invoke` via
+ * the web app; the transport is a direct Tauri `invoke` via
  * `invokeMedia` (api/mlx-invoke) and progress is exposed for the frontend
  * to poll.
  *
@@ -14,12 +14,17 @@ import { backendCall } from './backend'
 import { invokeMedia } from './mlx-invoke'
 import type { ClassifiedModel, ModelType } from './comfyui'
 import { siGbToBytes } from '../lib/formatters'
+import { memoryNeedGb } from '../lib/mac-memory-fit'
 
 export interface VideoStatus {
   available: boolean
   appleSilicon: boolean
   mlxInstalled: boolean
   mlxVersion: string | null
+  /** The second engine (ltx-2-mlx), which runs the quantized LTX packs. It has
+   *  no setup step of its own: it installs with the first model that needs it. */
+  ltx2MlxInstalled?: boolean
+  ltx2MlxVersion?: string | null
   pythonBin: string | null
   modelsRoot: string
   outputsRoot: string
@@ -30,16 +35,46 @@ export interface VideoStatus {
 export interface VideoModel {
   id: string
   name: string
-  family: 'wan_2' | 'ltx_2' | string
+  family: 'wan_2' | 'ltx_2' | 'ltx_2q' | string
   repo: string
   /** Wie der Katalog sie fuehrt: in Dezimal-GB. Fuer Text nie direkt nehmen. */
   sizeGB: number
   /** Dieselbe Groesse in Bytes, am Rand gerechnet. Siehe `MlxImageModel`. */
   sizeBytes: number
+  /** Below this a run is refused (`memory_refusal` in video.rs). */
   minRamGB: number
+  /** What the model is recommended for, and what a tile and the memory filter
+   *  go by. Above `minRamGB` for the small Wan entries, whose text encoder was
+   *  measured at 25.6 GB and which nobody has run on a smaller Mac. */
+  recommendedRamGB?: number
+  /** Seconds a run took per second of clip on the one Mac it was timed on
+   *  (an M5 Pro with 48 GB). 0 or absent where nobody has timed one. */
+  measuredRunSecondsPerClipSecond?: number
+  /** The text encoder a Get still fetches on top of `sizeGB`, in decimal GB.
+   *  0 when the repository carries it or it is on disk already. */
+  textEncoderGB?: number
+  /** The model the one-click setup of Create takes where it fits. */
+  starter?: boolean
   defaultFrames: number
+  /** The rate the engine writes a clip of this model at (`frame_rate` in
+   *  video.rs). Create counts seconds with it and assumes none of its own. */
+  fps: number
+  /** The size a run has. Create cannot change it. */
+  defaultWidth: number
+  defaultHeight: number
+  /** Whether a negative prompt reaches the model. False: do not show the field. */
+  negativePrompt: boolean
+  /** Whether steps and guidance set in Create reach a run. False for every
+   *  local video model: `video_generate` passes neither. */
+  userSampling: boolean
   needsConvert: boolean
   unfiltered: boolean
+  /** The model animates a start image and cannot run from text alone. */
+  requiresImage?: boolean
+  /** The model can start from an image. The catalogue in
+   *  `src-tauri/src/commands/video.rs` decides this per entry, from what the
+   *  engine does with the checkpoint, and nothing here second-guesses it. */
+  acceptsImage?: boolean
   description: string
   installed: boolean
 }
@@ -67,6 +102,8 @@ export interface GenerateParams {
   fps?: number
   initImage?: string
   seed?: number
+  /** Only for a model whose entry says `negativePrompt`: nothing else reads it. */
+  negativePrompt?: string
 }
 
 export interface GenerateResult {
@@ -106,6 +143,11 @@ export async function getModelInstallStatus(): Promise<InstallStatus> {
   return invokeMedia<InstallStatus>('video_install_model_status')
 }
 
+/** Stop the model download that is running. See `cancelMlxImageInstall`. */
+export async function cancelVideoModelInstall(): Promise<{ ok: boolean; cancelled: boolean }> {
+  return invokeMedia('video_cancel_model_install')
+}
+
 export async function deleteVideoModel(id: string): Promise<{ ok: boolean; id: string }> {
   return invokeMedia('video_delete_model', { id })
 }
@@ -118,6 +160,7 @@ export async function generateVideo(params: GenerateParams): Promise<GenerateRes
     fps: params.fps,
     init_image: params.initImage,
     seed: params.seed,
+    negative_prompt: params.negativePrompt?.trim() || undefined,
   }
   // Kick off the subprocess; generation itself is polled via video_progress.
   return invokeMedia<GenerateResult>('video_generate', body)
@@ -232,13 +275,89 @@ export function mlxVideoDisplayName(m: Pick<VideoModel, 'name'>): string {
 
 const mlxVideoIdByDisplayName = new Map<string, string>()
 
+/** What a catalogue entry does with a start image, in the words Create's
+ *  lanes filter by (`canRunVideoLane`). A model that needs one takes one,
+ *  whatever the second flag says. */
+export function mlxVideoStartImage(m: Pick<VideoModel, 'acceptsImage' | 'requiresImage'>): 'none' | 'optional' | 'required' {
+  return m.requiresImage ? 'required' : m.acceptsImage ? 'optional' : 'none'
+}
+
+/** Whether Animate Image has a local lane on this Mac: one installed model
+ *  that starts from an image is enough, and without one the tab would only
+ *  lead to a picker with nothing in it. */
+export function mlxTakesStartImage(list: readonly Pick<ClassifiedModel, 'startImage'>[]): boolean {
+  return list.some((m) => m.startImage === 'optional' || m.startImage === 'required')
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result).replace(/^data:[^,]*,/, ''))
+    r.onerror = () => reject(r.error ?? new Error('the image could not be read'))
+    r.readAsDataURL(blob)
+  })
+}
+
+/** Write a start image to disk and return its path. `video_generate` takes a
+ *  start image as a file, and an image picked in the WebView has no path:
+ *  this is what `/upload/image` is on a ComfyUI host. */
+export async function stageStartImage(image: Blob): Promise<string> {
+  const { path } = await invokeMedia<{ path: string }>('video_stage_start_image', { data: await blobToBase64(image) })
+  return path
+}
+
 /** Resolve a video dropdown selection back to the bridge catalog id. */
 export function mlxVideoModelIdFor(displayName: string | null | undefined): string | null {
   return (displayName && mlxVideoIdByDisplayName.get(displayName)) || null
 }
 
-function mlxVideoModelType(family: string): ModelType {
-  return family === 'ltx_2' ? 'ltx' : 'wan'
+/** Both LTX families are LTX to Create: `ltx_2` on mlx-video and `ltx_2q`,
+ *  the quantized packs on the second engine. Everything else is a Wan. */
+export function mlxVideoModelType(family: string): ModelType {
+  return family === 'ltx_2' || family === 'ltx_2q' ? 'ltx' : 'wan'
+}
+
+/** The grid a frame count sits on: both LTX engines want `8k + 1`, the Wan
+ *  VAE wants `4n + 1` (`clamp_frames` in video.rs and video_ltx2mlx.rs). */
+export function mlxVideoFrameStep(family: string): number {
+  return family === 'ltx_2' || family === 'ltx_2q' ? 8 : 4
+}
+
+/** The shortest clip with any motion in it, on both grids. */
+export const MLX_VIDEO_MIN_FRAMES = 9
+
+/** The longest clip Create offers on this grid. The store holds at most 120
+ *  frames, so it is the last grid point below that. */
+export function mlxVideoMaxFrames(frameStep: number): number {
+  return 120 - ((120 - 1) % frameStep)
+}
+
+/** A frame count put on the model's grid, the way the engine would floor it,
+ *  so the number on the slider is the number of frames in the clip. */
+export function mlxFramesOnGrid(frames: number, frameStep: number): number {
+  const f = Math.min(mlxVideoMaxFrames(frameStep), Math.max(MLX_VIDEO_MIN_FRAMES, Math.floor(frames) || 0))
+  return f - ((f - 1) % frameStep)
+}
+
+/**
+ * The length `video_generate` is asked for, so that it makes exactly
+ * `frames` frames. Rust multiplies by the rate and cuts the fraction off, and
+ * 49 / 24 * 24 does not come back as 49 in every float. Half a frame of
+ * margin survives the cut.
+ */
+export function mlxVideoSeconds(frames: number, fps: number): number {
+  return (frames + 0.5) / Math.max(1, fps)
+}
+
+/** The lane's model: the stored pick where the lane can run it, else the
+ *  first one it can run. The same rule as the model chip and the run. */
+export function mlxVideoLaneEntry<T extends Pick<ClassifiedModel, 'name' | 'startImage' | 'mlxVideo'>>(
+  list: readonly T[] | null | undefined, stored: string, intent: string,
+): T | undefined {
+  const needsImage = intent === 'animate' || intent === 'extend'
+  // A list that has not arrived yet is no list, not an error.
+  const lane = (list ?? []).filter((m) => (needsImage ? m.startImage !== 'none' : m.startImage !== 'required'))
+  return lane.find((m) => m.name === stored) ?? lane[0]
 }
 
 /** Build the Create-tab video model list from the installed MLX catalog. */
@@ -247,6 +366,24 @@ export function buildMlxVideoModels(catalog: VideoModel[]): ClassifiedModel[] {
     .filter((m) => m.installed)
     .map((m) => {
       mlxVideoIdByDisplayName.set(mlxVideoDisplayName(m), m.id)
-      return { name: mlxVideoDisplayName(m), type: mlxVideoModelType(m.family), source: 'checkpoint' } satisfies ClassifiedModel
+      return {
+        name: mlxVideoDisplayName(m), type: mlxVideoModelType(m.family), source: 'checkpoint',
+        startImage: mlxVideoStartImage(m),
+        mlxVideo: {
+          frames: mlxFramesOnGrid(m.defaultFrames, mlxVideoFrameStep(m.family)),
+          // The rate, the size and whether a negative prompt is read are the
+          // entry's own (`video_list_models`). Create assumes none of them: a
+          // rate guessed from the family went out as a wrong number of frames
+          // (49 frames at Wan's 16 became 73 on an LTX: persona walk,
+          // 09.10.2026, Fund 19).
+          fps: m.fps,
+          frameStep: mlxVideoFrameStep(m.family),
+          width: m.defaultWidth,
+          height: m.defaultHeight,
+          negativePrompt: m.negativePrompt === true,
+          recommendedRamGB: memoryNeedGb(m),
+          measuredRunSecondsPerClipSecond: m.measuredRunSecondsPerClipSecond || undefined,
+        },
+      } satisfies ClassifiedModel
     })
 }

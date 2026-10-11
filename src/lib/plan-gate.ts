@@ -1,13 +1,10 @@
 /**
  * When the agent is allowed to keep a todo list at all.
  *
- * Customer case 30.09.2026 (swift_maple90, LU Cloud, Code tab): 936k credits
- * in two days, 583 of 909 requests produced at most 300 output tokens. The
- * prompt told the model to open a plan for anything longer than three steps
- * and to resend the complete list after EVERY step. On an open model that is
- * a separate round trip per tick, each one paying the full 30k to 77k token
- * context again, and the user never asked for a plan in the first place
- * (David: "automatisch macht die LLM einen Plan").
+ * The prompt used to tell the model to open a plan for anything longer than
+ * three steps and to resend the complete list after EVERY step. On an open
+ * model that is a separate round trip per tick, each one sending the full
+ * context again, and the user never asked for a plan in the first place.
  *
  * So planning is opt-in. todo_write is offered when
  *   - the conversation runs in Plan mode, or

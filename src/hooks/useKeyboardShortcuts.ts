@@ -259,8 +259,33 @@ export const SHORTCUTS: readonly ShortcutEntry[] = [
   { id: null, keys: 'Escape', description: 'Close panel or modal' },
 ]
 
+const MAC_MODIFIERS: Readonly<Record<string, string>> = { Ctrl: '\u2318', Alt: '\u2325', Shift: '\u21E7' }
+// Apple writes modifiers in a fixed order (Option, Shift, Command) and without
+// a plus sign: "Ctrl+Shift+D" is "\u21E7\u2318D" in every Mac menu.
+const MAC_MODIFIER_ORDER = ['\u2325', '\u21E7', '\u2318']
+
+/**
+ * A shortcut label as this machine's keyboard names it.
+ *
+ * `SHORTCUTS` is written the PC way ("Ctrl+K") and stays that way: on Windows
+ * and Linux this returns its input untouched. On a Mac the app shortcuts run
+ * on Command (`shortcutOwner` even hands Ctrl without Cmd back to the text
+ * field), so a label saying "Ctrl+K" named a key that does nothing there.
+ * Every place that SHOWS a shortcut goes through here, so the help dialog,
+ * the command palette and a tooltip cannot disagree.
+ */
+export function platformKeys(keys: string, isMac: boolean = IS_MAC): string {
+  if (!isMac) return keys
+  const parts = keys.split('+')
+  const key = parts.pop() ?? ''
+  const mods = parts.map(p => MAC_MODIFIERS[p] ?? p)
+  mods.sort((a, b) => MAC_MODIFIER_ORDER.indexOf(a) - MAC_MODIFIER_ORDER.indexOf(b))
+  return mods.join('') + key
+}
+
 /** Die Beschriftung eines Kürzels — EINE Liste, keine zweite Tabelle für die
- *  Palette. */
-export function shortcutKeys(id: ShortcutId): string | undefined {
-  return SHORTCUTS.find(s => s.id === id)?.keys
+ *  Palette. Schon in der Schreibweise dieser Plattform. */
+export function shortcutKeys(id: ShortcutId, isMac: boolean = IS_MAC): string | undefined {
+  const keys = SHORTCUTS.find(s => s.id === id)?.keys
+  return keys === undefined ? undefined : platformKeys(keys, isMac)
 }

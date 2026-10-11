@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 /// Mirrors commands/filesystem.rs::resolve_path so shell output lands in the
 /// SAME folder the file tools write to. Used as the fallback cwd when the
 /// caller doesn't pass one — without it the child process inherits the LU
-/// app's ambient cwd and dumps build output into ~/Documents (David 2026-06-04).
+/// app's ambient cwd and dumps build output into ~/Documents (2026-06-04).
 ///
 /// The slug comes from `agent::sanitize_chat_slug`, the one copy that drops
 /// `.`: this file used to carry its own that kept it, so a chat id of ".."
@@ -272,7 +272,17 @@ pub(crate) fn kill_tree_with(root: u32, root_start: Option<u64>) {
     // is already dead, which is why each leftover is felled as a root of its
     // own. The loop ends as soon as nothing is left, and otherwise after
     // TREE_KILL_SETTLE, for as long as taskkill itself returns.
-    taskkill_tree(root);
+    //
+    // `/T` follows parent links and nothing else. When a process older than
+    // `root` is recorded under it, the number `root` has was once held by that
+    // stranger's creator, and `/T` would take the stranger and everything
+    // below it along. Then only `root` itself is ended here, and the sweep
+    // below fells what is provably its own.
+    if carries_a_stranger(root, root_start) {
+        taskkill_one(root);
+    } else {
+        taskkill_tree(root);
+    }
     let deadline = Instant::now() + TREE_KILL_SETTLE;
     loop {
         let leftovers = late_descendants(root, root_start);
@@ -293,13 +303,45 @@ pub(crate) fn kill_tree_with(root: u32, root_start: Option<u64>) {
 /// that to have happened.
 #[cfg(windows)]
 fn taskkill_tree(root: u32) {
+    taskkill(root, true);
+}
+
+/// End `root` alone and wait for that to have happened.
+#[cfg(windows)]
+fn taskkill_one(root: u32) {
+    taskkill(root, false);
+}
+
+#[cfg(windows)]
+fn taskkill(root: u32, with_tree: bool) {
+    let pid = root.to_string();
+    let args: &[&str] = if with_tree { &["/PID", &pid, "/T", "/F"] } else { &["/PID", &pid, "/F"] };
     let mut command = Command::new("taskkill.exe");
-    command.args(["/PID", &root.to_string(), "/T", "/F"])
+    command.args(args)
         .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     crate::process_util::suppress_window(&mut command);
     if let Ok(mut killer) = command.spawn() {
         finish_tree_kill(&mut killer);
     }
+}
+
+/// Whether a process that is older than `root` is recorded as its child.
+/// See [`late_descendants`] for why the age is the token. Without a start
+/// time for `root` there is nothing to compare against, and the answer is no.
+#[cfg(windows)]
+fn carries_a_stranger(root: u32, root_start: Option<u64>) -> bool {
+    use sysinfo::{Pid, ProcessesToUpdate, System};
+    let Some(root_start) = root_start else { return false };
+    let mut sys = System::new();
+    sys.refresh_processes(ProcessesToUpdate::All, true);
+    is_a_stranger_under(root, root_start, sys.processes().values().map(|p| (p.parent().map(Pid::as_u32), p.start_time())))
+}
+
+/// The rule of [`carries_a_stranger`] on plain numbers, so it can be tested
+/// without a recycled pid, which no test can order from Windows.
+#[cfg(any(windows, test))]
+fn is_a_stranger_under(root: u32, root_start: u64, mut table: impl Iterator<Item = (Option<u32>, u64)>) -> bool {
+    table.any(|(parent, start)| parent == Some(root) && start < root_start)
 }
 
 /// When `root` was created, read while it is still alive. `None` once it is
@@ -891,6 +933,15 @@ fn shell_execute_sync(
     let mut cmd = crate::process_util::foreign_system_command(&shell_bin);
     cmd.args(&shell_args);
 
+    // Fehlerkontrolle Mac 2, Fund 7: an app opened from the Finder has the
+    // launchd PATH, and so had this shell. `brew`, `node`, `uv`, `ffmpeg` and
+    // everything else under /opt/homebrew answered "command not found" for the
+    // agent although the same line works in the user's terminal. The child
+    // gets the PATH of the user's login shell instead (read once, bounded,
+    // never an interactive shell; see `finder_path`).
+    #[cfg(target_os = "macos")]
+    cmd.env("PATH", crate::finder_path::child_path());
+
     // Append extra args
     if let Some(extra_args) = args {
         for a in extra_args {
@@ -901,7 +952,7 @@ fn shell_execute_sync(
     // Working directory. Use the explicit cwd when it exists; otherwise fall
     // back to the per-chat agent workspace (created if missing) so a relative
     // command never runs in the app's ambient cwd and scatters files into
-    // ~/Documents (David 2026-06-04). Mirrors the file tools' path resolution.
+    // ~/Documents (2026-06-04). Mirrors the file tools' path resolution.
     let workdir: PathBuf = match cwd.as_ref().map(Path::new) {
         Some(p) if p.is_dir() => p.to_path_buf(),
         _ => match working_directory.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
@@ -1147,10 +1198,16 @@ mod shell_cancel_tests {
     fn shell_register_fegt_alte_pid_lose_eintraege_weg() {
         // Negativkontrolle steht im naechsten Test: eine junge Karte ohne pid
         // bleibt stehen, nur das Alter entscheidet.
+        //
+        // Die Karte wird geprueft, solange sie jung ist. Die Karte ist eine
+        // fuer alle Tests, und jedes `shell_register` eines Nachbartests fegt:
+        // nach dem Zurueckdatieren darf die Karte also schon fort sein, bevor
+        // der eigene Ausloeser laeuft. Linux, 08.10.2026: ein voller Lauf rot
+        // an der Pruefung, die hier frueher nach dem Zurueckdatieren stand.
         let alt = kennung("alt-ohne-pid");
         shell_register(&alt);
-        shell_test_set_created_at(&alt, STALE_SHELL_ENTRY_AGE + Duration::from_secs(1));
         assert!(shell_test_contains(&alt), "die Karte muss vor dem Fegen existieren");
+        shell_test_set_created_at(&alt, STALE_SHELL_ENTRY_AGE + Duration::from_secs(1));
 
         let ausloeser = kennung("ausloeser");
         shell_register(&ausloeser); // das naechste shell_register fegt
@@ -1406,6 +1463,41 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
+    /// Fehlerkontrolle Mac 2, Fund 7. The agent's shell runs with the PATH of
+    /// the user's login shell and not with whatever this process inherited.
+    /// From the Finder that inherited PATH is `/usr/bin:/bin:/usr/sbin:/sbin`.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_agents_shell_gets_the_login_path_on_a_mac() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let out = shell_execute_sync(
+            "printf %s \"$PATH\"".to_string(),
+            None,
+            Some(dir.path().to_string_lossy().to_string()),
+            Some(20_000),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("the shell ran");
+        let seen = out["stdout"].as_str().unwrap_or_default().to_string();
+        assert_eq!(seen, crate::finder_path::child_path().to_string_lossy());
+        // The property itself, not only the wiring: what a login shell adds
+        // on every Mac (`/etc/paths` names /usr/local/bin) is there.
+        assert!(seen.split(':').any(|p| p == "/usr/local/bin"), "{seen}");
+    }
+
+    /// The same rule holds for a task the agent starts in the background.
+    #[test]
+    fn both_shell_paths_hand_the_login_path_to_the_child() {
+        let needle = ["finder_path", "::child_path()"].concat();
+        for (name, src) in [("shell.rs", include_str!("shell.rs")), ("bg_tasks.rs", include_str!("bg_tasks.rs"))] {
+            assert!(src.contains(&needle), "{name} starts a shell without the login PATH on a Mac");
+        }
+    }
+
     fn capture(bytes: Vec<u8>) -> String {
         let (buf, done) = drain(Cursor::new(bytes));
         settle(&done, &done, std::time::Duration::from_secs(2));
@@ -1600,5 +1692,24 @@ mod farbcode_tests {
     fn cursorbewegungen_gehen_mit_und_nicht_nur_farben() {
         // ComfyUI setzt den Cursor zurueck, um seinen Balken zu ueberschreiben.
         assert_eq!(strip_ansi("\u{1b}[2K\u{1b}[1Gnode 3/7"), "node 3/7");
+    }
+}
+
+#[cfg(test)]
+mod stranger_tests {
+    use super::is_a_stranger_under;
+
+    #[test]
+    fn a_child_older_than_its_recorded_parent_is_a_stranger() {
+        // (parent, start): one own child, one process of another tree, and one
+        // listed under 40 although it started 500 seconds before 40 did.
+        let table = [(Some(40), 1000), (Some(7), 10), (Some(40), 500)];
+        assert!(is_a_stranger_under(40, 1000, table.into_iter()));
+    }
+
+    #[test]
+    fn children_of_the_same_second_or_later_are_its_own() {
+        let table = [(Some(40), 1000), (Some(40), 1003), (None, 1), (Some(41), 2)];
+        assert!(!is_a_stranger_under(40, 1000, table.into_iter()));
     }
 }

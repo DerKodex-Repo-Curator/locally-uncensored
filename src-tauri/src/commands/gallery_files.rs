@@ -1,4 +1,4 @@
-//! Gallery delete reaches the file too (Discord 2026-09-25, boromirofgeo:
+//! Gallery delete reaches the file too (Discord 2026-09-25:
 //! "when deleting files in app from gallery, they are still in output
 //! folder, which is getting bigger and bigger").
 //!

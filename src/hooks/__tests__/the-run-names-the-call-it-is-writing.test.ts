@@ -104,7 +104,7 @@ describe('the run names the call it is writing', () => {
     expect(waiting.filter((b) => b.phase === 'thinking')).toEqual([])
 
     push(line({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'todo_write', arguments: '' } }] } }] }))
-    await waitFor(() => expect(useRunActivityStore.getState().activity[convId]?.label).toBe('Preparing todo_write'))
+    await waitFor(() => expect(useRunActivityStore.getState().activity[convId]?.label).toBe('Preparing a tool'))
     const blocks = useChatStore.getState().conversations.find((c) => c.id === convId)!
       .messages.at(-1)!.agentBlocks ?? []
     expect(blocks.filter((b) => b.phase === 'thinking')).toEqual([])

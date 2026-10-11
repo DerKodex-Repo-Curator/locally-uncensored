@@ -30,27 +30,45 @@ beforeEach(() => {
 describe('ModelRowMarks', () => {
   it('marks a measured, fully unfiltered model regardless of the plan', () => {
     render(<ModelRowMarks model={{ unfiltered: 'full' }} />)
-    expect(screen.getByText('No refusals')).toBeTruthy()
+    expect(screen.getByText('No Filter')).toBeTruthy()
   })
 
   // K12 (3.0.1): the Discord report was "can't find it", not "it's wrong":
   // plain text at the smallest size on a crowded row. First answered with an
   // icon and bold type; since the picker of 3.0.5 the mark is a tag of its
-  // own, framed by a hairline and set in the one accent, and the picker has a
-  // chip that narrows the list to the marked models.
-  it('is a framed tag in the accent, not plain text (K12)', () => {
+  // own, framed by a hairline, and the picker has a chip that narrows the
+  // list to the marked models. Since 09.10.2026 the tag is grey: the
+  // accent belongs to the statement that shares its place.
+  it('is a framed tag, quiet and not plain text (K12)', () => {
     render(<ModelRowMarks model={{ unfiltered: 'full' }} />)
-    const mark = screen.getByText('No refusals')
+    const mark = screen.getByText('No Filter')
     expect(mark.getAttribute('data-mark')).toBe('unfiltered')
     expect(mark.className).toContain('lu-picker-tag')
-    expect(mark.className).toContain('is-accent')
+    expect(mark.className).not.toContain('is-accent')
+    expect(mark.className).not.toContain('is-statement')
     expect(mark.getAttribute('title')).toContain('Measured')
+  })
+
+  it('shows the statement at the same place, in the accent tag, and never both words', () => {
+    render(<ModelRowMarks model={{ unrestricted: true, unfiltered: 'full' }} />)
+    const mark = screen.getByText('Uncensored')
+    expect(mark.getAttribute('data-mark')).toBe('statement')
+    expect(mark.className).toContain('lu-picker-tag')
+    expect(mark.className).toContain('is-statement')
+    expect(mark.getAttribute('title')).toContain('Released by its makers')
+    expect(screen.queryByText('No Filter')).toBeNull()
+    expect(document.querySelectorAll('[data-mark]')).toHaveLength(1)
+  })
+
+  it('keeps the statement in a picker row and in a row without a plan', () => {
+    render(<ModelRowMarks model={{ unrestricted: true }} row />)
+    expect(screen.getByText('Uncensored')).toBeTruthy()
   })
 
   it('in a picker row shows the measured mark only, the allowance stands behind the question mark', () => {
     signIn(true)
     render(<ModelRowMarks model={{ unfiltered: 'full', flash }} row />)
-    expect(screen.getByText('No refusals')).toBeTruthy()
+    expect(screen.getByText('No Filter')).toBeTruthy()
     expect(screen.queryByText(FLASH_MARK_LABEL)).toBeNull()
   })
 
@@ -58,7 +76,7 @@ describe('ModelRowMarks', () => {
     for (const unfiltered of ['partial', undefined] as const) {
       cleanup()
       render(<ModelRowMarks model={{ unfiltered }} />)
-      expect(screen.queryByText('No refusals')).toBeNull()
+      expect(screen.queryByText('No Filter')).toBeNull()
     }
   })
 
@@ -68,7 +86,7 @@ describe('ModelRowMarks', () => {
     expect(screen.getByText(FLASH_MARK_LABEL).getAttribute('title')).toContain('500,000')
   })
 
-  it('carries the wording David decided on 12.09.2026, to the character', () => {
+  it('carries the wording the owner decided on 12.09.2026, to the character', () => {
     // Die Marke hiess zwischendurch "Included". Sie heisst wieder
     // "No credits", und der Titel ist der eine Satz, den das Web auch traegt.
     // Zeichengleich, weil zwei Apps mit zwei Formulierungen derselben Zusage
@@ -83,7 +101,7 @@ describe('ModelRowMarks', () => {
   it('carries both marks at once for a paying account', () => {
     signIn(true)
     render(<ModelRowMarks model={{ flash, unfiltered: 'full' }} />)
-    expect(screen.getByText('No refusals')).toBeTruthy()
+    expect(screen.getByText('No Filter')).toBeTruthy()
     expect(screen.getByText(FLASH_MARK_LABEL)).toBeTruthy()
   })
 
@@ -93,7 +111,7 @@ describe('ModelRowMarks', () => {
     expect(screen.queryByText(FLASH_MARK_LABEL)).toBeNull()
     expect(screen.queryByText('No credits')).toBeNull()
     // Die gemessene Marke haengt nicht am Geld und bleibt stehen.
-    expect(screen.getByText('No refusals')).toBeTruthy()
+    expect(screen.getByText('No Filter')).toBeTruthy()
   })
 
   it('promises nothing while the account probe has not answered', () => {
@@ -106,6 +124,6 @@ describe('ModelRowMarks', () => {
     signIn(true)
     render(<ModelRowMarks model={{}} />)
     expect(screen.queryByText(FLASH_MARK_LABEL)).toBeNull()
-    expect(screen.queryByText('No refusals')).toBeNull()
+    expect(screen.queryByText('No Filter')).toBeNull()
   })
 })

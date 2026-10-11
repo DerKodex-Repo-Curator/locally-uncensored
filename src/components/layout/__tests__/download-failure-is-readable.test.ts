@@ -3,7 +3,7 @@
  *
  * A refused download says why.
  *
- * goonerforporn, Discord #bug-reports 2026-08-28: a CivitAI download that only
+ * Discord #bug-reports 2026-08-28: a CivitAI download that only
  * ever needed an API key ended in "a 400" and the download panel showed a Retry
  * button and nothing else. The reason came back from Rust, was written into the
  * store, and was rendered only into the `title` of a per-file row that a

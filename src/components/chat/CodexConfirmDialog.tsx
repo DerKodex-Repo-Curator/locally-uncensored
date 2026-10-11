@@ -1,7 +1,7 @@
 // The coding agent's shell/code approval, inline in the transcript.
 //
 // Two rewrites got it here. It started as `window.confirm`, an OS dialog with
-// system chrome and the app origin in its title bar, which David called exactly
+// system chrome and the app origin in its title bar, which the owner called exactly
 // what it looked like. The first replacement was a centred modal, which was
 // small and tidy but still covered the conversation you were reading. This one
 // sits in the stream under the tool call it belongs to, so the pending command

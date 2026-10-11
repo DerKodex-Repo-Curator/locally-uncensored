@@ -1,6 +1,6 @@
-// The reference strip under the Edit source (GH #144, Discord s3aldra and
-// tbjdrw, 2026-09-23 to 09-27): Edit took one image, so "put the person from
-// this photo into that scene" could not be asked. Layout picked by David on
+// The reference strip under the Edit source (GH #144, Discord and
+// A user, 2026-09-23 to 09-27): Edit took one image, so "put the person from
+// this photo into that scene" could not be asked. Layout picked by the owner on
 // 2026-10-01: the source stays large, the further images sit as small tiles
 // below it with a "+ Reference" tile, and the prompt names them image 2,
 // image 3. Shown for a local model that takes more than one image, and (02.10.2026,

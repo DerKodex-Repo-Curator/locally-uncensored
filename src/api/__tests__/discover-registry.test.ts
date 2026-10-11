@@ -462,7 +462,8 @@ describe('discover — data validation', () => {
       expect(plan[0]).toEqual({ url: vision.downloadUrl, filename: vision.filename, expectedBytes: 100 })
       expect(plan[1].url).toBe(vision.mmprojUrl)
       expect(plan[1].filename).toBe(mmprojFileName(vision.filename!))
-      expect(plan[1].expectedBytes).toBe(Math.round(vision.mmprojSizeGB! * 1_073_741_824))
+      expect(plan[1].expectedBytes).toBe(vision.mmprojBytes)
+      expect(plan[1].sha256).toBe(vision.mmprojSha256)
     })
 
     it('follows the RESOLVED model name, not the catalog guess', () => {

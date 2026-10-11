@@ -1,11 +1,11 @@
-// Several source images, one edit (Discord, cazwhin, 2026-10: "I have a folder
+// Several source images, one edit (Discord, 2026-10: "I have a folder
 // of images and need them all edited the same"). The same prompt and settings
 // run over every image, one after the other. Each image is its own run with its
 // own booking, exactly like a single Create, so nothing here knows about money:
 // it only decides which image is next and when to stop.
 //
 // Pure on purpose (no store, no network): the wiring lives in
-// components/create/experimental/batchRun.ts, the web twin in apps/web.
+// components/create/experimental/batchRun.ts, the web twin in the web app.
 
 /** The most source images one batch takes. */
 export const MAX_BATCH_IMAGES = 50

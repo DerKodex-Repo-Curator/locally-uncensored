@@ -42,7 +42,11 @@ describe('the Cloud switch counts its presses', () => {
 
   it('is written into Settings so the privacy text stays true', () => {
     const settings = read('src/components/settings/SettingsPage.tsx')
-    expect(settings).toContain('Cloud switch')
-    expect(settings).toContain('anonymous')
+    // What goes with a press, and that it carries no identifier.
+    expect(settings).toContain('counts each press of the Cloud switch with LU Labs: which way it was pressed, platform and app version, no identifier')
+    // Signed in, the same press is counted for the account too (api/funnel.ts).
+    expect(settings).toContain('a press of the Cloud switch is counted for your account as well')
+    // A counter and "no telemetry" do not go on the same page.
+    expect(settings).not.toMatch(/no telemetry/i)
   })
 })

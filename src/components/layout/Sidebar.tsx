@@ -36,7 +36,7 @@ export function Sidebar() {
   const currentView = useUIStore((s) => s.currentView)
   // A/B Compare takes the whole chat area, so neither rail nor panel belongs
   // on screen while it runs. AppShell already unmounts us there; this keeps
-  // the rule readable in one place, the way apps/web does it.
+  // the rule readable in one place, the way the web app does it.
   const isComparing = useCompareStore((s) => s.isComparing)
   const activeModel = useModelStore((s) => s.activeModel)
   const getActivePersona = useSettingsStore((s) => s.getActivePersona)
@@ -89,7 +89,7 @@ export function Sidebar() {
   // durch, weil EINE davon gepflegt war.
   useDismissOnEscape(dispatchPicker, () => setDispatchPicker(false))
   useDismissOnEscape(qrModalOpen, () => setQrModalOpen(false))
-  // Right-click menu on a conversation row. sweenscapehub searched the whole
+  // Right-click menu on a conversation row. A user searched the whole
   // app and right-clicked the chats before asking in Discord how to delete one
   // (2026-07-30): the buttons existed, but at 10 px and only on hover, and the
   // gesture everyone tries first did nothing at all.
@@ -152,7 +152,7 @@ export function Sidebar() {
   const handleNewChat = () => {
     if (!activeModel) {
       // No model is active — clicking New Chat used to silently do nothing
-      // (mylogz, Discord 2026-06-17: "cant make a new chat"). That happens
+      // (Discord 2026-06-17: "cant make a new chat"). That happens
       // when no model is installed/selected, or the model list hasn't
       // populated yet. Send the user to the Models page where they can
       // install or pick one, instead of a dead click with no feedback.
@@ -168,7 +168,7 @@ export function Sidebar() {
       setView('models')
       return
     }
-    // David's request: persona starts OFF on every new chat. We still
+    // The owner's request: persona starts OFF on every new chat. We still
     // store the globally-selected persona's prompt as the conv's
     // systemPrompt (so toggling personaEnabled later "just works"
     // without re-reading global state), but useChat / useAgentChat
@@ -187,7 +187,7 @@ export function Sidebar() {
     setDispatchPicker(false)
     if (!activeModel) return
 
-    // Reported by @phantomderp on v2.4.2: clicking LAN/Internet from
+    // Reported by a user on v2.4.2: clicking LAN/Internet from
     // `npm run dev` produced an HTTP 404 + cryptic JSON.parse error
     // because the dev server can't host the Rust HTTP server / JWT auth /
     // Cloudflare tunnel that Remote needs. Bail early with a clear,
@@ -281,7 +281,7 @@ export function Sidebar() {
     const convId = createConversation(activeModel, persona?.systemPrompt || '', 'remote')
     setView('chat')
     // For internet mode, suppress the QR until the Cloudflare tunnel is
-    // verified up (David 2026-06-15). Set this BEFORE dispatch() so the LAN
+    // verified up (2026-06-15). Set this BEFORE dispatch() so the LAN
     // QR fetched during startServer never flashes. LAN mode shows the QR
     // immediately (no tunnel to wait for).
     useRemoteStore.setState({ awaitingTunnel: mode === 'internet' })
@@ -396,7 +396,7 @@ export function Sidebar() {
     // also weiterhin nur bei neuem Ablaufzeitpunkt oder Remote-Umschaltung neu.
   }, [passcodeExpiresAt, regenerateToken, remoteEnabled])
 
-  // Web parity (apps/web/components/layout/Sidebar.tsx:217): the conversation
+  // Web parity (the web app): the conversation
   // list belongs to Chat and nowhere else. This used to be a side effect of
   // setView, which also tore the user's collapse open on every trip through
   // Models or Settings.
@@ -496,7 +496,7 @@ export function Sidebar() {
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: ziehend ? 0 : 0.15 }}
         >
-          {/* Ziehgriff — D1, zweite Haelfte (David, 02.09.2026: "bzw dynamisch
+          {/* Ziehgriff — D1, zweite Haelfte (02.09.2026: "bzw dynamisch
               mit vergroesserung anpassend").
 
               Die Spalte war auf 250 px festgenagelt, es gab also gar keine
@@ -530,7 +530,7 @@ export function Sidebar() {
             data-testid="sidebar-resize-handle"
             className="absolute right-0 top-0 h-full w-1 -mr-0.5 z-10 cursor-col-resize hover:bg-blue-500/40 active:bg-blue-500/60 transition-colors"
           />
-          {/* Mode Tabs (Chat | Code | Remote) — icon-only, like uselu.
+          {/* Mode Tabs (Chat | Code | Remote) — icon-only, like the web app.
               Labels live in title/aria-label for accessibility.
 
               D-S17 — die Hoehen kommen jetzt aus der Leiter, nicht aus dem
@@ -741,7 +741,7 @@ export function Sidebar() {
               </div>
 
               {/* QR Code — hidden until Cloudflare is verified up (internet
-                  mode); shown immediately for LAN. David 2026-06-15: never
+                  mode); shown immediately for LAN. 2026-06-15: never
                   flash a QR that points at the LAN IP while the tunnel is
                   still coming up. */}
               {awaitingTunnel ? (
@@ -1240,7 +1240,7 @@ export function Sidebar() {
           <div
             role="menu"
             aria-label="Chat actions"
-            className="absolute min-w-[180px] py-1.25 rounded-[8px] bg-white dark:bg-[#141414] border border-gray-200 dark:border-white/10 shadow-lg text-[14px]"
+            className="absolute min-w-[180px] py-1.25 rounded-[8px] lu-elevated text-[14px]"
             style={{ left: Math.min(rowMenu.x, window.innerWidth - 160), top: Math.min(rowMenu.y, window.innerHeight - 80) }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1280,7 +1280,7 @@ export function Sidebar() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.12 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-7.5"
+          className="fixed inset-0 z-[100] flex items-center justify-center lu-dialog-scrim p-7.5"
           onClick={() => setQrModalOpen(false)}
         >
           <motion.div
@@ -1303,7 +1303,7 @@ export function Sidebar() {
                man abtippt, braucht Kontrast und keinen Farbton. Die
                QR-Kachel ist selbst weiss und verschwaende sonst im weissen
                Dialog, daher die Kante. */
-            className="bg-white dark:bg-lu-base border border-gray-200 dark:border-white/10 rounded-[10px] p-6.25 max-w-[450px] w-full flex flex-col items-center gap-3.75 shadow-2xl"
+            className="lu-dialog rounded-[10px] p-6.25 max-w-[450px] w-full flex flex-col items-center gap-3.75"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between w-full">

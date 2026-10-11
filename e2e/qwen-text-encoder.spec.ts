@@ -55,7 +55,17 @@ async function openExpert(page: Page, intent: string) {
   await page.getByRole('button', { name: /^Create$/ }).click()
   await page.getByRole('radio', { name: intent, exact: true }).click()
   await page.getByRole('button', { name: 'Advanced settings' }).click()
-  await page.getByRole('button', { name: 'Expert', exact: true }).click()
+  const expert = page.getByRole('button', { name: 'Expert', exact: true })
+  await expert.click()
+  // The section opens over 180 ms, its body growing inside a clipping box. A
+  // click on a row that is still clipped scrolls that box to reach it, the row
+  // then slides back down as the box grows, and a list opened from it follows
+  // it under the window edge. No hand is that fast; the test is. So it waits
+  // for the body to stand at its full height, with nothing left clipped.
+  await expect.poll(() => expert.evaluate((button) => {
+    const body = button.parentElement?.nextElementSibling
+    return body ? body.scrollHeight - body.clientHeight : -1
+  })).toBe(0)
 }
 
 const row = (page: Page) => page.getByRole('button', { name: 'Text encoder', exact: true })
@@ -70,9 +80,9 @@ for (const [weights, model] of WEIGHTS) {
     await expect(row(page)).toHaveText('Qwen3-VL 8B')
 
     await row(page).click()
-    await expect(page.getByRole('option')).toHaveText(['Qwen3-VL 8B', 'Qwen3-VL 8B, no refusals'])
-    await page.getByRole('option', { name: 'Qwen3-VL 8B, no refusals' }).click()
-    await expect(row(page)).toHaveText('Qwen3-VL 8B, no refusals')
+    await expect(page.getByRole('option')).toHaveText(['Qwen3-VL 8B', 'Qwen3-VL 8B, No Filter'])
+    await page.getByRole('option', { name: 'Qwen3-VL 8B, No Filter' }).click()
+    await expect(row(page)).toHaveText('Qwen3-VL 8B, No Filter')
     await expect.poll(() => saved(page)).toBe('unfiltered')
 
     // Nothing of it sits in or above the prompt field: with the drawer closed
@@ -84,7 +94,7 @@ for (const [weights, model] of WEIGHTS) {
     // The pick is still there after a restart, and Edit shows the same row.
     await page.reload()
     await openExpert(page, 'Edit / Image to Image')
-    await expect(row(page)).toHaveText('Qwen3-VL 8B, no refusals', { timeout: 15_000 })
+    await expect(row(page)).toHaveText('Qwen3-VL 8B, No Filter', { timeout: 15_000 })
   })
 
   test(`${weights}: with one text encoder installed there is nothing to choose and no row`, async ({ page }) => {

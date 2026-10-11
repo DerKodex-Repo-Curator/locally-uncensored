@@ -45,7 +45,7 @@ const FREE = ['qwen3vl_8b_int8_convrot_heretic.safetensors', 9_350_828_392] as c
 const NOCT = ['NoctQ_V4_int8_convrot.safetensors', 7_256_784_368] as const
 
 const OFFICIAL_BUNDLE = 'Qwen-Image 2.1 (Generate and Edit)'
-const FREE_BUNDLE = 'Qwen-Image 2.1 (No Refusals)'
+const FREE_BUNDLE = 'Qwen-Image 2.1 (No Filter)'
 const NOCT_BUNDLE = 'Noct Q (Qwen-Image 2.1, Unfiltered)'
 const bundles = getImageBundles().filter((b) => [OFFICIAL_BUNDLE, FREE_BUNDLE, NOCT_BUNDLE].includes(b.name))
 

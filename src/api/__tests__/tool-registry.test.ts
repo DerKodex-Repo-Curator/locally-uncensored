@@ -97,7 +97,7 @@ describe('AGENT_TOOL_DEFS', () => {
     const confirmTools = AGENT_TOOL_DEFS.filter((t) => t.permission === 'confirm')
     const confirmNames = confirmTools.map((t) => t.name).sort()
     // Phase 13 v2.4.0: delegate_task added under workflow category (confirm default).
-    // v2.5.0 sprint A/B/C from uselu: codex tools default to confirm (writes,
+    // v2.5.0 sprint A/B/C from the web app: codex tools default to confirm (writes,
     // shell, git, gh, project_init, run_tests — all touch the user's machine).
     // v2.5.0 Feature EE: video_generate (image category → confirm default).
     expect(confirmNames).toEqual([

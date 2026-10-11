@@ -1,6 +1,6 @@
 // What the Music tab offers and may claim, per backend and per model.
 //
-// #108 (ElBiggus) was a page of cloud facts printed at a local user: the tab
+// #108 was a page of cloud facts printed at a local user: the tab
 // said the model writes its own lyrics while hiding the lyrics box, the how-to
 // described a box that was not there, promised other downloadable music
 // models, and said the length slider "bills per second" on a machine where
@@ -8,7 +8,7 @@
 // instead of eyeballed.
 //
 // In the cloud the answer comes from the model itself (the web twin is
-// apps/web/lib/render/music-surface.ts). The classic music models take a
+// the web app). The classic music models take a
 // length in seconds and bill by it. A Studio music model carries its own
 // schema: one has a length field in milliseconds, the others have none at all,
 // and for two of them the prompt field is the lyrics. The tab shows a control

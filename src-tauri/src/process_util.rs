@@ -31,7 +31,7 @@ pub fn suppress_window(cmd: &mut Command) {
 
 // ── K11/K14: foreign programs vs. our own bundled sidecars on Linux AppImage ─
 //
-// K2/K11 (Discord, mallic, 2026-09-16, CachyOS/Arch AppImage): after an
+// K2/K11 (Discord, 2026-09-16, CachyOS/Arch AppImage): after an
 // in-app update, `git clone` inside the app failed with "no version
 // information available" and custom-node installs broke the same way.
 // Reinstalling did not help.
@@ -411,7 +411,7 @@ mod appimage_env_tests {
 
     #[test]
     fn foreign_system_command_cleans_the_env_a_spawned_git_would_inherit() {
-        // K11/K2 (mallic, CachyOS/Arch AppImage, 2026-09-16): `git` on PATH
+        // K11/K2 (CachyOS/Arch AppImage, 2026-09-16): `git` on PATH
         // inherited the AppImage's LD_LIBRARY_PATH and loaded LU's bundled
         // libpcre2/libssl instead of the system's, printing "no version
         // information available". This is the exact call every
@@ -572,7 +572,7 @@ mod appimage_env_tests {
 //   * `remote::kill_orphaned_tunnels` (T-39) — the startup sweep that kills a
 //     cloudflared tunnel surviving from the last run could never match, so a
 //     tunnel kept publishing the LAN server to the internet while the app's own
-//     indicator read OFF. AUDIT-COVERAGE.md recorded that finding as fixed,
+//     indicator read OFF. The audit sheet recorded that finding as fixed,
 //     because the fix LOOKED like it applied.
 //
 // One of the two got repaired and the other did not, purely because nobody knew
@@ -861,12 +861,30 @@ fn libc_setpgid_self() -> libc::c_int {
     unsafe { setpgid(0, 0) }
 }
 
+/// Ask a child to stop the way Ctrl+C does. True when the request went out.
+///
+/// For a tool that ends its own work on an interrupt and drops it on a kill.
+/// Windows has no interrupt for a child without a console of its own, so
+/// there it is always false and the caller goes on to [`kill_tree`].
+pub fn interrupt(child: &Child) -> bool {
+    #[cfg(unix)]
+    {
+        unsafe { libc::kill(child.id() as libc::pid_t, libc::SIGINT) == 0 }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = child;
+        false
+    }
+}
+
 // Minimal libc binding so we can avoid an extra crate.
 #[cfg(unix)]
 #[allow(non_camel_case_types)]
 mod libc {
     pub type pid_t = i32;
     pub type c_int = i32;
+    pub const SIGINT: c_int = 2;
     pub const SIGTERM: c_int = 15;
     pub const SIGKILL: c_int = 9;
     extern "C" {
@@ -1208,6 +1226,7 @@ mod command_new_coverage_guard {
         ("src/commands/whisper.rs", 0),
         ("src/commands/video.rs", 0),
         ("src/commands/mlx.rs", 0),
+        ("src/commands/image_mflux.rs", 0),
         ("src/commands/search.rs", 0),
         ("src/commands/install_method.rs", 0),
         ("src/os_paths.rs", 0),
@@ -1235,6 +1254,9 @@ mod command_new_coverage_guard {
         // is explicit that a bundled sidecar stays raw, it needs exactly
         // the AppImage-bundled libraries the adapter would strip out.
         ("src/commands/engine.rs", 2),
+        // The login shell that is asked for the user's PATH on a Mac is a
+        // foreign program like any other and goes through the adapter.
+        ("src/finder_path.rs", 0),
     ];
 
     /// Runde 3, Nachbesserung 10: the review caught this before it bit
@@ -1347,5 +1369,71 @@ mod command_new_coverage_guard {
                  call(s) near {needle:?}, found {adapter_calls}"
             );
         }
+    }
+}
+
+/// Windows-Gegenprobe, 09.10.2026: `kill_listeners_on_port` exists on the Mac
+/// alone, and a call without the same gate compiles on the Mac and nowhere
+/// else. `mlx.rs` had one, and the branch did not build on Windows. Nothing
+/// on a Mac says so, so this reads the sources on every platform.
+#[cfg(test)]
+mod mac_only_port_sweep_guard {
+    const CALL: &str = "kill_listeners_on_port(";
+    const GATE: &str = "#[cfg(target_os = \"macos\")]";
+
+    /// The lines that call the sweep without the gate on one of the three
+    /// lines before them (the attribute, or the attribute and the brace of
+    /// its block). Comments and the definition itself are not calls.
+    fn ungated_calls(src: &str) -> Vec<usize> {
+        let lines: Vec<&str> = src.lines().collect();
+        (0..lines.len())
+            .filter(|&i| {
+                let line = lines[i].trim_start();
+                line.contains(CALL) && !line.starts_with("//") && !line.starts_with("pub fn ")
+            })
+            .filter(|&i| !lines[i.saturating_sub(3)..i].iter().any(|l| l.trim() == GATE))
+            .map(|i| i + 1)
+            .collect()
+    }
+
+    fn rust_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).expect("src is readable").flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                rust_files(&path, out);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                out.push(path);
+            }
+        }
+    }
+
+    #[test]
+    fn every_call_of_the_mac_only_port_sweep_is_gated_like_the_sweep() {
+        let mut files = Vec::new();
+        rust_files(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut files);
+        assert!(files.len() > 50, "only {} sources were read", files.len());
+        let mut calls = 0;
+        let mut open: Vec<String> = Vec::new();
+        for file in &files {
+            let src = std::fs::read_to_string(file).expect("a source file is readable");
+            // This module names the call in its own text and is not a caller.
+            let src = src.split("mod mac_only_port_sweep_guard").next().unwrap_or_default();
+            calls += src.lines().filter(|l| l.contains(CALL) && !l.trim_start().starts_with("//")).count();
+            open.extend(ungated_calls(src).into_iter().map(|line| format!("{}:{line}", file.display())));
+        }
+        assert!(calls >= 3, "the definition and its callers were not found, the guard reads nothing");
+        assert!(open.is_empty(), "these calls do not compile on Windows and Linux:\n{}", open.join("\n"));
+    }
+
+    #[test]
+    fn the_guard_sees_a_call_without_the_gate() {
+        let gated = "fn a() {\n    #[cfg(target_os = \"macos\")]\n    crate::process_util::kill_listeners_on_port(1);\n}\n";
+        let block = "fn a() {\n    #[cfg(target_os = \"macos\")]\n    {\n        kill_listeners_on_port(1);\n    }\n}\n";
+        let bare = "fn a() {\n    stop();\n    crate::process_util::kill_listeners_on_port(1);\n}\n";
+        let comment = "// kill_listeners_on_port(1) was here\n";
+        assert!(ungated_calls(gated).is_empty());
+        assert!(ungated_calls(block).is_empty());
+        assert!(ungated_calls(comment).is_empty());
+        assert_eq!(ungated_calls(bare), vec![3]);
     }
 }

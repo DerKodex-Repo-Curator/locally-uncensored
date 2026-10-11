@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './support/tauri-mock'
 import { seedOnboardingDone } from './support/cloud-mock'
+import { appModules, type AppWindow } from './support/ui'
 
 /**
  * October 2026, the owner's box (RTX 3060, 12 GB): Z-Image stood more than
@@ -126,10 +127,11 @@ test('Create: the tight model says so in the picker, and a load past a minute na
   await expect(list).toBeHidden()
 
   // The waiting area, in the load phase, on the app's own store.
+  // Loaded before the clock is installed: waiting for a module polls on the page's clock.
+  await appModules(page, ['/src/stores/createStore.ts'])
   await page.clock.install()
-  await page.evaluate(async () => {
-    const path = '/src/stores/createStore.ts'
-    const { useCreateStore } = await import(/* @vite-ignore */ path)
+  await page.evaluate(() => {
+    const { useCreateStore } = (window as unknown as AppWindow).__APP__['/src/stores/createStore.ts']
     const s = useCreateStore.getState()
     s.setIsGenerating(true)
     s.setProgressPhase('loading-model')

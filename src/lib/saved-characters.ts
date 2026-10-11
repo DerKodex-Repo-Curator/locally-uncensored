@@ -1,4 +1,4 @@
-// A character saved as photos (Discord, applejames, 2026-10: "If I like the
+// A character saved as photos (Discord, 2026-10: "If I like the
 // look of a character who appeared in a video I generated, is there a way to
 // simply save that character?").
 //

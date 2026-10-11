@@ -19,7 +19,7 @@ export const MAX_STORED_REFERENCES = 4
  * How many reference images an Edit may carry BESIDES the source, for one
  * local image model. 0 hides the reference strip.
  *
- * GH #144 and Discord (s3aldra 2026-09-23 and 09-27, tbjdrw 2026-09-25):
+ * GH #144 and Discord (a user 2026-09-23 and 09-27, a user 2026-09-25):
  * Edit took one image, so "put the person from this photo into that scene"
  * could not be asked at all. Read off the node schemas:
  *   - TextEncodeQwenImage21 (Qwen-Image 2.1) has an Autogrow group of

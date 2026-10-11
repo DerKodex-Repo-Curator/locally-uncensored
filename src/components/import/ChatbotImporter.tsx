@@ -117,7 +117,7 @@ export function ChatbotImporter() {
       <div className="flex items-start gap-2.5 p-2.5 rounded-lg border border-blue-200 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/[0.08] text-blue-900 dark:text-blue-200">
         <Upload size={14} className="mt-0.5 shrink-0" />
         <div className="t-micro leading-relaxed">
-          <strong>Import past conversations</strong> from ChatGPT, Claude, or Gemini exports. Each conversation lands in the active chat's RAG store, your local model can reference past turns just like any other document you upload. Stays on your machine.
+          <strong>Import past conversations</strong> from ChatGPT, Claude, or Gemini exports. Each conversation lands in the active chat's RAG store, your local model can reference past turns just like any other document you upload. The import is stored on this machine, and the passages that match a question go to the model you chat with.
         </div>
       </div>
 

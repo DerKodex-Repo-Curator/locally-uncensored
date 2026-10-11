@@ -26,7 +26,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 vi.mock('../../api/mlx-image', () => ({ isMlxImageHost: () => true, MLX_MODEL_PREFIX: 'MLX ' }))
 
 import { useCreateStore, deriveIntent } from '../createStore'
-import { visibleIntents } from '../../components/create/experimental/intents'
+import { visibleIntents, isIntentLocked, isIntentAvailable } from '../../components/create/experimental/intents'
 import type { CreateIntent } from '../createStore'
 
 const sichtbar = () => new Set(visibleIntents('local', true, true).map((m) => m.id))
@@ -65,17 +65,45 @@ describe('der Mac strandet nicht auf einem Werkzeug, das er lokal nicht hat', ()
     expect(liste.findIndex((m) => m.id === jetzt())).toBeGreaterThan(-1)
   })
 
-  it('eine lokale Bahn bleibt gewaehlt, samt der Wahl darunter', () => {
-    // Gegenrichtung. Music, Lipsync, Extend, Motion und Character laufen
-    // lokal, die duerfen der Aufraeumung nicht zum Opfer fallen. Und solange
-    // eine davon steht, ist das Grundwerkzeug gar nicht zu sehen, also bleibt
-    // auch img2img erhalten und ist beim Zurueckschalten noch da.
+  it('eine ComfyUI-Bahn bleibt auf dem Mac nicht stehen: sie ist dort ein gesperrter Cloud-Hinweis', () => {
+    // Bis zum 09.10.2026 stand hier das Gegenteil: Music, Lipsync, Extend,
+    // Motion und Character "laufen lokal" und blieben gewaehlt. Das gilt fuer
+    // ComfyUI. Auf einem Mac sind genau diese fuenf lokal gesperrt
+    // (`isIntentLocked`), und der Personen-Durchlauf fand die Wirkung: Cloud
+    // an, Music geoeffnet, Cloud aus, und Create zeigte den lokalen
+    // Music-Composer mit leerer Modellwahl und ohne gewaehlten Reiter.
+    const gesperrt = visibleIntents('local', true, true).filter((m) => isIntentLocked(m, 'local', true)).map((m) => m.id)
+    for (const bahn of ['music', 'lipsync', 'extend', 'motion', 'character'] as CreateIntent[]) {
+      expect(gesperrt, `${bahn} ist auf dem Mac lokal nicht gesperrt`).toContain(bahn)
+      useCreateStore.setState({ backend: 'cloud' })
+      useCreateStore.getState().setIntent(bahn)
+      expect(jetzt(), `${bahn} war nicht gewaehlt`).toBe(bahn)
+      useCreateStore.getState().setBackend('local')
+      expect(useCreateStore.getState().cloudOp, `${bahn} steht nach dem Umschalten noch da`).toBeNull()
+      expect(isIntentAvailable(jetzt(), 'local', true), `${jetzt()} ist nach ${bahn} kein lokaler Reiter`).toBe(true)
+    }
+  })
+
+  it('und die Werte der Bahn gehen nicht mit: die 50 Schritte von Music landen nicht beim Bildmodell', () => {
+    // Die erste Fassung der Korrektur nahm nur den `cloudOp` weg. Im Browser
+    // ging danach `mlx_generate` mit steps 50 an SD Turbo, ein Modell fuer
+    // vier Schritte. Der Mac verlaesst die Bahn deshalb wie ein Klick auf
+    // Image (`setIntent`), und der stellt die Werte der Bildbahn wieder her.
     useCreateStore.setState({ backend: 'cloud' })
+    useCreateStore.getState().setIntent('image')
+    useCreateStore.setState({ steps: 4 })
     useCreateStore.getState().setIntent('music')
-    useCreateStore.setState({ imageSubMode: 'img2img' })
+    expect(useCreateStore.getState().steps, 'Music hat seine eigenen Schritte nicht gesetzt').toBe(50)
     useCreateStore.getState().setBackend('local')
-    expect(jetzt()).toBe('music')
-    expect(useCreateStore.getState().imageSubMode).toBe('img2img')
+    expect(jetzt()).toBe('image')
+    expect(useCreateStore.getState().steps).toBe(4)
+  })
+
+  it('eine Video-Bahn faellt auf Video zurueck, nicht auf Image', () => {
+    useCreateStore.setState({ backend: 'cloud' })
+    useCreateStore.getState().setIntent('extend')
+    useCreateStore.getState().setBackend('local')
+    expect(jetzt()).toBe('video')
   })
 
   it('ein hosted-only Werkzeug faellt weiter weg, wie bisher', () => {

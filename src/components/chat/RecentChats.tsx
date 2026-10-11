@@ -1,7 +1,7 @@
 /**
  * The recent-chats list on the empty chat screen.
  *
- * Ported from apps/web/components/chat/CloudLauncher.tsx:66-115. David asked
+ * Ported from the web app. The owner asked
  * for the web behaviour: while the side panel is collapsed the latest chats
  * live in the main area, and the moment the panel is expanded they belong to
  * the panel again and disappear from here. ChatView owns that condition; this
@@ -19,7 +19,7 @@ import { conversationMode } from '../../lib/conversation-mode'
 /** Same cut as the web list: newest first, eight rows. */
 const MAX_ROWS = 8
 
-/** GH #141 (Wruktarr): the list follows the mode picked in the rail, exactly
+/** GH #141: the list follows the mode picked in the rail, exactly
  *  like the expanded panel does (Sidebar.tsx filters its rows by chatMode).
  *  It used to show plain chats under Code and Remote too. */
 const HEADING: Record<string, string> = {

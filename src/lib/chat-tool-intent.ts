@@ -1,5 +1,5 @@
 /**
- * Curated tools in PLAIN chat (David 2026-06-11: "web search web fetch file
+ * Curated tools in PLAIN chat (2026-06-11: "web search web fetch file
  * write und image und video mcp sollen auch im normalen chat funktionieren").
  *
  * Plain chat should be able to reach a small, fixed set of capabilities WITHOUT
@@ -186,7 +186,7 @@ export function detectChatToolIntent(text: string, hasImages = false): boolean {
   return detectChatToolCapability(text, hasImages) !== null
 }
 
-// ── Context-aware media continuation (David 2026-06-20) ────────────────
+// ── Context-aware media continuation (2026-06-20) ────────────────
 //
 // The single-message detector above is blind to conversation context: once a
 // media task is underway, the natural FOLLOW-UPS a user types carry no

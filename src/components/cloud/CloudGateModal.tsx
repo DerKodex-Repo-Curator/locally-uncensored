@@ -1,7 +1,7 @@
 // The gate in front of the global Cloud mode. Opened by the header's purple
 // Cloud switch whenever the cloud axis isn't usable yet.
 //
-// David 2026-09-13: OHNE Sitzung steht hier das Verkaufs-Panel, nicht mehr ein
+// 2026-09-13: OHNE Sitzung steht hier das Verkaufs-Panel, nicht mehr ein
 // Anmeldefenster. Der abgemeldete Weg hat seitdem zwei Schritte statt drei:
 //
 //   (1) `CloudSalesPanel`. Was hinter dem Schalter liegt, in drei gezaehlten
@@ -17,7 +17,7 @@
 //
 // Jeder Zustand ohne Abo bietet weiter den Weg zurueck auf Local. Sobald
 // deriveCloudAvailable durchgeht, kippt der Modus. Bezahlt wird auf
-// lu-labs.ai, die App fasst Stripe nicht an.
+// lu-labs.ai, die App fasst keine Zahlung an.
 
 import { useEffect, useState } from 'react'
 import { ExternalLink, HardDrive, RefreshCw, ArrowLeft, ArrowRight, Check } from 'lucide-react'
@@ -28,11 +28,12 @@ import { useCloudAuthStore, deriveCloudAvailable } from '../../stores/cloudAuthS
 import { useCloudAuth } from '../../hooks/useCloudAuth'
 import { AccountPanel } from '../auth/AccountPanel'
 import { CLOUD_BASE } from '../../api/cloud/config'
-import { openExternal } from '../../api/backend'
+import { openExternal, isMacOS } from '../../api/backend'
 import { MONOGRAM, MONOGRAM_INVERT } from '../layout/brand'
 import { CLOUD_PITCH, CLOUD_SUBSCRIBER_LINE, cloudSalesLines } from '../../lib/cloud-pitch'
 import { PAST_DUE_ACTION, pastDueLine } from '../../lib/past-due'
 import { Hinweis } from '../ui/Hinweis'
+import { cloudGateHeadline } from '../../lib/mac-pc-words'
 
 const PLANS = [
   { anchor: 'hosted', name: 'Hosted', price: '€19' },
@@ -62,7 +63,7 @@ function PlanGrid() {
   )
 }
 
-/** Deliberately big (David 2026-07-18): the way back to Local must be as
+/** Deliberately big (2026-07-18): the way back to Local must be as
  *  unmissable as the plans, in every gate state. */
 function StayLocalButton({ onLocal }: { onLocal: () => void }) {
   return (
@@ -79,8 +80,8 @@ function StayLocalButton({ onLocal }: { onLocal: () => void }) {
  * A renewal payment failed and nothing else keeps the account running. The
  * gate says that, in the account panel's own sentence, and leads to the open
  * invoice. No plan buttons here: the server refuses a new plan (409) until the
- * invoice is settled. Paying happens on lu-labs.ai, the app does not touch
- * Stripe.
+ * invoice is settled. Paying happens on lu-labs.ai, the app takes no
+ * payment.
  */
 function PastDueNotice({ tier }: { tier: string | null }) {
   return (
@@ -105,7 +106,7 @@ const linkRow =
   'flex items-center justify-center gap-1 text-[0.68rem] text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors'
 
 /**
- * Das Verkaufs-Panel, das der Wolkenschalter OHNE Sitzung zeigt (David,
+ * Das Verkaufs-Panel, das der Wolkenschalter OHNE Sitzung zeigt (der Inhaber,
  * 13.09.2026).
  *
  * Bis hierher zeigte derselbe Klick ein Login-Fenster. Das ist die falsche
@@ -115,7 +116,7 @@ const linkRow =
  * Nebenweg fuer den stehen, der schon Kunde ist.
  *
  * Gekauft wird im Browser, nicht hier: der Knopf oeffnet `/pricing`. Die App
- * hat nie Stripe angefasst und faengt damit auch jetzt nicht an.
+ * hat nie eine Zahlung angefasst und faengt damit auch jetzt nicht an.
  *
  * Schlicht mit Absicht (Auftrag): dieselben Tailwind-Marken wie die uebrigen
  * Dialoge, derselbe Knopfstil, kein Verlauf, kein Leuchten, kein Emoji.
@@ -128,7 +129,7 @@ function CloudSalesPanel({ onSignIn }: { onSignIn: () => void }) {
           Cloud
         </span>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white max-w-xs">
-          Run uncensored models in the cloud, no GPU needed.
+          {cloudGateHeadline(isMacOS())}
         </h2>
         <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 max-w-xs">
           Turn on Cloud to reach the full catalogue from any machine. Your local
@@ -172,7 +173,7 @@ function CloudSalesPanel({ onSignIn }: { onSignIn: () => void }) {
   )
 }
 
-/** The LU monogram that headlines every step (David 2026-07-13: the stock
+/** The LU monogram that headlines every step (2026-07-13: the stock
  *  cloud glyph is gone from this flow — the black/white mark stands on its
  *  own, matching the one-time intro popup). */
 function CloudHero({ subtitle }: { subtitle?: string }) {

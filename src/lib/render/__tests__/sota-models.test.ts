@@ -1,18 +1,17 @@
 // Die Modelle aus offenen Familien, aufgenommen am 02.10.2026, im Desktop.
 //
-// Regel von David: neu aufgenommen wird nur, was aus einer Familie stammt, die
+// Regel vom Inhaber: neu aufgenommen wird nur, was aus einer Familie stammt, die
 // je offene Gewichte veroeffentlicht hat. Bestehende Modelle bleiben, auch
 // geschlossene. Entscheid vom 06.10.2026: ausgeliefert werden Wan 3.0
 // Reference, LTX 2.5, MiniMax H3 und Qwen Image 2.1 samt Edit. Dieser Fall
 // haelt fest, dass jedes dieser Modelle im Cloud-Modus des Desktops wirklich
-// ankommt: mit Schema, mit einem Preis, der nie unter dem
-// Einkaufspreis liegt, in genau einer Rolle und an der Stelle, an der der Kunde
+// ankommt: mit Schema, mit einem Preis,
+// in genau einer Rolle und an der Stelle, an der der Kunde
 // es waehlen kann. Der Desktop liest den Katalog vom Server: alle Waehler-Faelle
 // laufen darum gegen den Katalog des neuen Servers (neuerServer), und der
 // Gegenfall gegen den alten steht in alter-server.test.ts.
 //
-// Aus dem Web uebernommen (apps/web/lib/render/__tests__/sota-models.test.ts)
-// ohne die Faelle, die Serverdateien lesen (WS_PRICE_BASELINE, ownStudioPaths).
+// Aus dem Web uebernommen, ohne die Faelle, die Serverdateien lesen.
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { STUDIO_MODELS, studioCredits, studioOptions, studioSchema, studioFields } from '../studio-contract'
@@ -26,18 +25,18 @@ import { intentPickerModels } from '../create-studio'
 import { neuerServer } from './fixtures/test-catalogs'
 import prices from './fixtures/studio-prices-2026-10-02.json'
 
-/** Ein Credit kostet uns 0,00001 Dollar (Web: CREDIT_USD). */
+/** Rechnet eine Zeile der Preistabelle in Credits um. */
 const CREDIT_USD = 1e-5
 
 /** Jedes Modell dieser Aufnahme, mit dem Endpunkt, den der Anbieter listet. */
 const NEU: Record<string, string> = {
-  'qwen-image-2.1': 'wavespeed-ai/qwen-image-2.1/text-to-image',
-  'qwen-image-2.1-edit': 'wavespeed-ai/qwen-image-2.1/edit',
-  'ltx-2.5-t2v': 'wavespeed-ai/ltx-2.5/text-to-video',
-  'ltx-2.5-i2v': 'wavespeed-ai/ltx-2.5/image-to-video',
-  'minimax-h3-t2v': 'wavespeed-ai/minimax-h3/text-to-video',
-  'minimax-h3-ref': 'wavespeed-ai/minimax-h3/reference-to-video',
-  'minimax-h3-video-edit': 'wavespeed-ai/minimax-h3/video-edit',
+  'qwen-image-2.1': 'base/qwen-image-2.1/text-to-image',
+  'qwen-image-2.1-edit': 'base/qwen-image-2.1/edit',
+  'ltx-2.5-t2v': 'base/ltx-2.5/text-to-video',
+  'ltx-2.5-i2v': 'base/ltx-2.5/image-to-video',
+  'minimax-h3-t2v': 'base/minimax-h3/text-to-video',
+  'minimax-h3-ref': 'base/minimax-h3/reference-to-video',
+  'minimax-h3-video-edit': 'base/minimax-h3/video-edit',
   'wan-3.0-ref': 'alibaba/wan-3.0/reference-to-video',
 }
 
@@ -60,7 +59,7 @@ describe('die neuen Modelle aus offenen Familien', () => {
     expect(new Set(endpoints).size).toBe(endpoints.length)
     expect(STUDIO_MODELS['qwen-image-3-edit'].endpoint).toBe('alibaba/qwen-image-3.0/edit')
     expect(Object.values(NEU)).not.toContain('alibaba/qwen-image-3.0/edit')
-    expect(Object.values(NEU)).not.toContain('wavespeed-ai/minimax-h3/image-to-video')
+    expect(Object.values(NEU)).not.toContain('base/minimax-h3/image-to-video')
     expect(Object.values(NEU)).not.toContain('alibaba/wan-3.0/image-to-video')
     expect(Object.values(NEU)).not.toContain('black-forest-labs/flux-3/video-upscale')
   })
@@ -108,9 +107,9 @@ describe('die neuen Modelle aus offenen Familien', () => {
   })
 })
 
-describe('der Preis liegt nie unter dem Einkaufspreis', () => {
+describe('der Preis folgt der Preistabelle', () => {
   const EXAKT_AUSNAHME = new Set(['qwen-image-2.1-edit', 'minimax-h3-ref'])
-  it.each(prices)('$model $options: Credits >= was der Anbieter berechnet', (row) => {
+  it.each(prices)('$model $options: Credits decken die Zeile der Tabelle', (row) => {
     const options = studioOptions(row.model, '', row.options, false)
     const credits = studioCredits(row.model, options, (row as { seconds?: number }).seconds, (row as { imageCount?: number }).imageCount ?? 1, row.promptLength)
     const einkauf = Math.round(row.usd / CREDIT_USD)
@@ -119,7 +118,7 @@ describe('der Preis liegt nie unter dem Einkaufspreis', () => {
     else expect(credits).toBe(einkauf)
   })
 
-  it('bucht dieselbe Creditzahl wie bei vergleichbaren Modellen: eins zu eins zum Einkauf', () => {
+  it('bucht dieselbe Creditzahl wie bei vergleichbaren Modellen: eins zu eins zur Tabelle', () => {
     const alt = studioCredits('minimax-h3', studioOptions('minimax-h3', 'x', { duration: 5, resolution: '480p' }))
     const neu = studioCredits('minimax-h3-t2v', studioOptions('minimax-h3-t2v', 'x', { duration: 5, resolution: '480p' }))
     expect(alt).toBe(Math.round(0.2 / CREDIT_USD))

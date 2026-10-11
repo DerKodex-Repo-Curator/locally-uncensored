@@ -34,7 +34,7 @@ npm run dev           # serves at http://localhost:5173
 npm run tauri:build
 ```
 
-Most pull requests only need `npm run tauri:dev`. Thanks to @k-wilkinson for
+Most pull requests only need `npm run tauri:dev`. Thanks to a user for
 flagging that these commands weren't spelled out here.
 
 #### ComfyUI CORS when you run your own instance
@@ -51,7 +51,7 @@ python main.py --listen 127.0.0.1 --port 8188 --enable-cors-header "*"
 ```
 
 LU's own auto-started ComfyUI already passes this flag — you only need it when
-you're bringing your own. Thanks to @diimmortalis for flagging this in Discord.
+you're bringing your own. Thanks to a user for flagging this in Discord.
 
 ### Project Structure
 

@@ -71,7 +71,7 @@ export interface ImproveWriter {
 
 const WRITER_LABEL: Record<ImproveWriter['id'], string> = {
   official: 'Qwen enhancer',
-  unfiltered: 'Qwen enhancer, no refusals',
+  unfiltered: 'Qwen enhancer, No Filter',
   chat: 'Chat model',
 }
 

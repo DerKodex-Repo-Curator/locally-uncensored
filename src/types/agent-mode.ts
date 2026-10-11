@@ -194,7 +194,7 @@ export interface MemoryFile {
 export interface MemorySettings {
   // Both ship ON: stores/memoryStore.ts sets them true for a fresh profile and
   // for the migration of an old one. Auto-extraction is opt-OUT, and it costs
-  // a second inference call. David decided that on 12.09.2026 (R2-48, R5-27),
+  // a second inference call. The owner decided that on 12.09.2026 (R2-48, R5-27),
   // together with the cloud gate that used to keep it silently dead on the
   // desktop (settings.memoryCloudOptIn, lib/constants.ts). What it costs
   // stands next to the switch that turns it off.
@@ -205,7 +205,7 @@ export interface MemorySettings {
   // User override for how many memories get injected into the prompt. null =
   // auto (derive from the model's context size via MEMORY_BUDGET_TIERS).
   // Set a number to take manual control instead of "32k ctx = 15 memories"
-  // (David 2026-06-07). The token budget scales with it so the extra entries
+  // (2026-06-07). The token budget scales with it so the extra entries
   // actually fit. Optional for back-compat with pre-2.5.1 persisted settings.
   maxMemoriesOverride?: number | null
 }

@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { frameFlush } from '../lib/frame-flush'
-import { useRunActivityStore, toolProgressActivity } from '../stores/runActivityStore'
+import { useRunActivityStore, toolProgressActivity, waitBeforeRetry } from '../stores/runActivityStore'
 import { markCannotThink } from '../lib/model-compatibility'
 import {
   type ApprovalEntry,
@@ -35,7 +35,7 @@ import { buildRagSuffix, RETRIEVAL_FAILED_MESSAGE } from '../lib/rag-prompt'
 import { toolRegistry } from '../api/mcp'
 import { usePermissionStore } from '../stores/permissionStore'
 import { CODEX_CONFIRM_TOOLS, codexConfirmEnabled } from './codexShellGate'
-import { isThinkingCompatible, isPlainTextPlanner, declaredVision } from '../lib/model-compatibility'
+import { isThinkingCompatible, isPlainTextPlanner, declaredVision, isVisionCompatible } from '../lib/model-compatibility'
 import { resolveToolCallingStrategy } from '../lib/agent-strategy'
 import { isMultimodalUnsupportedError, MULTIMODAL_UNSUPPORTED_MESSAGE } from '../lib/ollama-errors'
 import { stripVisionFeedbackMessages, reportMultimodalRefusal } from '../lib/vision-heal'
@@ -45,10 +45,12 @@ import { buildHermesToolPrompt, buildHermesToolResult, buildHermesToolCall, pars
 import { parseLooseToolCalls, stripMatchedCalls, stripToolCallText, repairToolCall } from '../lib/loose-tool-parse'
 import { mediaCallSucceeded } from '../lib/media-result'
 import { summarizeTurn } from '../lib/turn-summary'
-import { buildVisionFeedback } from '../api/vision-feedback'
+import { buildVisionFeedback, dropOlderScreenFrames } from '../api/vision-feedback'
+import { COMPUTER_USE_TOOL_NAME, onlyTheTaskForTheScreen, withComputerUsePrompt } from '../lib/computer/prompt'
+import { memoryPairForRun } from '../lib/computer/memory-policy'
 import { getModelMaxTokens, estimateTokens } from '../lib/context-compaction'
 import { buildRequestMessages, trimWorkingHistory } from '../lib/context-decay'
-import { effectiveSendWindow, sendWindowFor } from '../lib/send-window'
+import { budgetBesideTheCatalog, effectiveSendWindow, sendWindowFor } from '../lib/send-window'
 import { sendsToALanBackend } from '../lib/lan-openai-slot'
 import { useSendSizeStore } from '../stores/sendSizeStore'
 import { resolveAgentNumCtx } from '../lib/agent-num-ctx'
@@ -60,6 +62,13 @@ import { autoSpeak } from '../lib/ttsBridge'
 import { getProviderIdFromModel } from '../api/providers'
 import { markToolsUnsupported } from '../api/tool-capability'
 import { extractMemoriesFromPair } from './useMemory'
+import { createChatLive, createSystemText, isCreateToolName, withCreateText } from '../lib/create/chat-switch'
+import {
+  CREATE_CLAIM_NOTE, CREATE_CLAIM_STEER, CREATE_ORDER_CLAIM_NOTE, CREATE_ORDER_CLAIM_STEER, CREATE_ORDER_TOOL, claimsCreateOrder, claimsCreateWork, createCallAllowed, createCallSteer, openOrder,
+  newCreateCallState, noteCreateResult,
+} from '../lib/create/chat-control'
+import { useCreateOrderStore } from '../stores/createOrderStore'
+import { attachmentNote, registerMessageMedia, sendImagesToModel, type PendingMedia } from '../lib/create/chat-attachments'
 import { useAgentWorkflowStore } from '../stores/agentWorkflowStore'
 import { WorkflowEngine, describeWorkflowCompletion, describeWorkflowStepFailure } from '../lib/workflow-engine'
 import type { AgentBlock, AgentToolCall } from '../types/agent-mode'
@@ -108,7 +117,10 @@ import { findUnbackedLinks, unbackedLinksSteer } from '../lib/unbacked-links'
 import { useTodoStore } from '../stores/todoStore'
 import { platformPromptLine, hostClockLine } from '../lib/host-platform'
 import { explainSendRefusal } from '../lib/template-refusal'
+import { emptyAnswerExplanation } from '../lib/answer-notes'
+import { beginModelSwitchWatch, cutByModelSwitch, finishReasonAfterSwitch, MODEL_SWITCH_FINISH } from '../lib/model-switch-stop'
 import { httpStatusOf, isTerminalModelError, retryDelayMs } from '../lib/http-status'
+import { requestLimitMessageOf } from '../lib/request-limit'
 import { shouldDowngradeThinking, engineDeniedThinking } from './codex/thinking-downgrade'
 import { capHiddenToolHistory } from './codex/hidden-history'
 // Derselbe Satz wie im Code Reiter, aus derselben Datei: der Fall ist
@@ -273,7 +285,7 @@ export function useAgentChat() {
   const sendAgentMessage = useCallback(async (
     userContent: string,
     userImages?: import('../types/chat').ImageAttachment[],
-    // Chat-Tools mode (David 2026-06-11): plain chat routes a tool-worthy turn
+    // Chat-Tools mode (2026-06-11): plain chat routes a tool-worthy turn
     // here with a CURATED allow-list (the 5 chat tools) + a chat-style prompt,
     // so web/file/image/video work without flipping to full Agent mode. When
     // unset, this is the normal autonomous-agent path (full tool catalog).
@@ -289,11 +301,18 @@ export function useAgentChat() {
       readOnly?: boolean
       /** Carried by the /loop driver so a pass knows which pass it is. */
       loop?: { pass: number; intervalMs: number; task: string; startedAt: number }
-      // Chat-tools router hint (David 2026-06-20): when a bare follow-up like
+      // Chat-tools router hint (2026-06-20): when a bare follow-up like
       // "nochmal"/"ok generiere jetzt" continues an in-progress media task, the
       // router passes the task kind + the prior generation's exact args so a weak
       // model that can't emit the call still gets the SAME media synthesized.
       mediaHint?: { kind: 'image' | 'video'; args?: Record<string, unknown> }
+      /** Create in chat is on: create_options and create_order go along, the
+       *  system prompt gets the Create paragraph, and the loop lets one order
+       *  through per reply (lib/create/chat-control.ts). */
+      createTools?: boolean
+      /** Clips and sound tracks for Create in chat. The message keeps only
+       *  the facts, the bytes stay in the session. */
+      media?: PendingMedia[]
       /**
        * Die Nutzernachricht dieses Zuges reist versteckt.
        *
@@ -725,7 +744,7 @@ export function useAgentChat() {
     // conversation. Both loops shared the streaming refs AND each kept its
     // OWN per-turn over-generation caps (maxImageGen/maxVideoGen), so each
     // fired its own image/video tool, live repro: ONE prompt sent twice ran
-    // video_generate 4x (gemma4:e4b + SVD-XT, David 2026-06-16). Claim the
+    // video_generate 4x (gemma4:e4b + SVD-XT, 2026-06-16). Claim the
     // lock synchronously HERE, strategy resolution above can await, the
     // critical section (message add, run state, the loop) is all below, so
     // a racing second call for the SAME conversation bails before
@@ -750,8 +769,9 @@ export function useAgentChat() {
     // live from the next line on: cleared after the awaits below, it wiped a
     // Stop pressed right after Send and the run went on (Gegenprobe 01.10.2026).
     if (!opts?.loop) beginRun(convId)
+    beginModelSwitchWatch(convId)
     // Flip the INPUT gate true in the SAME synchronous beat as the claim
-    // above (David 2026-06-16, bug A). The input shows Send vs Stop off
+    // above (2026-06-16, bug A). The input shows Send vs Stop off
     // `isAgentRunning`, which used to flip true only ~80 lines down, AFTER
     // the RAG + memory-retrieval awaits. In that window the guard was
     // already claimed (so it silently dropped a resend) while the input
@@ -827,7 +847,7 @@ export function useAgentChat() {
     // is not an inspection command.
     //
     // Chat-tools (plain chat) → "file writes" become in-chat artifacts
-    // (preview + download), never disk writes (ChatGPT-style, David
+    // (preview + download), never disk writes (ChatGPT-style, the owner
     // 2026-06-12). Full Agent mode keeps writing to disk, so artifactMode is
     // ON only for chatToolsMode.
     const run: AgentRunContext = beginAgentRun({
@@ -880,6 +900,12 @@ export function useAgentChat() {
       opts?.chatToolsMode === true ? 'chat' : 'workspace',
     )
 
+    // Create on: the model learns what hangs on the message (a model without
+    // eyes would not see an image, and no model sees a clip). The customer
+    // still sees only their own text.
+    const media = opts?.media ?? []
+    const createNote = opts?.createTools ? attachmentNote(userImages ?? [], media) : ''
+
     // Add user message
     const userMessage = {
       id: uuid(),
@@ -888,12 +914,15 @@ export function useAgentChat() {
       // typed text alone as what the bubble shows. `userContent` itself stays
       // the typed text for retrieval, memory and tool selection below.
       ...fileFields,
+      ...(createNote ? { content: `${fileFields.content}\n\n${createNote}`, displayContent: fileFields.displayContent ?? userContent } : {}),
       // Slash command: show "/commit" to the user, keep the expansion in content.
       ...(opts?.displayContent ? { displayContent: opts.displayContent } : {}),
       ...(opts?.hiddenUser ? { hidden: true } : {}),
+      ...(media.length ? { media: media.map(({ kind, mimeType, name, size }) => ({ kind, mimeType, name, size })) } : {}),
       images: userImages,
       timestamp: Date.now(),
     }
+    registerMessageMedia(userMessage.id, media.map((m) => m.blob))
     useChatStore.getState().addMessage(convId, userMessage)
 
     // Add empty assistant message
@@ -984,8 +1013,24 @@ export function useAgentChat() {
     // model in plain chat only ever sees the 5 chat tools (and small models
     // aren't drowned in the full ~24-tool set).
     const curated = opts?.curatedTools
+    // A local model does a screen task in a conversation of its own
+    // (computer_task): a short loop with its own history and its own rules
+    // for when to stop. Step by step in this chat (computer_use) it carried
+    // every look in the history of the chat and went in circles (box,
+    // 09.10.2026). A cloud model keeps both.
+    const screenByTaskOnly = onlyTheTaskForTheScreen(providerId, (name) => !!toolRegistry.getToolByName(name))
     const toolMatchesCurated = (name: string) =>
-      (!curated || curated.includes(name)) && !(opts?.readOnly && !allowedInReadOnlyTurn(name))
+      (!curated || curated.includes(name)) && !(opts?.readOnly && !allowedInReadOnlyTurn(name)) && !(screenByTaskOnly && name === COMPUTER_USE_TOOL_NAME)
+    // Cloud mode AND Create in chat released for the account. Without the
+    // release every text and rule in this loop is the one that shipped before.
+    const createLive = createChatLive()
+    // Create on: the two tools go along with every message. The relevance
+    // router knows no keyword for them and would drop them on "what a nice
+    // day"; they are put back, whatever it chose.
+    const withCreateTools = <T extends { name: string }>(chosen: T[], all: T[]): T[] =>
+      opts?.createTools
+        ? [...chosen, ...all.filter((t) => isCreateToolName(t.name) && toolMatchesCurated(t.name) && !chosen.some((c) => c.name === t.name))]
+        : chosen
 
     // ── Die Werkzeugliste fuer den Rueckfallweg ─────────────────────────────
     //
@@ -1019,12 +1064,12 @@ export function useAgentChat() {
       todos: convId ? useTodoStore.getState().getTodos(convId) : [],
     })
     const hermesToolDefs = strategy === 'hermes_xml'
-      ? gatePlanTool(await selectRelevantToolsAsync(
+      ? withCreateTools(gatePlanTool(await selectRelevantToolsAsync(
           userContent,
           toolRegistry.getAll().filter((t) => toolMatchesCurated(t.name)),
           permissions,
           toolSelectionOpts(!!settings.smallModelMode, (texts) => generateEmbeddings(texts)),
-        ), planAllowed)
+        ), planAllowed), toolRegistry.getAll())
       : []
     // Small-Model Mode (Knob 2): swap the ~3000-char agent prompt for a lean
     // ~750-char one on the native path. Der Hermes-Zweig behaelt seine eigene
@@ -1050,7 +1095,12 @@ export function useAgentChat() {
     let agentSystemPrompt = strategy === 'hermes_xml'
       ? buildHermesToolPrompt(hermesToolDefs) + (systemPrompt ? `\n\n${systemPrompt}` : '')
       : opts?.chatToolsMode
-        ? buildChatToolsSystemPrompt(systemPrompt)
+        // A turn that carries only the Create tools gets the plain assistant
+        // line (their paragraph is appended below); one that carries Create
+        // next to web and file does not name the two local media tools.
+        ? buildChatToolsSystemPrompt(systemPrompt, opts.createTools
+            ? { media: false, tools: !curated || curated.some((n) => !isCreateToolName(n)) }
+            : {})
         : settings.smallModelMode
           // Lean names only what survives the 6-tool cap, which is exactly the
           // always-included set; the rest is in the request's tool list.
@@ -1059,6 +1109,16 @@ export function useAgentChat() {
               renderToolNames(offeredTools.filter((t) => ALWAYS_INCLUDE.includes(t.name))),
             )
           : buildAgentSystemPrompt(systemPrompt, renderToolRoster(offeredTools))
+    // Computer control: the rules for the screen travel with the tool. The
+    // section is only there when the user switched the tool on.
+    agentSystemPrompt = withComputerUsePrompt(agentSystemPrompt, offeredTools.map((t) => t.name))
+    // Create in chat: on = the paragraph; outside Cloud mode and without the
+    // account's release not a word. Off = not a word, unless the customer
+    // plainly asks for a medium in this message: then the note that points at
+    // the switch, for this turn only. Same text as the plain chat
+    // (hooks/useChat.ts). Read is what the customer typed, not the expansion
+    // of a slash command.
+    agentSystemPrompt = withCreateText(agentSystemPrompt, createSystemText(settings, activeModel, createLive, opts?.displayContent ?? userContent))
     // Standing goal (/goal) — same section Code injects, so the objective
     // survives a switch between the two surfaces.
     agentSystemPrompt += renderGoalSection(useAgentGoalStore.getState().getGoal(convId))
@@ -1128,6 +1188,10 @@ export function useAgentChat() {
     // wird waehrend des Laufs beschnitten und neu zugewiesen
     // (trimWorkingHistory), ein gemerkter Startindex waere danach falsch.
     const werkzeugKette: ChatMessage[] = []
+    // Create on and a model without eyes: the image is the template for an
+    // order, the model knows it from the note on the message.
+    const seesImages = declaredVision(useModelStore.getState().models.find((m) => m.name === activeModel)) ?? isVisionCompatible(activeModel)
+    const imagesToModel = sendImagesToModel(!!opts?.createTools, seesImages)
     let agentMessages: ChatMessage[] = [
       ...(agentSystemPrompt ? [{ role: 'system' as const, content: agentSystemPrompt }] : []),
       // 2.6.8: a recorded compaction stands in for everything up to its
@@ -1147,7 +1211,7 @@ export function useAgentChat() {
           content: m.role === 'user' && cavemanReminder
             ? `${cavemanReminder}\n${m.content}`
             : m.content,
-          ...(m.images?.length ? { images: m.images.map(img => ({ data: img.data, mimeType: img.mimeType })) } : {}),
+          ...(m.images?.length && imagesToModel ? { images: m.images.map(img => ({ data: img.data, mimeType: img.mimeType })) } : {}),
           // Bug B3 round 2: the store persists tool_calls and tool_call_id
           // (types/chat.ts says so, and says why), and this rebuild threw both
           // away. From the second user message of a chat on, the model got a
@@ -1179,7 +1243,7 @@ export function useAgentChat() {
     // guessing it holds the lane.
     run.heldLocalLane = heldLocalLane
     // Bind the generating flag to THIS conversation so the typing indicator
-    // shows only in the chat whose turn is in flight (David 2026-06-12).
+    // shows only in the chat whose turn is in flight (2026-06-12).
     // A Stop that landed before this point already released the slot, so the
     // finally below will not clear what is set here: marking the run as
     // generating now left "Working" counting with nothing behind it until a
@@ -1232,7 +1296,7 @@ export function useAgentChat() {
       agentMaxIterations: settings.agentMaxIterations ?? 25,
     })
 
-    // ── Over-loop guard (David 2026-06-04) ──────────────────────────────
+    // ── Over-loop guard (2026-06-04) ──────────────────────────────
     // LIVE: "mach mir ein bild von einer katze" made the SAME image 13× then
     // invented new prompts and ran 4min+. Root cause: the loop only ends at 0
     // tool calls, so a chatty model keeps emitting image_generate/video_generate.
@@ -1290,16 +1354,18 @@ export function useAgentChat() {
       }
     }
 
-    // Seed the media intent from the router's continuation hint too (David
+    // Seed the media intent from the router's continuation hint too (the owner
     // 2026-06-20): "ok generiere jetzt" carries no noun, so detecting wants from
     // the last message alone left wantsVideo=false and the synth fallback never
     // fired on a "regenerate the clip" follow-up. The hint says it's a video task.
     const hintKind = opts?.mediaHint?.kind
-    const wantsImage = hintKind === 'image' || /\b(bild|bilder|foto|image|picture|pic|draw|zeichne|mal(e|en)?|grafik|illustration|render)\b/i.test(userPromptText)
-    const wantsVideo = hintKind === 'video' || /\b(video|clip|animier\w*|animate|film|gif|bewegt|motion|mp4|webm)\b/i.test(userPromptText)
+    // With the Create tools in the turn, create_order makes the media, and an
+    // order is never rebuilt from prose: it needs the customer's approval.
+    const wantsImage = !opts?.createTools && (hintKind === 'image' || /\b(bild|bilder|foto|image|picture|pic|draw|zeichne|mal(e|en)?|grafik|illustration|render)\b/i.test(userPromptText))
+    const wantsVideo = !opts?.createTools && (hintKind === 'video' || /\b(video|clip|animier\w*|animate|film|gif|bewegt|motion|mp4|webm)\b/i.test(userPromptText))
     const maxImageGen = wantsVideo && !wantsImage ? 0 : 1
     // Video generation is turned OFF in the chat tools (video defaults to
-    // 'blocked' + locked toggle, David 2026-06-04). Respect that here so the
+    // 'blocked' + locked toggle, 2026-06-04). Respect that here so the
     // deterministic media-synthesis fallback below never force-creates a video
     // the user disabled.
     const videoAllowed = permissions.video !== 'blocked'
@@ -1310,9 +1376,14 @@ export function useAgentChat() {
     // (vision feedback). When it wasn't — video is never fed back, and a
     // text-only model can't see an image — we suppress the generic "your media
     // is above" closing line so the finished tool call + inline media stands on
-    // its own with no hollow comment behind it (David 2026-06-16).
+    // its own with no hollow comment behind it (2026-06-16).
     let visionFeedbackGiven = false
     let mediaSteered = false
+    // Create in chat: one order per reply, none after a refusal of the content
+    // check, and no claim that something is being made without an order.
+    const createCalls = newCreateCallState()
+    let createClaimSteered = false
+    let createOrderClaimSteered = false
     let mediaSynthesized = false
     let forceNoThink = false
     let dudRetried = false
@@ -1330,6 +1401,8 @@ export function useAgentChat() {
     // G17: budget for continuing past reasoning-only rounds mid-run.
     let reasoningContinuesRemaining = REASONING_CONTINUE_BUDGET
     const executedCallKeys = new Set<string>()
+    /** Size of the tool catalogue the step before sent. Zero before the first step. */
+    let catalogTokens = 0
     const callKey = (tc: { function: { name: string; arguments: unknown } }) =>
       tc.function.name + '|' + JSON.stringify(tc.function.arguments ?? {})
     // Loop-detection (audit follow-up): agent-loop-guard's own header says it
@@ -1437,9 +1510,9 @@ export function useAgentChat() {
         // splitter needs the same gate the end-of-turn routing uses.
         const keepThinking = agentThinkMode === 'always' || (settings.thinkingEnabled === true && canThinkAgent)
 
-        // num_ctx (David: "muss immer stimmen"). Shared resolver so the memory
-        // extraction that runs after this turn sends the SAME value and Ollama
-        // does not reload the model at its default between the two.
+        // The window of this run, as a number for the budgets below. What an
+        // Ollama model is SENT is the same number, resolved where the request
+        // is built from `window: 'agent'` (api/ollama.ts).
         const agentCtx: number = await resolveAgentNumCtx(
           modelId, providerId, settings.contextWindowOverride, activeModel,
         )
@@ -1447,7 +1520,7 @@ export function useAgentChat() {
         // page for whatever field it never touched. buildSamplingRequest
         // omits a field left at the app default; Small-Model Mode below
         // overrides temperature regardless, so it is not subject to that
-        // omission (it never was: David's clamp is a correctness measure,
+        // omission (it never was: the owner's clamp is a correctness measure,
         // not a preference the user can leave untouched).
         const convSampling = store.conversations.find((c) => c.id === convId)?.sampling
         const sampling = buildSamplingRequest(settings, convSampling)
@@ -1462,7 +1535,7 @@ export function useAgentChat() {
         const chatOptions = {
           ...sampling,
           topK: settings.topK,
-          contextWindow: agentCtx,
+          window: 'agent' as const,
           thinking: thinkOpt as unknown as boolean,
           reasoningEffort: settings.reasoningEffort,
           effortLevels: agentEffortLevels,
@@ -1494,6 +1567,13 @@ export function useAgentChat() {
           smallModelMode: settings.smallModelMode,
           localBackend: sendsToALanBackend(providerId),
         })
+        // The tool catalogue rides on the wire next to the messages and is
+        // not in their estimate. On a local 32K window that was the overflow
+        // (box, 09.10.2026: "request (33005 tokens) exceeds the available
+        // context size (32768 tokens)"): the messages alone were allowed 80 %
+        // of the window, and the catalogue came on top. So the catalogue of
+        // the step before comes off the budget of the messages.
+        const sendBudget = budgetBesideTheCatalog(sendWindow, catalogTokens)
         let sendMessages: ChatMessage[] = agentMessages.slice()
         let trimmedReadKeys: ReadonlySet<string> = NO_TRIMMED_KEYS
         try {
@@ -1503,9 +1583,9 @@ export function useAgentChat() {
           // moves every step is a prompt prefix that is never the same twice.
           // Whole messages are dropped here, never shortened: decay stays on
           // the send copy alone, so the store keeps every result complete.
-          agentMessages = trimWorkingHistory(agentMessages, sendWindow, { enabled: decayOn, hysteresis: decayOn }).messages
+          agentMessages = trimWorkingHistory(agentMessages, sendBudget, { enabled: decayOn, hysteresis: decayOn }).messages
           const built = buildRequestMessages(agentMessages, {
-            budgetTokens: sendWindow,
+            budgetTokens: sendBudget,
             enabled: decayOn,
             hysteresis: decayOn,
             keyOf: (m) => guardKeyOfResult.get(m as unknown as object),
@@ -1591,12 +1671,12 @@ export function useAgentChat() {
           // Als sie hier standen, gab es sie nur an DIESER Stelle — der
           // hermes_xml-Zweig oben nahm stattdessen den ganzen Katalog, und
           // niemandem fiel es auf, weil nichts brach.
-          const relevantDefs = gatePlanTool(await selectRelevantToolsAsync(
+          const relevantDefs = withCreateTools(gatePlanTool(await selectRelevantToolsAsync(
             lastUserMsg,
             toolRegistry.getAll().filter((t) => toolMatchesCurated(t.name)),
             permissions,
             toolSelectionOpts(!!settings.smallModelMode, (texts) => generateEmbeddings(texts)),
-          ), planAllowed)
+          ), planAllowed), toolRegistry.getAll())
           const tools: ToolDefinition[] = relevantDefs.map(t => ({
             type: 'function' as const,
             function: { name: t.name, description: t.description, parameters: t.inputSchema },
@@ -1607,6 +1687,7 @@ export function useAgentChat() {
           if (convId) {
             useSendSizeStore.getState().reportTools(convId, estimateTokens(JSON.stringify(tools)))
           }
+          catalogTokens = estimateTokens(JSON.stringify(tools))
 
           // Aus den beiden Transporten abgeleitet statt abgeschrieben. Die
           // abgeschriebene Fassung kannte `doneReason` nicht, und ein Feld, das
@@ -1616,7 +1697,7 @@ export function useAgentChat() {
             | Awaited<ReturnType<typeof streamOllamaChatWithTools>>
             | Awaited<ReturnType<typeof streamProviderTurn>>
 
-          // Token counter (David 2026-06-12): reflect the REAL prompt size — system
+          // Token counter (2026-06-12): reflect the REAL prompt size — system
           // prompt + tool defs + history — immediately, not a char/4 guess of just
           // the visible messages. Provisional estimate the model's exact count
           // overwrites below; only set while no real count has landed yet.
@@ -1637,7 +1718,7 @@ export function useAgentChat() {
             // the user stared at a frozen chat for 30-90 s while Gemma
             // thought (no tokens, no 3-dot, just dead air). Now content
             // and thinking land in real time.
-            // Connection-failure retry (David 2026-06-04): right after a VRAM
+            // Connection-failure retry (2026-06-04): right after a VRAM
             // hand-off reloads the text model, the very next call can race the
             // still-warming model and die as "Agent error: Connection failed"
             // (seen on gemma4 after its image). Retry transient errors a couple
@@ -1659,8 +1740,7 @@ export function useAgentChat() {
                     temperature: chatOptions.temperature,
                     thinking: chatOptions.thinking,
                     maxTokens: chatOptions.maxTokens,
-                    // Bug AA v2.5.0 — keep num_ctx override across the tool loop.
-                    contextWindow: chatOptions.contextWindow,
+                    window: chatOptions.window,
                     signal: abort.signal,
                   },
                   (c) => {
@@ -1712,7 +1792,7 @@ export function useAgentChat() {
                       temperature: chatOptions.temperature,
                       thinking: undefined,
                       maxTokens: chatOptions.maxTokens,
-                      contextWindow: chatOptions.contextWindow,
+                      window: chatOptions.window,
                       signal: abort.signal,
                     },
                     (c) => {
@@ -1726,13 +1806,13 @@ export function useAgentChat() {
                 // Retry ONLY transient failures. A deterministic client error
                 // (context overflow, empty wallet) repeats itself, so it has to
                 // surface at once instead of costing the user two backoffs.
-                const transient = asString(prop(thinkErr, 'name')) !== 'AbortError' && !isTerminalModelError(thinkErr)
+                const transient = asString(prop(thinkErr, 'name')) !== 'AbortError' && !isTerminalModelError(thinkErr) && !cutByModelSwitch(convId)
                 if (transient && connRetries < 2) {
                   connRetries++
                   const wait = retryDelayMs(thinkErr, connRetries)
                   log.warn('agent.model_call_retry', { attempt: connRetries, waitMs: wait, err: errorText(thinkErr) })
                   announceWait(thinkErr, wait)
-                  await new Promise((r) => setTimeout(r, wait))
+                  await waitBeforeRetry(convId, wait, abort.signal)
                   continue
                 }
                 throw thinkErr
@@ -1748,7 +1828,7 @@ export function useAgentChat() {
             // tool defs (ChatOptions.tools), tool-call deltas accumulate in
             // the provider and arrive on the done chunk. Until 2.6.0 this
             // branch waited on chatWithTools and painted the whole turn at
-            // once (David 2026-07-31).
+            // once (2026-07-31).
             //
             // Connection-failure retry kept from the non-streaming days: a
             // LOCAL LM Studio model gets unloaded + JIT-reloaded around an
@@ -1792,7 +1872,7 @@ export function useAgentChat() {
                 }
                 // Same one place as the Ollama branch above. This is also the
                 // transport where the 422 lives: `streamProviderTurn` calls
-                // provider.chatStream, and DeepInfra behind the LU Cloud proxy
+                // provider.chatStream, and the upstream behind the LU Cloud proxy
                 // answers a bad parameter with 422 rather than 400. That
                 // number used to be in useChat.ts only, so this branch ended
                 // the whole run where plain chat just retried.
@@ -1800,13 +1880,13 @@ export function useAgentChat() {
                   providerTurn = await streamProviderTurn(provider, modelToUse, sendMessages, { ...streamOpts, thinking: undefined as unknown as boolean }, onLiveContent, () => {}, onToolProgress)
                   break
                 }
-                const transient = asString(prop(thinkErr, 'name')) !== 'AbortError' && !isTerminalModelError(thinkErr)
+                const transient = asString(prop(thinkErr, 'name')) !== 'AbortError' && !isTerminalModelError(thinkErr) && !cutByModelSwitch(convId)
                 if (transient && connRetries < 2) {
                   connRetries++
                   const wait = retryDelayMs(thinkErr, connRetries)
                   log.warn('agent.model_call_retry', { attempt: connRetries, provider: providerId, waitMs: wait, err: errorText(thinkErr) })
                   announceWait(thinkErr, wait)
-                  await new Promise((r) => setTimeout(r, wait))
+                  await waitBeforeRetry(convId, wait, abort.signal)
                   continue
                 }
                 throw thinkErr
@@ -1838,7 +1918,7 @@ export function useAgentChat() {
 
         } else {
           // ── Hermes XML prompt-based tool calling ──
-          // Streamed like every other transport now (David 2026-07-31): the
+          // Streamed like every other transport now (2026-07-31): the
           // display filter keeps <tool_call> XML from ever flashing into the
           // bubble while prose lands token by token. The parse below still
           // runs on the FULL raw text, so extraction cannot differ from the
@@ -1846,7 +1926,7 @@ export function useAgentChat() {
           // which spoke Ollama's /api/chat and quietly mis-routed hermes
           // turns on every other provider.
           const display = createHermesDisplayFilter()
-          // G35 (David 2026-08-07): the thought streams inside the SAME
+          // G35 (2026-08-07): the thought streams inside the SAME
           // bounded 3-line ThinkingBlock window as the native path, never
           // full-height into the bubble. On this transport the reasoning
           // arrives inline as <think> text, and the Qwen3 templates pre-open
@@ -1911,7 +1991,7 @@ export function useAgentChat() {
           } catch (thinkErr) {
             // Same downgrade the native branches carry, from the same one
             // place: an old Ollama build or an endpoint that predates the knob
-            // answers 400 (DeepInfra: 422), and the run must survive that
+            // answers 400 (the hosted backend: 422), and the run must survive that
             // instead of ending on it.
             if (shouldDowngradeThinking(hermesOpts.thinking, thinkErr)) {
               hermesTurn = await runHermes({ ...hermesOpts, thinking: undefined as unknown as boolean })
@@ -1969,7 +2049,7 @@ export function useAgentChat() {
         // tool_calls) becomes the message body.
         const knownToolNames = toolRegistry.getAll().map((t) => t.name)
 
-        // Canonicalize near-miss tool names (David 2026-06-03): gemma4 emitted a
+        // Canonicalize near-miss tool names (2026-06-03): gemma4 emitted a
         // NATIVE call to `video_generation` (not `video_generate`) → "Unknown
         // tool" → it gave up. Map such close misses to the registered name.
         if (toolCalls.length > 0) {
@@ -1980,7 +2060,7 @@ export function useAgentChat() {
           })
         }
 
-        // Loose tool-call fallback (David 2026-06-03): weak local models often
+        // Loose tool-call fallback (2026-06-03): weak local models often
         // WRITE the call into their answer text instead of using the structured
         // tool_calls channel — gemma4:e4b answers in prose; qwen2.5-coder:14b
         // wrote `image_generate(prompt="…")` as plain text and never emitted a
@@ -1996,7 +2076,7 @@ export function useAgentChat() {
           }
         }
 
-        // Clean any tool-call text the model echoed into its prose (David
+        // Clean any tool-call text the model echoed into its prose (the owner
         // 2026-06-04) — raw JSON like {"name":"image_generate",…} was leaking
         // into the chat as a "notes"/JSON block. Runs even when a proper native
         // call was emitted alongside the echo. Tool args/results stay in the
@@ -2021,10 +2101,14 @@ export function useAgentChat() {
           let allowVid = maxVideoGen - videoGenDone
           let blocked = false
           let blockedNonMedia = false
+          let blockedCreate = false
+          let createInTurn = 0
           const kept: ToolCall[] = []
           for (const tc of toolCalls) {
             const name = tc.function.name
-            if (name === 'image_generate') {
+            if (name === CREATE_ORDER_TOOL) {
+              if (createCallAllowed(createCalls, createInTurn)) { createInTurn++; kept.push(tc) } else { blocked = true; blockedCreate = true }
+            } else if (name === 'image_generate') {
               if (allowImg > 0) { allowImg--; kept.push(tc) } else { blocked = true }
             } else if (name === 'video_generate') {
               if (allowVid > 0) { allowVid--; kept.push(tc) } else { blocked = true }
@@ -2060,6 +2144,8 @@ export function useAgentChat() {
                 role: 'user',
                 content: blockedNonMedia
                   ? 'Stop: you are repeating tool calls that already ran this turn — their results are shown above and have not changed. Do not call the same tool with the same arguments again. Use the results you already have and write your final answer now, without calling any tool.'
+                  : blockedCreate
+                  ? createCallSteer(createCalls)
                   : 'Stop, the media you were asked for is already created and shown. Write ONLY a short, friendly closing line to the user in their own language (e.g. that their picture/clip is ready). Do not output JSON, do not repeat this note, and do not call any tool.',
               } as ChatMessage)
               continue
@@ -2072,7 +2158,7 @@ export function useAgentChat() {
 
         let isFinalTurn = toolCalls.length === 0
         // Recovery for a final turn that emitted NO tool call on a media request.
-        // A weak model (gemma4:e4b) fails this two ways (David 2026-06-20, live
+        // A weak model (gemma4:e4b) fails this two ways (2026-06-20, live
         // chat):
         //   1. EMPTY content — it dumped everything into the thinking channel and
         //      emitted nothing usable (the classic "dud turn").
@@ -2131,6 +2217,41 @@ export function useAgentChat() {
               fakeGenProse,
             })
           }
+        }
+        // Create in chat: a closing text that claims something is being made or
+        // is ready, although this reply placed no order and none is running in
+        // the conversation. One objection; if the model stays with it, the
+        // app's correction stands under its text.
+        if (
+          isFinalTurn && opts?.createTools && !opts?.hiddenUser && !createCalls.placed
+          && claimsCreateWork(turnContent)
+          && !useCreateOrderStore.getState().ordersFor(convId).some((o) => o.state === 'running')
+        ) {
+          if (!createClaimSteered) {
+            createClaimSteered = true
+            agentMessages.push({ role: 'assistant', content: turnContent } as ChatMessage)
+            agentMessages.push({ role: 'user', content: CREATE_CLAIM_STEER } as ChatMessage)
+            continue
+          }
+          turnContent = `${turnContent.trim()}\n\n${CREATE_CLAIM_NOTE}`
+        }
+        // The same for the order itself: a closing text that says an order
+        // exists ("Here is your order") although this reply placed none and
+        // none is open in the conversation. The usual way there is a
+        // create_order call that was refused. One objection; if the model
+        // stays with it, the app's correction stands under its text.
+        if (
+          isFinalTurn && opts?.createTools && !opts?.hiddenUser && !createCalls.placed
+          && claimsCreateOrder(turnContent)
+          && !openOrder(useCreateOrderStore.getState().ordersFor(convId))
+        ) {
+          if (!createOrderClaimSteered) {
+            createOrderClaimSteered = true
+            agentMessages.push({ role: 'assistant', content: turnContent } as ChatMessage)
+            agentMessages.push({ role: 'user', content: CREATE_ORDER_CLAIM_STEER } as ChatMessage)
+            continue
+          }
+          if (!turnContent.includes(CREATE_CLAIM_NOTE)) turnContent = `${turnContent.trim()}\n\n${CREATE_ORDER_CLAIM_NOTE}`
         }
         if (isFinalTurn) {
           // G16: ending the run is only legitimate when the model's own plan
@@ -2248,6 +2369,11 @@ export function useAgentChat() {
           // uebrigen), nur las ihn hier niemand aus. Sichtbar an ZWEI Stellen,
           // wie im Code Reiter: an der Antwort und als Block im Faden, sonst
           // kann die beiden Faelle spaeter niemand auseinanderhalten.
+          // A stream that closed because the person picked another model: the
+          // answer carries that as its marker (lib/model-switch-stop.ts).
+          if (convId && turnFinishReason && finishReasonAfterSwitch(turnFinishReason, convId) === MODEL_SWITCH_FINISH) {
+            useChatStore.getState().updateMessageFinishReason(convId, assistantMessage.id, MODEL_SWITCH_FINISH)
+          }
           const cutoff = codexCutoffNote(
             turnFinishReason,
             convId ? openPlanGap(useTodoStore.getState().getTodos(convId)) : null,
@@ -2266,7 +2392,7 @@ export function useAgentChat() {
           break
         }
 
-        // G21-2 (David 2026-08-07): each round's thought becomes its OWN block
+        // G21-2 (2026-08-07): each round's thought becomes its OWN block
         // in chronological position, before this round's calls, instead of all
         // rounds piling into the one thinking field the bubble renders on top.
         // The top-level field is cleared so the same thought never shows twice;
@@ -2404,7 +2530,7 @@ export function useAgentChat() {
         // synthesized by the media fallback had none, so the next turn pushed
         // an assistant `tool_calls` entry with no id AND a tool result with
         // `tool_call_id: undefined`. A strict OpenAI-compatible provider
-        // (lu-cloud/DeepInfra) rejects the whole conversation for that — and
+        // (lu-cloud) rejects the whole conversation for that — and
         // the prose fallback exists precisely for the weak models that can
         // least afford to lose the run.
         toolCalls = toolCalls.map((tc) => (tc.id ? tc : { ...tc, id: uuid() }))
@@ -2438,7 +2564,7 @@ export function useAgentChat() {
           // One cloud shell rule for BOTH surfaces (G15a, 2026-08-07): the
           // Code tab and Agent mode read the same helper and the same setting,
           // so the same cloud model cannot be stricter in one tab than the
-          // other (R23). David's decision of 2026-08-22 made that setting an
+          // other (R23). The owner's decision of 2026-08-22 made that setting an
           // opt-in that defaults OFF, so this arm normally does nothing and
           // permission level auto runs unattended on a cloud model too. For a
           // user who opted in it rides ON TOP of the per-tool permission
@@ -2574,7 +2700,7 @@ export function useAgentChat() {
           const result = results.find((r) => r.id === entry.ac.id)
           if (!result) continue
           applyResultToToolCall(entry.ac, result)
-          // Over-loop accounting (David 2026-06-04): remember every executed call
+          // Over-loop accounting (2026-06-04): remember every executed call
           // (so an identical repeat is skipped) and count successful media gens
           // against the per-turn cap that stops "13× the same cat".
           executedCallKeys.add(callKey(entry.tc))
@@ -2591,6 +2717,7 @@ export function useAgentChat() {
             if (entry.ac.toolName === 'image_generate') imageGenDone++
             else if (entry.ac.toolName === 'video_generate') videoGenDone++
           }
+          if (entry.ac.toolName === CREATE_ORDER_TOOL) noteCreateResult(createCalls, result.result)
           const contentLabel =
             !mediaOk
               ? `Failed: ${entry.ac.toolName}`
@@ -2660,7 +2787,7 @@ export function useAgentChat() {
           )
         }
         // After a successful image/video gen, nudge a NATURAL closing comment so
-        // the model doesn't silently loop another generation (David 2026-06-04).
+        // the model doesn't silently loop another generation (2026-06-04).
         // The media-cap is the hard stop; this makes the normal path end with a
         // friendly sentence instead of a blocked-then-steered robotic one.
         const mediaNote = (name: string, r: typeof results[number]): string => {
@@ -2676,10 +2803,10 @@ export function useAgentChat() {
           return ''
         }
 
-        // lu-cloud is OpenAI-compatible (DeepInfra) and STRICTLY validates the
+        // lu-cloud is OpenAI-compatible and STRICTLY validates the
         // OpenAI tool shape: assistant tool_calls carry ids and every tool-result
         // message needs a matching tool_call_id. Route it through the id-based
-        // branch (not the id-less `native` one below) — otherwise DeepInfra 422s
+        // branch (not the id-less `native` one below) — otherwise the upstream 422s
         // "ChatCompletionToolMessage.tool_call_id: Field required" and every
         // follow-up turn fails. Ollama/LM-Studio are lenient; only cloud bit.
         // Remember which read produced which result message, so a later step
@@ -2775,7 +2902,7 @@ export function useAgentChat() {
         // cannot see (they only look at what was asked for, and they skip
         // shell on purpose).
         const failVerdict = loopGuard.recordResults(
-          results.map((r) => ({ name: r.toolName, failed: resultFailed(r), error: r.error ?? (resultFailed(r) ? r.result?.split('\n')[0].slice(0, 300) : undefined), args: r.dispatchedArgs })),
+          results.map((r) => ({ name: r.toolName, failed: resultFailed(r), rejected: r.status === 'rejected', error: r.error ?? (resultFailed(r) ? r.result?.split('\n')[0].slice(0, 300) : undefined), args: r.dispatchedArgs })),
         )
         if (failVerdict.action === 'halt') {
           addBlock(runState, convId!, assistantMessage.id, {
@@ -2799,10 +2926,10 @@ export function useAgentChat() {
           agentMessages.push({ role: 'user', content: failVerdict.message })
         }
 
-        // Vision feedback (David 2026-06-03): after image_generate, hand the
+        // Vision feedback (2026-06-03): after image_generate, hand the
         // generated picture to a vision-capable model so it SEES the result and
         // can comment — and learns the filename to chain into video_generate.
-        // Provider-aware (konata 2026-06-21: a non-Ollama vision model never got
+        // Provider-aware (a user 2026-06-21: a non-Ollama vision model never got
         // the image → it described from the prompt and hallucinated). Now runs
         // for every provider; buildVisionFeedback no-ops for text-only models,
         // video results, or fetch failures — and on non-Ollama only feeds models
@@ -2817,7 +2944,10 @@ export function useAgentChat() {
         const declaredSight = declaredVision(
           useModelStore.getState().models.find((m) => m.name === activeModel),
         )
-        for (const { tc, ac } of batch) {
+        // A screenshot is only worth showing when it is the newest one: with
+        // several computer_use calls in a batch, the last result wins.
+        const feedbackOrder = batch.some(({ tc }) => tc.function.name === COMPUTER_USE_TOOL_NAME) ? [...batch].reverse() : batch
+        for (const { tc, ac } of feedbackOrder) {
           const result = results.find((r) => r.id === ac.id)
           // G22: once this run proved the model text-only, stop attaching.
           if (visionRefused) break
@@ -2825,6 +2955,9 @@ export function useAgentChat() {
             try {
               const vf = await buildVisionFeedback(modelToUse, tc.function.name, result.result, providerId, declaredSight)
               if (vf) {
+                // Only the newest screenshot stays a picture. The ones before
+                // it are out of date and would fill the context window.
+                if (vf.screenFrame) dropOlderScreenFrames(agentMessages)
                 agentMessages.push(vf as unknown as ChatMessage)
                 visionFeedbackGiven = true
                 log.info('agent.vision_feedback_attached', { tool: tc.function.name, provider: providerId })
@@ -2876,7 +3009,19 @@ export function useAgentChat() {
         // sentence instead of the raw Jinja trace under an "Agent error" head.
         const sendRefusal = explainSendRefusal(err)
 
-        if (isMultimodalUnsupportedError(errorMsg)) {
+        if (cutByModelSwitch(convId)) {
+          // The engine was taken away by the person's own pick of another
+          // model (lib/model-switch-stop.ts). That is the reason, not a
+          // backend that "may have crashed": what was written stays, with the
+          // marker under it, and a run that had written nothing says so.
+          useChatStore.getState().updateMessageFinishReason(convId!, assistantMessage.id, MODEL_SWITCH_FINISH)
+          if (!runState.content.trim()) {
+            useChatStore.getState().updateMessageContent(
+              convId!, assistantMessage.id,
+              emptyAnswerExplanation({ finishReason: MODEL_SWITCH_FINISH, captured: false, keepThinking: false }),
+            )
+          }
+        } else if (isMultimodalUnsupportedError(errorMsg)) {
           // N3: only a picture the USER attached earns this error. When the run
           // attached its own render and the model turned out unable to look at
           // it, the render still succeeded and is on screen, so the turn closes
@@ -2942,26 +3087,23 @@ export function useAgentChat() {
           )
         } else if (httpStatusOf(err) === 429) {
           // Reaching here means the wait above was already honoured and the
-          // window still had not cleared. "Agent error: too many requests" is
-          // true and useless; a burst guard clears on a clock, so say when.
+          // window still had not cleared. The server's sentence is shown word
+          // for word, because only the server knows whose limit it was and
+          // how long it lasts; without one the app's own sentence names the
+          // wait and nothing else (lib/request-limit.ts).
           // No loopHalt on purpose: a throttle passes, unlike an empty wallet,
           // and killing a long /loop over one busy minute would be worse than
           // letting its next round wait its turn.
-          const asked = (err as { retryAfterMs?: number })?.retryAfterMs
-          const when = typeof asked === 'number' && asked > 0
-            ? `about ${Math.ceil(asked / 1000)} seconds`
-            : 'a minute'
           useChatStore.getState().updateMessageContent(
             convId!, assistantMessage.id,
             (runState.content ? runState.content + '\n\n' : '') +
-            `The server is limiting how many requests this account may send in a short window, and the run waited for it once already. Give it ${when}, then send your message again. Nothing was charged for the refused attempts.`
+            requestLimitMessageOf(err, { nothingCharged: getProviderIdFromModel(activeModel) === 'lu-cloud' })
           )
         } else if ((err as { code?: string })?.code === 'flash_timeout') {
           // R5-53: isTerminalModelError now stops this from being retried at
           // all, so this branch is reached after exactly one attempt, not
-          // three. Unlike the 429 branch above, the server's own line already
-          // says exactly what happened ("reached its four-minute limit"), so
-          // it is left standing instead of being replaced with new prose.
+          // three. The server's own line already says exactly what happened
+          // ("reached its four-minute limit"), so it is left standing.
           loopHalt = 'flash timeout'
           useChatStore.getState().updateMessageContent(
             convId!, assistantMessage.id,
@@ -2981,7 +3123,7 @@ export function useAgentChat() {
           // Connection-class failure — after the transient retries above this
           // means the backend really dropped mid-run (crashed, was killed, or
           // is busy swapping models). A bare "Agent error: Connection failed"
-          // gave users nothing to act on (rikki Discord 2026-06-10, Win11).
+          // gave users nothing to act on (Discord 2026-06-10, Win11).
           useChatStore.getState().updateMessageContent(
             convId!, assistantMessage.id,
             (runState.content ? runState.content + '\n\n' : '') +
@@ -3005,7 +3147,7 @@ export function useAgentChat() {
       // unstoppable through generationStore (Stop button, sign-out, window
       // close, app quit) even though activeAgentRuns still pointed at it.
       // A Stop before anything was written leaves a line, not an empty bubble.
-      // Discord 2026-09-28 (xambran): a file outside the chat's folder was
+      // Discord 2026-09-28: a file outside the chat's folder was
       // refused in a collapsed tool block, and the model alone was left to
       // explain it. The user gets the way out above the chat, whatever the
       // model makes of the refusal (lib/workspace-refusal.ts). Only when the
@@ -3028,7 +3170,7 @@ export function useAgentChat() {
       // Die Werkzeugkette als versteckte Nachrichten ablegen, VOR der
       // Assistentenantwort. Im finally, nicht am Ende des Erfolgswegs: ein Lauf,
       // der mit einem Fehler oder Abbruch endete, verlor sonst seine ganze Kette,
-      // und "continue" fing von vorn an (Kundenfall swift_maple90, 30.09.2026).
+      // und "continue" fing von vorn an (Kundenfall a user, 30.09.2026).
       // Genau wie useCodex (dieselbe Deckelung und
       // derselbe Waisenschnitt aus hooks/codex/hidden-history.ts: ein Fenster,
       // das mit einem Ergebnis ohne seinen Aufruf beginnt, laesst strenge
@@ -3107,8 +3249,18 @@ export function useAgentChat() {
       // the A7 cost policy: no silent lu-cloud call without the opt-in, then
       // the cheapest catalogue model, plus the every-3rd-turn rate limit the
       // agent loop never had.
-      if (runState.content.trim() && convId) {
-        void extractMemoriesFromPair(userContent, runState.content, convId, { scope: memoryScope }).catch(() => {})
+      // Not for the hidden report after a Create run: that "question" is the
+      // app talking, not the customer, and nothing in it is worth remembering.
+      if (runState.content.trim() && convId && !(opts?.hiddenUser && opts.createTools)) {
+        // A run that looked at the screen is remembered by the user's own
+        // words only (lib/computer/memory-policy.ts).
+        const pair = memoryPairForRun({
+          user: userContent,
+          assistant: runState.content,
+          toolNames: runState.blocks.flatMap((b) => (b.toolCalls ?? (b.toolCall ? [b.toolCall] : [])).map((call) => call.toolName)),
+          sourceKind: 'chat',
+        })
+        void extractMemoriesFromPair(pair.user, pair.assistant, convId, { scope: memoryScope, sourceKind: pair.sourceKind }).catch(() => {})
       }
 
       // ── /loop driver ───────────────────────────────────────────────────
@@ -3301,7 +3453,7 @@ export function useAgentChat() {
  */
 /**
  * Detects a model "pretending" to generate media in plain prose without ever
- * calling the tool (David 2026-06-20: gemma4 wrote "(Generating 2-second
+ * calling the tool (2026-06-20: gemma4 wrote "(Generating 2-second
  * zoom-in video…)", "the video has been successfully generated", "I am
  * initiating the generation process" — and produced nothing). Only consulted on
  * a final, tool-call-less turn where media is still pending, so legitimate
@@ -3393,20 +3545,33 @@ Rules:
 }
 
 /**
- * Chat-Tools prompt (David 2026-06-11). Plain chat with a curated 5-tool set:
+ * Chat-Tools prompt (2026-06-11). Plain chat with a curated 5-tool set:
  * the model stays a normal conversational assistant but CAN reach for a tool
  * when the user actually needs one. Deliberately NOT the autonomous-agent
  * "you MUST use tools / execute end-to-end" prompt — that would turn ordinary
  * chat into an agent. Kept short so it doesn't crowd a small model's context.
  */
-export function buildChatToolsSystemPrompt(basePrompt: string): string {
+export function buildChatToolsSystemPrompt(
+  basePrompt: string,
+  /** Both only with Create in chat on. `media: false`: Create makes images and
+   *  clips in this turn, the two local tools are not offered. `tools: false`:
+   *  the turn carries only the Create tools, whose paragraph is appended
+   *  separately. */
+  opts: { media?: boolean; tools?: boolean } = {},
+): string {
+  if (opts.tools === false) {
+    const plain = 'You are a helpful chat assistant in LU, having a normal conversation. Reply in the user\'s language.'
+    return basePrompt ? `${plain}\n\n${basePrompt}` : plain
+  }
+  const media = opts.media === false ? '' : `
+- image_generate, create an image when the user asks for a picture/drawing/logo
+- video_generate, create a short video/animation when the user asks for one (to animate an image you just made, pass its filename as inputImage)`
+  const example = opts.media === false ? 'web_search("…")' : 'image_generate("…")'
   const p = `You are a helpful chat assistant in LU, having a normal conversation. You also have a few tools for things you cannot do from memory, use one ONLY when the user's request actually needs it, otherwise just reply normally:
 - web_search, look up current/real-world facts (returns short snippets)
 - web_fetch, read a specific web page or URL (after a search, or when the user gives a link)
-- file_write, save text to a file when the user asks you to write/create/save a file
-- image_generate, create an image when the user asks for a picture/drawing/logo
-- video_generate, create a short video/animation when the user asks for one (to animate an image you just made, pass its filename as inputImage)
+- file_write, save text to a file when the user asks you to write/create/save a file${media}
 
-Emit tool calls through the real tool channel, never as plain text like image_generate("…"). After a tool runs, give a short, natural reply about the result. For web questions, prefer web_search then web_fetch on the best result before answering. Reply in the user's language.`
+Emit tool calls through the real tool channel, never as plain text like ${example}. After a tool runs, give a short, natural reply about the result. For web questions, prefer web_search then web_fetch on the best result before answering. Reply in the user's language.`
   return basePrompt ? `${p}\n\n${basePrompt}` : p
 }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Discord 28.09.2026, xambran: "I still can't get my models to access my
+ * Discord 28.09.2026: "I still can't get my models to access my
  * files", mit jeder Agent-Berechtigung auf Auto. Wer den Ordnerdialog
  * wegklickte, arbeitete still in der Sandbox des Chats, und die Plakette neben
  * dem Agent-Schalter verschwand: kein Hinweis, wo der Agent arbeitet, und kein

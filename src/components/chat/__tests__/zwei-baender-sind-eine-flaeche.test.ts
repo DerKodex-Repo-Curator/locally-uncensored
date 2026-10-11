@@ -169,7 +169,7 @@ describe('D-S18: das dritte Band bleibt unter dem Transkript', () => {
     // die Hintertuer.
     //
     // Die beiden Neuen sind am 21.09.2026 dazugekommen, und zwar von unten:
-    // sie standen im Composer-Kasten, und David will dort nichts lesen
+    // sie standen im Composer-Kasten, und der Inhaber will dort nichts lesen
     // muessen („NICHTS im prompt fenster!"). Sie sind damit nicht „neu vor
     // dem Transkript", sondern umgezogen, und sie sind ausdruecklich leer,
     // solange nichts passiert ist.

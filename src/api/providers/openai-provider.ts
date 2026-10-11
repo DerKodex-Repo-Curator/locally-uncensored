@@ -24,6 +24,7 @@ import { sendWithTransientRetry } from './retry'
 import { repairJson } from '../../lib/tool-call-repair'
 import { signalCreditsExhausted } from '../../lib/credits-exhausted'
 import { parseRetryAfter } from '../../lib/http-status'
+import { requestLimitMessage } from '../../lib/request-limit'
 import { localFetch, localFetchStream, isPrivateOrLanHost, isDirectFetchAllowed, hostnameOf, ensureProxyAllowsHost, backendCall } from '../backend'
 import { chatBackendsBack } from '../../lib/chat-backends-gate'
 import { ensureBuiltinEngineAlive, explainDeadEngine, explainEngineTransportMessage, isManagedBuiltinSlot } from '../builtin-ensure'
@@ -107,6 +108,8 @@ export interface OpenAIChatRequest {
   reasoning_effort?: string
   chat_template_kwargs?: Record<string, unknown>
   stream_options?: { include_usage: boolean }
+  /** Constrained output (ChatOptions.jsonSchema). Never sent to LU Cloud. */
+  response_format?: { type: 'json_schema'; json_schema: { name: string; schema: Record<string, unknown> } }
 }
 
 /**
@@ -131,6 +134,11 @@ interface OpenAIModelEntry {
   usage_class?: unknown
   /** Gemessenes Inhaltsverhalten. Nur unsere eigene Wolke schickt das Feld. */
   unfiltered?: unknown
+  /** Die zweite Marke des Katalogs. Nur unsere eigene Wolke schickt das Feld. */
+  unrestricted?: unknown
+  /** Der echte Name eines Modells, das die Wolke auf ihrer eigenen Domain
+   *  unter einem neutralen Namen fuehrt. Die App zeigt diesen. */
+  native_name?: string
   id: string
   object: string
   created?: number
@@ -154,6 +162,14 @@ interface OpenAIModelEntry {
   // front instead of eating a mid-run 400. Absent on backends that don't send
   // it → the mapping falls back to `true` (optimistic, corrected at runtime).
   supports_tools?: boolean
+  // LU Cloud /models: may the two Create tools of the chat go to this model?
+  // The server's own rule; absent on every other endpoint and on an older
+  // LU Cloud, and absent reads as no.
+  create_in_chat?: boolean
+  // LU Cloud /models: all customers together share a small number of requests
+  // a minute on this model, so it asks for a short wait at busy times. The
+  // picker says so in a quiet note. Absent reads as no.
+  limited_capacity?: boolean
   think?: 'toggle' | 'always' | 'never'
   // The reasoning rungs this model accepts, ascending, and the one it defaults
   // to. LU Cloud sends both for every model that reasons and neither for a
@@ -197,9 +213,11 @@ function toModelEntry(m: Record<string, unknown>): OpenAIModelEntry {
     created: asNumber(m.created),
     owned_by: asString(m.owned_by),
     name: asString(m.name),
+    native_name: asString(m.native_name),
     flash: m.flash,
     usage_class: m.usage_class,
     unfiltered: m.unfiltered,
+    unrestricted: m.unrestricted,
     /*
      * GH #129: dieselbe Zahl, wie der jeweilige Server sie nennt, gelesen vom
      * selben Leser wie die Kaskade (context-probe). Das kostet keine einzige
@@ -216,6 +234,8 @@ function toModelEntry(m: Record<string, unknown>): OpenAIModelEntry {
       ? m.input_modalities.filter((x): x is string => typeof x === 'string')
       : undefined,
     supports_tools: asBoolean(m.supports_tools),
+    create_in_chat: asBoolean(m.create_in_chat),
+    limited_capacity: asBoolean(m.limited_capacity),
     think: think === 'toggle' || think === 'always' || think === 'never' ? think : undefined,
     // The ladder is deliberately NOT checked against a fixed list of rungs:
     // which rungs exist is the server's decision, and pinning them here would
@@ -488,7 +508,7 @@ export class OpenAIProvider implements ProviderClient {
    * Run a send and, when this slot is the app's own engine, translate a
    * transport failure into a sentence about the engine. A refused connection
    * to 127.0.0.1:8127 used to surface as the raw proxy error, which is how a
-   * fresh Windows install introduced itself to applejames on 2026-08-01 before
+   * fresh Windows install introduced itself to a user on 2026-08-01 before
    * they moved to Ollama. Anything that reached an HTTP response is untouched.
    */
   private async sendOrExplain(send: () => Promise<Response>): Promise<Response> {
@@ -504,7 +524,7 @@ export class OpenAIProvider implements ProviderClient {
    * The thinking knob for this request, or undefined to leave it out.
    *
    * Toggle OFF used to send 'minimal', the least the OpenAI API itself allows.
-   * kevinmlynch traced what that means elsewhere (#112, 2026-08-13): DwarfStar
+   * A user traced what that means elsewhere (#112, 2026-08-13): DwarfStar
    * reads 'minimal' as think_mode high, so our OFF switch turned thinking ON
    * and his tool workflows paid the latency he had just disabled. Only 'none'
    * really disables it. Our own cloud proxy already translates minimal to
@@ -589,7 +609,7 @@ export class OpenAIProvider implements ProviderClient {
    *   chat_template_kwargs: {enable_thinking:true}  -> MARKER_THINK_ON
    *
    * and the chat request carrying reasoning_effort answered 200, so nothing
-   * ever complained. That is David's report exactly: the Think button was on,
+   * ever complained. That is the owner's report exactly: the Think button was on,
    * the model did not think, and no thinking block appeared, because nothing
    * on the wire ever asked it to.
    *
@@ -620,7 +640,7 @@ export class OpenAIProvider implements ProviderClient {
    * at the first complaint: 'none', then 'minimal', then gone. The last step
    * also drops stream_options, the other field an endpoint that predates both
    * rejects. The LU Cloud proxy deliberately passes upstream 400 AND 422
-   * (DeepInfra's bad-parameter status) through so this path can engage.
+   * (the upstream's bad-parameter status) through so this path can engage.
    *
    * Only a request that then SUCCEEDS teaches us anything. A 400 for an
    * unrelated reason (an overlong context is the common one) walks the same
@@ -737,7 +757,7 @@ export class OpenAIProvider implements ProviderClient {
 
   /**
    * Bound `max_tokens` so prompt + completion can never exceed the model's real
-   * context window. Some cloud backends (DeepInfra) otherwise default the
+   * context window. Some cloud backends otherwise default the
    * completion budget to nearly the whole window and then 400 the moment the
    * real prompt (agent system prompt + tool definitions) tips it over,    * surfaced as "[network] inference upstream error" on tool turns (Bug 5,
    * 2026-07-11). Under-estimating the context is safe (a shorter cap); we never
@@ -864,7 +884,7 @@ export class OpenAIProvider implements ProviderClient {
     const tmplKwargs = this.templateThinkingKwargs(options?.thinking)
     if (tmplKwargs) body.chat_template_kwargs = tmplKwargs
     // Ask the server for REAL token usage in a final stream chunk
-    // (choices:[] + usage:{...}). OpenAI, DeepInfra (LU Cloud), Groq, vLLM and
+    // (choices:[] + usage:{...}). OpenAI, LU Cloud, Groq, vLLM and
     // LM Studio all honor stream_options; an endpoint that rejects unknown
     // params 400/422s and the retry below drops it. Real usage is what keeps
     // the TokenCounter honest, a char/4 estimate can't see the system prompt.
@@ -968,7 +988,7 @@ export class OpenAIProvider implements ProviderClient {
         // Capture WHY the model stopped ('stop', 'length', 'content_filter').
         // 'length' with zero content is the reasoning-loop failure mode: the
         // whole token budget went into thinking and no answer was ever written
-        // (David, cloud Qwen3.6, 2026-07-12), the chat layer needs the reason
+        // (the owner, cloud Qwen3.6, 2026-07-12), the chat layer needs the reason
         // to explain the empty bubble.
         if (choice.finish_reason) finishReason = choice.finish_reason
 
@@ -976,7 +996,7 @@ export class OpenAIProvider implements ProviderClient {
 
         // Yield native reasoning as `thinking` so the panel fills live,
         // without this the entire reasoning phase of a cloud reasoner is
-        // silently dropped and the chat sits in dead air (uselu fc55c91).
+        // silently dropped and the chat sits in dead air (the web app).
         const reasoning = choice.delta?.reasoning_content ?? choice.delta?.reasoning ?? ''
         if (repetitionStop?.push(content) || reasoningRepetitionStop?.push(reasoning)) {
           guard.abort()
@@ -1083,6 +1103,9 @@ export class OpenAIProvider implements ProviderClient {
     // Same template-kwargs gate as chatStream.
     const tmplKwargs = this.templateThinkingKwargs(options?.thinking)
     if (tmplKwargs) body.chat_template_kwargs = tmplKwargs
+    if (options?.jsonSchema && this.config.id !== 'lu-cloud') {
+      body.response_format = { type: 'json_schema', json_schema: { name: 'answer', schema: options.jsonSchema } }
+    }
 
     // Same self-heal as chatStream: agent/tool turns after a Create render
     // must revive the offloaded built-in engine before hitting its port.
@@ -1166,7 +1189,7 @@ export class OpenAIProvider implements ProviderClient {
         this.rememberCatalog(m)
         return {
           id: m.id,
-          name: m.name ?? m.id,
+          name: m.native_name ?? m.name ?? m.id,
           provider: 'openai' as const,
           providerName: this.config.name,
           // The declared window comes BEFORE the probe: a server that already
@@ -1183,9 +1206,12 @@ export class OpenAIProvider implements ProviderClient {
             ? lanCaps.get(m.id)!.includes('tool_use')
             : (serverTools ?? m.supports_tools ?? true),
           supportsVision: m.input_modalities?.includes('image') || undefined,
+          createInChat: m.create_in_chat,
+          limitedCapacity: m.limited_capacity === true ? true : undefined,
           thinkMode: m.think,
           flash: this.config.apiKey?.startsWith('lu_') ? undefined : parseFlashPolicy(m.flash, m.usage_class, this.catalogKey(m.id)),
           unfiltered: asUnfiltered(m.unfiltered),
+          unrestricted: m.unrestricted === true ? true : undefined,
           effortLevels: m.reasoning_effort_levels,
           effortDefault: m.reasoning_effort_default,
           declaredContext: declaredContextOf(m),
@@ -1201,7 +1227,7 @@ export class OpenAIProvider implements ProviderClient {
       this.rememberCatalog(m)
       return {
         id: m.id,
-        name: m.name ?? m.id,
+        name: m.native_name ?? m.name ?? m.id,
         provider: 'openai' as const,
         providerName: this.config.name,
         contextLength: m.context_length ?? KNOWN_CONTEXT[m.id] ?? guessContextFromName(m.id),
@@ -1211,9 +1237,12 @@ export class OpenAIProvider implements ProviderClient {
         // Fallback `true` keeps older deployments (no field) optimistic.
         supportsTools: m.supports_tools ?? true,
         supportsVision: m.input_modalities?.includes('image') || undefined,
+        createInChat: m.create_in_chat,
+        limitedCapacity: m.limited_capacity === true ? true : undefined,
         thinkMode: m.think,
         flash: this.config.apiKey?.startsWith('lu_') ? undefined : parseFlashPolicy(m.flash, m.usage_class, this.catalogKey(m.id)),
         unfiltered: asUnfiltered(m.unfiltered),
+          unrestricted: m.unrestricted === true ? true : undefined,
         // Straight through, no invention: a server that does not declare the
         // ladder leaves both undefined, and undefined is what switches the
         // whole effort feature off for this model.
@@ -1743,7 +1772,7 @@ export class OpenAIProvider implements ProviderClient {
       // R5-16: der Server schickt `detail` als Geschwister von `error`, und der
       // Desktop las es nicht. Genau dort steht die Haelfte, die dem Nutzer sagt,
       // was er tun kann; uebrig blieb der blanke Satz. Das Web haengt es seit
-      // jeher an (`apps/web/api/providers/openai-provider.ts`).
+      // jeher an (the web app).
       const detail = typeof data.detail === 'string' && data.detail.trim()
         ? ` (${data.detail.slice(0, 200)})`
         : ''
@@ -1778,12 +1807,18 @@ export class OpenAIProvider implements ProviderClient {
       if (!hasServerMessage) message = `Invalid API key for ${this.config.name}. Check Settings > Providers.`
     } else if (res.status === 429) {
       code = 'rate_limit'
-      if (!hasServerMessage) message = `Rate limited by ${this.config.name}. Wait a moment and try again.`
+      // The server's sentence word for word; our own only when it sent none
+      // or just the status label (lib/request-limit.ts).
+      message = requestLimitMessage({
+        said: hasServerMessage ? message : '',
+        retryAfterMs: parseRetryAfter(res),
+        nothingCharged: this.config.id === 'lu-cloud',
+      })
     } else if (res.status === 404) {
       code = 'not_found'
     }
 
-    // A tool-augmented request rejected for the tools themselves. DeepInfra /
+    // A tool-augmented request rejected for the tools themselves. LU Cloud
     // LU Cloud answer 405 for a model without function calling; some servers
     // 400/404/422 with a tool/function message. Tag it 'tools_unsupported' so
     // the chat layer shows a clean "this model can't do tool calling" note (and

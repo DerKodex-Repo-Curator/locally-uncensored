@@ -75,6 +75,13 @@ describe('executeWebFetch: a bad response now reads as a real error', () => {
     expect(isMarkedAsFailed(out)).toBe(true)
   })
 
+  it('a file in place of a page is one sentence, marked failed, and no bytes (mobile B2)', async () => {
+    const sentence = 'This address returned a PDF, not a page of text, so it cannot be read here. Use a different address, or tell the user what the link points to.'
+    backendCall.mockResolvedValue({ url: 'https://x/a.pdf', status: 200, contentType: 'application/pdf', title: '', text: '', truncated: false, notText: sentence })
+    const out = await registry.execute('web_fetch', { url: 'https://x/a.pdf' }) as string
+    expect(out).toBe(`Error: ${sentence}`)
+  })
+
   it('Gegenprobe: a real 200 with a body is NOT marked failed', async () => {
     backendCall.mockResolvedValue({ url: 'https://x', status: 200, contentType: 'text/html', title: 'Tea', text: 'The history of tea spans centuries.', truncated: false })
     const out = await registry.execute('web_fetch', { url: 'https://x' }) as string

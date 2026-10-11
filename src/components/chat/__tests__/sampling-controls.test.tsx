@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * R5-10/R5-11 (3.0.1-Liste), David's Entscheid vom 18.09.2026.
+ * R5-10/R5-11 (3.0.1-Liste), Entscheid vom 18.09.2026.
  *
  * Until this change the popup read and wrote the GLOBAL settings, so two
  * chats open one after another shared one temperature: moving the slider in
@@ -115,7 +115,7 @@ describe('SamplingControls', () => {
   /**
    * R5-14. The trigger was bare text, so a screen reader announced a number
    * and nothing else. Both strings are word for word the web app's
-   * (apps/web/components/chat/SamplingControls.tsx:82-83).
+   * (the web app).
    */
   it('R5-14: the trigger has the same name and title as the web app', () => {
     render(<SamplingControls />)
@@ -172,7 +172,7 @@ describe('SamplingControls', () => {
     expect(screen.getByTitle(/Changed from the defaults/)).toBeTruthy()
     open()
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
-    // David's Entscheid: Reset DELETES the chat's own values instead of
+    // The owner's decision: Reset DELETES the chat's own values instead of
     // writing today's defaults into it (see SamplingControls.tsx). Deleted,
     // not "set to defaults": the negative control right below is the whole
     // point of that distinction.
@@ -243,7 +243,7 @@ describe('SamplingControls', () => {
 })
 
 /**
- * David, 2026-09-11: "der sample anklickbar im prompt fenster muss ein pop up
+ * 2026-09-11: "der sample anklickbar im prompt fenster muss ein pop up
  * sein, und nicht das prompt fenster veraendern. mit einem sauberen x zum
  * wegklicken und nicht einfach wieder auf den text klicken zum entfernen, soll
  * windows mac und webapp ueberall gleich sein."

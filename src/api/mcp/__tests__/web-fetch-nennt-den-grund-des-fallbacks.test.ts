@@ -2,7 +2,7 @@
  * AS-10 — der eine echte Fehler unter den 43 `no-unused-vars`.
  *
  * `executeWebFetch` hat zwei Wege: erst den Rust-Befehl `web_fetch`, und wenn
- * der wirft, den Browser-Fallback `fetchExternal` + `htmlToText`. Scheiterten
+ * der wirft, den Browser-Fallback (Proxy des Dev-Servers + `htmlToText`). Scheiterten
  * BEIDE, stand da:
  *
  *     } catch (fallbackErr) {
@@ -30,13 +30,18 @@ const PRIMARY = 'Tauri backend not available'
 let fallbackThrow: unknown = new Error('CORS policy blocked https://example.com')
 
 vi.mock('../../backend', () => ({
+  // Der Rueckfall ist der Weg des Browser-/Dev-Modus. In der App gibt es ihn
+  // nicht mehr (web-fetch-kein-rueckfall-in-der-app.test.ts).
+  isTauri: () => false,
   backendCall: vi.fn(async (cmd: string) => {
     if (cmd === 'web_fetch') throw new Error(PRIMARY)
     return { ok: true }
   }),
-  fetchExternal: vi.fn(async () => {
-    throw fallbackThrow
-  }),
+}))
+// Der Rueckfall holt die Seite selbst ueber den Proxy des Dev-Servers
+// (begrenzt gelesen), nicht mehr ueber `fetchExternal`.
+vi.stubGlobal('fetch', vi.fn(async () => {
+  throw fallbackThrow
 }))
 vi.mock('../../agents/sub-agent', () => ({
   DELEGATE_TASK_TOOL_DEF: { name: 'delegate_task', description: '', category: 'system', inputSchema: {} },

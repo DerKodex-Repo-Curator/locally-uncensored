@@ -15,7 +15,7 @@
 
 /** Default args.timeout the loops inject for the exec tools (ms). Building an
  * app (npm install, cargo/gradle) routinely runs minutes; the old 30 s
- * default + 60 s JS cap killed every real build (David 2026-06-04). */
+ * default + 60 s JS cap killed every real build (2026-06-04). */
 export const SHELL_EXECUTE_DEFAULT_TIMEOUT_MS = 600_000
 
 const LONG_RUNNING = new Set([
@@ -53,6 +53,18 @@ export const NO_PRACTICAL_CAP_MS = 2_147_483_000
  */
 const AGENT_LOOP_TOOLS = new Set(['delegate_task', 'run_workflow'])
 
+/**
+ * `computer_use` and `computer_task` wait for a person: every call can stop
+ * at a question (allow this app, confirm this action) that the user answers
+ * whenever they look at the screen, and a screen task runs up to its own
+ * step and time limit (TASK_MAX_STEPS, TASK_TIME_LIMIT_MS in
+ * api/computer-task.ts). Both end through their own Stop (the bar, the
+ * shortcut, the chat's Stop through the run signal). Under the generic 60 s
+ * default a question nobody answered within a minute failed the call, and
+ * the abort that followed was shown as "The user stopped computer control".
+ */
+const HUMAN_PACED_TOOLS = new Set(['computer_use', 'computer_task'])
+
 export interface ToolTimeoutSettings {
   imageGenTimeoutMinutes?: number
   videoGenTimeoutMinutes?: number
@@ -71,6 +83,9 @@ export function toolCallCapMs(
     return Math.max(1, Number(settings.videoGenTimeoutMinutes) || 60) * 60_000 + 120_000
   }
   if (AGENT_LOOP_TOOLS.has(name) && args?.background !== true) {
+    return NO_PRACTICAL_CAP_MS
+  }
+  if (HUMAN_PACED_TOOLS.has(name)) {
     return NO_PRACTICAL_CAP_MS
   }
   if (LONG_RUNNING.has(name)) {

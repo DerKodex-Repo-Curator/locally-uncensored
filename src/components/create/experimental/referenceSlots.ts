@@ -4,13 +4,17 @@
 import { useCreateStore } from '../../../stores/createStore'
 import { classifyModel } from '../../../api/comfyui'
 import { extraReferenceSlots } from '../../../lib/edit-references'
+import { laneImageModel } from '../../../lib/image-engines'
 import { referenceModel, studioExtraPhotoSlots } from '../../../lib/render/create-studio'
 
 export function useReferenceSlots(): number {
   const backend = useCreateStore((s) => s.backend)
   const intent = useCreateStore((s) => s.intent())
-  const imageModel = useCreateStore((s) => s.imageModel)
-  const listedType = useCreateStore((s) => s.imageModelList.find((m) => m.name === s.imageModel)?.type)
+  // The model the tab runs: on the Mac, Edit lists the models that take an
+  // image, and a pick that cannot is not the one that runs. A ComfyUI list
+  // leaves the stored pick as it is.
+  const imageModel = useCreateStore((s) => laneImageModel(s.imageModelList, s.imageModel, s.intent()))
+  const listedType = useCreateStore((s) => s.imageModelList.find((m) => m.name === laneImageModel(s.imageModelList, s.imageModel, s.intent()))?.type)
   const cloudImageModel = useCreateStore((s) => s.cloudImageModel)
   const cloudVideoModel = useCreateStore((s) => s.cloudVideoModel)
   const cloudOpModel = useCreateStore((s) => s.cloudOpModel)

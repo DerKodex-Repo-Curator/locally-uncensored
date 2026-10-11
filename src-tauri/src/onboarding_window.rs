@@ -378,7 +378,7 @@ pub fn force_show_after(app: AppHandle, delay: Duration) {
                     "[Window] Force-show fallback fired for '{}' (frontend never called show_window)",
                     window.label()
                 );
-                // Bug g (mallic, 2026-09-04): on Linux this moment IS the "no
+                // Bug g (2026-09-04): on Linux this moment IS the "no
                 // window" report, and 2.6.7 spent it in silence. `show()` below
                 // cannot help when the web process is already dead, so the
                 // console gets the two commands that tell the causes apart.
@@ -584,8 +584,8 @@ mod tests {
         let main_fn = &main_fn[..main_fn.find("\n}\n").expect("main ends")];
         assert_eq!(
             main_fn.matches("onboarding_window::bring_to_front(").count(),
-            3,
-            "single-instance, tray Show and tray double-click must all use bring_to_front"
+            4,
+            "single-instance, tray Show, tray double-click and the Dock click must all use bring_to_front"
         );
     }
 

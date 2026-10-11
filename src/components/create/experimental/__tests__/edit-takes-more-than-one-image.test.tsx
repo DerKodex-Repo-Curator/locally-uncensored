@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * GH #144 and Discord (s3aldra 2026-09-23 and 09-27, tbjdrw 2026-09-25): Edit
- * took one image. The strip under the source (layout David picked on
+ * GH #144 and Discord (a user 2026-09-23 and 09-27, a user 2026-09-25): Edit
+ * took one image. The strip under the source (layout the owner picked on
  * 2026-10-01) adds references for a model that takes them, and only there.
  *
  * Run: npx vitest run src/components/create/experimental/__tests__/edit-takes-more-than-one-image.test.tsx

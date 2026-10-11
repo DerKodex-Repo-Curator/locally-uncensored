@@ -12,7 +12,7 @@
  * PyramidFlowTransformerLoader and PyramidFlowVAEDecode. Allegro followed the
  * same invented shape. Every submit came back a ComfyUI 400, and because the
  * install gate looked for the invented sampler too, users with a perfect
- * install were told to go install what they already had (bob80817-dev, D#88).
+ * install were told to go install what they already had (D#88).
  *
  * Nothing caught it because the unit tests asserted our own mock node lists,
  * which were built from the same invented names. So the mocks agreed with the

@@ -124,7 +124,7 @@ export function UpdateBadge() {
           <motion.div
             ref={panelRef}
             style={panel.style}
-            className={`absolute right-0 w-72 rounded-lg overflow-x-hidden overflow-y-auto scrollbar-thin z-50 bg-white dark:bg-lu-overlay border border-gray-200 dark:border-white/[0.08] shadow-2xl shadow-black/10 dark:shadow-black/50 ${panel.nachOben ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
+            className={`absolute right-0 w-72 rounded-lg overflow-x-hidden overflow-y-auto scrollbar-thin z-50 lu-elevated ${panel.nachOben ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
             initial={{ opacity: 0, y: panel.nachOben ? 6 : -6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: panel.nachOben ? 6 : -6, scale: 0.98 }}

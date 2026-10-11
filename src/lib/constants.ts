@@ -1,5 +1,7 @@
 import type { Persona, Settings } from '../types/settings'
 import { DEFAULT_SEND_WINDOW_TOKENS } from './send-window'
+import { sharedMemoryWording } from './shared-memory-wording'
+import { IMAGE_PART } from '../api/image-parts'
 
 // Feature flags — flip to true when ready to ship
 export const FEATURE_FLAGS = {
@@ -39,7 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
   searchProvider: 'auto',
   braveApiKey: '',
   tavilyApiKey: '',
-  // Agent budget — bumped in v2.5.0 (uselu live-test 2026-05-25, commit
+  // Agent budget — bumped in v2.5.0 (the web app live-test 2026-05-25, commit
   // 1af958b2): on a real scaffold-install-fix-verify loop with a 35B
   // local model, 25 iterations / 50 tool calls fired the cap while the
   // model still had useful work to do. 200 / 400 is roomy enough for
@@ -76,7 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // already answers with "off". A version bump that buys nothing costs a full
   // state loss on downgrade (lib/persist-version.ts, DOWNGRADE-KONTRAKT).
   autoCompactThreshold: 0,
-  // R5-27, Entscheid David vom 12.09.2026: die automatische Erinnerungs-
+  // R5-27, Entscheid vom 12.09.2026: die automatische Erinnerungs-
   // Extraktion steht ab Werk AN, auch auf LU Cloud. Bis dahin stand sie im
   // Desktop still auf aus und im Web still auf an, und im Desktop gab es
   // keinen Schalter, der sie je eingeschaltet haette: der Kunde bekam eine
@@ -117,7 +119,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // NVIDIA fast-path, else probe the comfy python's torch and use the GPU if it
   // is a ROCm/ZLUDA build, otherwise CPU. Existing NVIDIA users are unaffected.
   comfyGpuMode: 'auto',
-  // ── v2.5.0 Codex sprint A/B/C defaults (ported from uselu) ──────
+  // ── v2.5.0 Codex sprint A/B/C defaults (ported from the web app) ──────
   codexArchitectMode: false,
   codexArchitectModel: '',
   // Local-first by default — explicit opt-in required for cloud arch.
@@ -131,7 +133,7 @@ export const DEFAULT_SETTINGS: Settings = {
   codexConfirmShell: false,
   // Cloud arm of the same gate, now an opt-in. OFF = a cloud model follows the
   // same rule as a local one, so Bypass and permission level auto run
-  // unattended (David 2026-08-22, replacing the ON default of 2.5.9/G15a).
+  // unattended (2026-08-22, replacing the ON default of 2.5.9/G15a).
   // ON = shell/code confirms on LU Cloud in every mode, Bypass included.
   codexCloudConfirmOptIn: false,
   defaultWorkspace: null,
@@ -365,6 +367,15 @@ export interface OnboardingModel {
   sizeGB: number         // Download size in GB
   expectedBytes?: number
   sha256?: string
+  /** `description` for a machine with one memory pool (a Mac), where the PC
+   *  sentence names VRAM or the card a number was measured on. Read through
+   *  `onboardingModelCopy`, never directly. */
+  sharedDescription?: string
+  // The image part of a model with image input, fetched with it as one
+  // download (api/image-parts.ts). Absent on a text model.
+  mmprojUrl?: string
+  mmprojBytes?: number
+  mmprojSha256?: string
 }
 
 const HF_OB = (repo: string, file: string) => `https://huggingface.co/${repo}/resolve/main/${file}`
@@ -394,7 +405,7 @@ export const ONBOARDING_MODELS: OnboardingModel[] = [
   // under 9B is recommended to run locally: the small ones lose the thread
   // on the second tool call." The flag here is the same curation call, not
   // the wire-format check, so it stays false at 7B.
-  // Both onboarding picks are abliterated (David 2026-10-01, after hollow7896
+  // Both onboarding picks are abliterated (2026-10-01, after hollow7896
   // on Discord 2026-09-30: the recommended 9B refused requests). Same base
   // models, same Q4_K_M quant, so the measured VRAM still holds; size and
   // SHA-256 are the repo's own LFS metadata, read on 2026-10-01.
@@ -405,7 +416,7 @@ export const ONBOARDING_MODELS: OnboardingModel[] = [
   // name 'Qwen 3.5 9B Abliterated'); src/lib/__tests__/onboarding-chat-minimum.test.ts
   // pins the two together so they cannot drift apart.
   //
-  // NINE_B_VRAM_GB is measured, not guessed: lu-box, RTX 3060 12 GB, all 32
+  // NINE_B_VRAM_GB is measured, not guessed: a Windows test machine, RTX 3060 12 GB, all 32
   // layers offloaded to the GPU (lu-301/STAND-BAU.md:258, "32 Schichten auf
   // GPU, 6,1 GB VRAM"; corroborated by lu-301/e2e/box-modelle/MODELL-UND-
   // SKRIPT.md, nvidia-smi read 6149 MiB of 12288 MiB right after load). The
@@ -417,7 +428,7 @@ export const ONBOARDING_MODELS: OnboardingModel[] = [
   // expectedBytes/sha256: HuggingFace's own LFS metadata
   // (api/models/mradermacher/Qwen3.5-9B-abliterated-GGUF/tree/main, lfs.size /
   // lfs.oid for Qwen3.5-9B-abliterated.Q4_K_M.gguf), read on 2026-10-01.
-  { name: 'qwen3.5-9b', label: 'Qwen 3.5 9B Abliterated', description: `Better for agents and tools, without refusals. Needs about ${NINE_B_VRAM_GB} GB VRAM, measured on an RTX 3060 with full GPU offload.`, size: '5.2 GiB', vram: `about ${NINE_B_VRAM_GB} GB for GPU offload, context-dependent`, vramGB: NINE_B_VRAM_GB, agent: true, downloadUrl: HF_OB('mradermacher/Qwen3.5-9B-abliterated-GGUF', 'Qwen3.5-9B-abliterated.Q4_K_M.gguf'), filename: 'Qwen3.5-9B-abliterated.Q4_K_M.gguf', sizeGB: 5627045216 / 1_073_741_824, expectedBytes: 5627045216, sha256: '19fadda28b2f4bd939fb4590db978acf8f0d6da274ac7ea8f7f2cdc92f1470a4' },
+  { name: 'qwen3.5-9b', label: 'Qwen 3.5 9B Abliterated', description: `Better for agents and tools, without refusals. Needs about ${NINE_B_VRAM_GB} GB VRAM, measured on an RTX 3060 with full GPU offload.`, size: '5.2 GiB', vram: `about ${NINE_B_VRAM_GB} GB for GPU offload, context-dependent`, vramGB: NINE_B_VRAM_GB, sharedDescription: `Better for agents and tools, without refusals. Needs about ${NINE_B_VRAM_GB} GB of free memory.`, agent: true, downloadUrl: HF_OB('mradermacher/Qwen3.5-9B-abliterated-GGUF', 'Qwen3.5-9B-abliterated.Q4_K_M.gguf'), filename: 'Qwen3.5-9B-abliterated.Q4_K_M.gguf', sizeGB: 5627045216 / 1_073_741_824, expectedBytes: 5627045216, sha256: '19fadda28b2f4bd939fb4590db978acf8f0d6da274ac7ea8f7f2cdc92f1470a4', ...IMAGE_PART['unsloth/Qwen3.5-9B-GGUF/mmproj-F16.gguf'] },
 ]
 
 /**
@@ -444,6 +455,30 @@ export function recommendedOnboardingModelName(
     }
   }
   return models.find((m) => m.recommended)?.name
+}
+
+/**
+ * The two lines of text under an onboarding model, for the machine reading
+ * them.
+ *
+ * The entries above are written from a PC: "VRAM", "GPU offload", "measured
+ * on an RTX 3060". An Apple Silicon Mac has none of the three; it has one
+ * memory pool, and a model needs its share of that pool free. With `shared`
+ * false this returns the entry's own text, so a PC reads what it always read.
+ * With `shared` true the description is the entry's `sharedDescription`, or
+ * its ordinary one run through the same rewrite the Model Manager uses
+ * (lib/shared-memory-wording.ts), and the memory line is built from `vramGB`,
+ * the one number the entry already carries.
+ */
+export function onboardingModelCopy(
+  model: OnboardingModel,
+  shared: boolean,
+): { description: string; memory: string } {
+  if (!shared) return { description: model.description, memory: `VRAM: ${model.vram}` }
+  return {
+    description: model.sharedDescription ?? sharedMemoryWording(model.description, true),
+    memory: `Memory: about ${model.vramGB} GB free, context-dependent`,
+  }
 }
 
 /**

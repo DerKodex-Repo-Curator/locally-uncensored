@@ -81,7 +81,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ─────────────────────────────────────────────────────────────────────
-   Visual layer aligned with the uselu web companion (DD 2026-06-05)
+   Visual layer aligned with the web companion (DD 2026-06-05)
    The previous build collapsed the whole cool-accent family
    (blue/indigo/violet/purple/sky/cyan) onto ONE muted-violet ramp via a
    @theme override, which tinted the entire app lilac. The web companion
@@ -93,7 +93,7 @@
    carry no colour identity.
    ───────────────────────────────────────────────────────────────────── */
 @theme {
-  /* ── Neutral ramp — spread for depth (uselu base, widened) ──────────
+  /* ── Neutral ramp — spread for depth (the web app base, widened) ──────────
      D-T06, am 01.09.2026 nachgezaehlt. Der Kommentar, der hier stand, war
      an einer Stelle schlicht falsch: `--color-lu-base` hiess „app canvas",
      aber die Leinwand der App ist #141414, nicht #202020. Gemessen im
@@ -139,7 +139,8 @@
   --color-lu-canvas: #141414;   /* Leinwand, Titelleiste, Header */
   --color-lu-base: #202020;     /* zwei Modalflaechen, NICHT die Leinwand */
   --color-lu-panel: #262626;    /* sidebar, panels */
-  --color-lu-overlay: #363636;  /* Schwebeblatt — siehe .lu-elevated */
+  --color-lu-overlay: #363636;  /* raised side panels (documents panel, tool card) */
+  --color-lu-sheet: #151515;    /* floating sheet: menus, popovers, tooltips, see .lu-elevated */
 
   /* ── Form: EINE Radiusleiter ────────────────────────────────────────
      D-T08. Vorher liefen zwei Systeme nebeneinander: die rem-abgeleitete
@@ -238,20 +239,16 @@
      sie acht handgeschriebene Ketten mit sechs verschiedenen Flaechen und
      drei verschiedenen Schattenstufen.
 
-     `--shadow-2xl` bleibt vorerst stehen, obwohl kein `var()` es aufruft
-     und alle sechs Utility-Call-Sites Schwebeblaetter sind, die auf
-     `.lu-elevated` gehoeren. Grund: die Zeile hier zu LOESCHEN entfernt
-     den Schatten nicht, sie faellt auf Tailwinds Werkswert zurueck — also
-     genau der stille Halbbesitz, den dieser Absatz beseitigt. Die Stufe
-     geht, wenn ihre letzte Call-Site geht, nicht vorher.
+     `--shadow-2xl` went with the pop-up redesign: its last six call
+     sites were floating sheets and dialogs, which now take `.lu-elevated`
+     or `.lu-dialog`.
      Bewacht von radius-schatten-hoehe-und-bewegung.test.ts. ── */
   --shadow-lg: 0 8px 24px -6px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
   --shadow-xl: 0 16px 48px -12px rgba(0, 0, 0, 0.7), 0 4px 12px -4px rgba(0, 0, 0, 0.5);
-  --shadow-2xl: 0 24px 64px -16px rgba(0, 0, 0, 0.8);
 
   /* ── Create surface accent — the disciplined violet promoted from the
      progress-bar rgb(160,148,248). Ported from the lu-labs create tokens
-     (apps/web/app/globals.css). The desktop Create port referenced
+     (the web app). The desktop Create port referenced
      `bg-lu-accent` / `text-lu-accent` but never defined the colour, so the
      progress fill and accents resolved to nothing. ── */
   --color-lu-accent: #a094f8;
@@ -271,8 +268,24 @@
   --color-lu-on-accent: #111827;
   --color-lu-accent-edge: #8b7cf0;
 
+  /* ── Accent as TEXT on a light surface (Model Manager, 08.10.2026) ──
+     In the dark the accent carries a word by itself: #a094f8 stands 6.42:1
+     on the pane (#1e1e1e) and 5.83:1 on a tile. On white it reaches 2.60:1,
+     and the light-mode edge #8b7cf0 reaches 3.37:1, which is enough for a
+     border (1.4.11) and not for a word. So the light mode gets an ink of
+     its own, the same hue taken down until it reads:
+
+       #5746d9 on #ffffff                6.40:1
+               on #f9fafb, a tile        6.12:1
+               on the tonal fill         5.56:1   (accent at 12 % over a tile)
+
+     Callers pair the two, as the edge is paired above:
+     `text-lu-accent-ink dark:text-lu-accent`. The numbers are computed, not
+     copied, in models/__tests__/the-accent-leads-to-the-action.test.ts. */
+  --color-lu-accent-ink: #5746d9;
+
   /* ── Die ruhige Fokus-Haarlinie an Texteingaben (21.09.2026) ────────
-     David, am Windows-Bau, zuerst fuer das Nachrichtenfeld und dann fuer
+     Der Inhaber, am Windows-Bau, zuerst fuer das Nachrichtenfeld und dann fuer
      die Preset-Werkstatt, auf Nachfrage fuer die ganze App: „der lila
      balken um das prompt fenster geht garnicht ... nirgends."
 
@@ -358,7 +371,7 @@
 
 /* ─────────────────────────────────────────────────────────────────────
    Create design tokens — ported verbatim from the lu-labs web companion
-   (apps/web/app/globals.css). The Create surface was ported WITHOUT these
+   (the web app). The Create surface was ported WITHOUT these
    definitions, so every `t-*` typography class fell back to the raw 18.4px
    root (≈33% oversized vs Chat) and every `h-[var(--control-h-*)]` became an
    invalid/auto height — which is what oversized the Create tab relative to
@@ -618,7 +631,7 @@ button:not(:disabled) {
   background: transparent;
 }
 
-/* Global scrollbar (David 2026-06-02): every scrollable surface — not only
+/* Global scrollbar (2026-06-02): every scrollable surface — not only
    .scrollbar-thin containers — gets the themed scrollbar so the bare white
    Windows/WebView2 default never shows (it was visible on the coding file-tree
    and other panes). .scrollbar-thin above still wins for the slim 6px variant. */
@@ -653,7 +666,7 @@ button:not(:disabled) {
   background: transparent;
 }
 
-/* ── Themed scrollbars via the STANDARD properties (David 2026-06-02 r2) ──
+/* ── Themed scrollbars via the STANDARD properties (2026-06-02 r2) ──
    The `::-webkit-scrollbar` rules ABOVE were being IGNORED on every
    `.scrollbar-thin` container: when `scrollbar-width: thin` is active (it is,
    via the scrollbar-thin utility), Chromium/WebView2 (Edge 148) switches to
@@ -821,7 +834,7 @@ input[type="range"]::-webkit-slider-thumb {
    Warum die Regel ihre drei Werte aus Variablen liest: damit es bei EINER
    Regel bleibt, obwohl es zwei Fokusbilder gibt.
 
-   David, 05.09.2026, am Windows-Bau: „wenn man in das nachrichten feld
+   05.09.2026, am Windows-Bau: „wenn man in das nachrichten feld
    klickt kommt eine starke lila umrandung, die soll komplett weg." Gemessen
    an der fokussierten Textarea des Chat-Composers: `outline: solid 1,739px
    rgb(160,148,248)` mit 1,739px Abstand, also diese Hausregel; das
@@ -998,16 +1011,118 @@ input:is(
    Kontext ist voll"). Diese Regel wuerde die Kante ueberschreiben, also
    nimmt die Stelle nur das Flaechentoken und behaelt ihre eigene Kante.
    ───────────────────────────────────────────────────────────────────── */
+/* Since the pop-up redesign the sheet is dark glass, the small sibling of
+   `.lu-dialog` below: near black instead of the grey overlay tone, denser
+   than the dialog because a menu lies right on top of text. Opaque where
+   `backdrop-filter` is missing. */
 .lu-elevated {
-  background: var(--color-lu-overlay);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: var(--shadow-xl);
+  background: var(--color-lu-sheet);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--shadow-xl);
 }
 .light .lu-elevated {
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: var(--shadow-lg);
 }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lu-elevated {
+    background: rgba(18, 18, 18, 0.94);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+  }
+  .light .lu-elevated {
+    background: rgba(255, 255, 255, 0.96);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+  }
+}
+
+/* `.lu-dialog`: the dialog sheet. Dark glass instead of the flat grey
+   overlay tone: a near black, slightly see-through surface that blurs what
+   lies behind it, a hairline edge, a soft light from the top and a deep
+   shadow. Where `backdrop-filter` is missing or switched off (older
+   WebKitGTK), the surface is simply opaque. The glass itself is dense
+   (94 percent): a WebKit that claims support and then does not blur, as
+   the Playwright WebKit build does, must not let the page read through. `.lu-dialog-scrim` is the dimmed app
+   behind it. */
+.lu-dialog {
+  background: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 32px 80px -20px rgba(0, 0, 0, 0.85),
+    0 8px 24px -8px rgba(0, 0, 0, 0.6);
+}
+.light .lu-dialog {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 32px 80px -24px rgba(0, 0, 0, 0.35),
+    0 8px 24px -8px rgba(0, 0, 0, 0.12);
+}
+.lu-dialog-scrim {
+  background: rgba(0, 0, 0, 0.55);
+}
+.light .lu-dialog-scrim {
+  background: rgba(20, 20, 20, 0.28);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lu-dialog {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0) 140px),
+      rgba(14, 14, 14, 0.94);
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    backdrop-filter: blur(28px) saturate(150%);
+  }
+  .light .lu-dialog {
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    backdrop-filter: blur(28px) saturate(160%);
+  }
+}
+
+/* The dialog button bar (components/ui/ModalActions). The colours are set
+   here for both themes and not through utilities, because the light rescue
+   layer below turns a bare `text-white` dark, which would break a solid red
+   button. */
+.lu-dialog-actions {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.22);
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+}
+.light .lu-dialog-actions {
+  border-top-color: rgba(0, 0, 0, 0.07);
+  background: rgba(0, 0, 0, 0.025);
+}
+.lu-dialog-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+}
+.lu-dialog-btn:disabled { cursor: not-allowed; opacity: 0.45; }
+.lu-dialog-btn-secondary { border-color: rgba(255, 255, 255, 0.14); color: #e5e7eb; background: rgba(255, 255, 255, 0.04); }
+.lu-dialog-btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+.lu-dialog-btn-quiet { color: #9ca3af; }
+.lu-dialog-btn-quiet:hover:not(:disabled) { color: #ffffff; background: rgba(255, 255, 255, 0.08); }
+.lu-dialog-btn-danger { background: #dc2626; border-color: #dc2626; color: #ffffff; }
+.lu-dialog-btn-danger:hover:not(:disabled) { background: #ef4444; border-color: #ef4444; }
+.light .lu-dialog-btn-secondary { border-color: rgba(0, 0, 0, 0.16); color: #1f2937; background: transparent; }
+.light .lu-dialog-btn-secondary:hover:not(:disabled) { background: rgba(0, 0, 0, 0.05); }
+.light .lu-dialog-btn-quiet { color: #4b5563; }
+.light .lu-dialog-btn-quiet:hover:not(:disabled) { color: #111827; background: rgba(0, 0, 0, 0.05); }
 
 /* Model pickers: one row grammar.
    The chat model picker in Cloud mode (components/models/CloudModelPicker)
@@ -1023,7 +1138,7 @@ input:is(
 .lu-picker-tag,
 .lu-picker-service,
 .lu-picker-rate {
-  --pk-sheet: var(--color-lu-overlay);
+  --pk-sheet: var(--color-lu-sheet);
   --pk-edge: rgba(255, 255, 255, 0.08);
   --pk-hair: rgba(255, 255, 255, 0.07);
   --pk-hover: rgba(255, 255, 255, 0.07);
@@ -1260,6 +1375,26 @@ div + div > .lu-picker-head { margin-top: 2px; }
   text-decoration-color: var(--pk-accent);
   text-underline-offset: 2px;
 }
+/* Name, marks and the quiet note as one part of the row: the note stands
+   after the name where there is room and wraps under it where there is not. */
+.lu-picker-lead {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1px 6px;
+  padding: 3px 0;
+}
+.lu-picker-lead .lu-picker-name { max-width: 100%; }
+/* Plain muted text, no frame and no colour: it is a note, not a mark. */
+.lu-picker-quiet {
+  flex: none;
+  font-size: var(--text-micro);
+  line-height: 1.2;
+  color: var(--pk-t3);
+  white-space: nowrap;
+}
 .lu-picker-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pk-t3); }
 .lu-picker-fill { flex: 1; min-width: 0; }
 
@@ -1279,6 +1414,45 @@ div + div > .lu-picker-head { margin-top: 2px; }
 .lu-picker-tag.is-accent { color: var(--pk-accent); }
 .lu-picker-tag.is-bright { color: var(--pk-t1); }
 .lu-picker-tag.is-quiet { opacity: 0.7; }
+/* The statement: the one tag that carries the accent as text, edge and tint.
+   The measured mark next to it in the catalogue is the plain grey tag, so the
+   colour alone tells the two apart. */
+.lu-picker-tag.is-statement {
+  color: var(--pk-accent);
+  border-color: color-mix(in srgb, var(--pk-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--pk-accent) 9%, transparent);
+  font-weight: 600;
+}
+/* On white the tint eats into the contrast of the word, so it is thinner
+   there (measured in e2e/uncensored-mark.spec.ts: at least 4.5 to 1). */
+.light .lu-picker-tag.is-statement {
+  background: color-mix(in srgb, var(--pk-accent) 5%, transparent);
+}
+
+/* The Beta mark (components/ui/BetaMark, the list in lib/beta.ts). One look
+   wherever it stands: the word in a full hairline frame, brighter than a
+   quiet tag so it is not overlooked next to a switch, and without a colour,
+   because Beta is neither a warning nor an error (lib/hinweis.ts). It brings
+   its own two greys, so it reads the same on a panel, a dialog and a sheet. */
+.lu-beta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 14px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  font-size: var(--text-micro);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: #e5e7eb;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: help;
+}
+.light .lu-beta { border-color: rgba(0, 0, 0, 0.36); color: #1f2937; }
 
 .lu-picker-icons { flex: none; display: grid; grid-template-columns: 14px 14px; column-gap: 4px; color: var(--pk-t3); }
 .lu-picker-icons svg { display: block; opacity: 0.85; }
@@ -1748,6 +1922,66 @@ div + div > .lu-picker-head { margin-top: 2px; }
   padding: 0;
 }
 
+/* The variant that shows its edge at rest. In a toolbar the controls stand in
+   a row and the row is their container. Alone on a card (Stop, Remove, the
+   size picker, Get on a model that does not fit this machine) a control
+   without an edge reads as a label, and that was the Model Manager's
+   complaint on 08.10.2026: nobody could tell what was there to be pressed.
+   The edge is the one the pressed state draws anyway, so no new value. */
+.lu-control--outline { border-color: rgba(255, 255, 255, 0.14); }
+.light .lu-control--outline { border-color: rgba(0, 0, 0, 0.14); }
+
+/* The light switch of the Voice surface: a wall rocker that stands in the
+   "on" position for as long as the voice engine is in memory. Same height,
+   radius and timing as the controls next to it. The rocker is the picture,
+   the number next to it says how much memory a click gives back. */
+.lu-light-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: var(--control-h-sm);
+  padding: 0 8px 0 5px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: var(--radius-control);
+  background-color: transparent;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+.light .lu-light-switch { border-color: rgb(0 0 0 / 0.14); }
+.lu-light-switch:hover:not(:disabled) { background-color: rgb(255 255 255 / 0.06); }
+.light .lu-light-switch:hover:not(:disabled) { background-color: rgb(0 0 0 / 0.05); }
+.lu-light-switch:disabled { opacity: 0.6; cursor: default; }
+.lu-light-switch__rocker {
+  position: relative;
+  width: 10px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  background-color: rgb(255 255 255 / 0.06);
+}
+.light .lu-light-switch__rocker {
+  border-color: rgb(0 0 0 / 0.3);
+  background-color: rgb(0 0 0 / 0.04);
+}
+/* The pressed half of the rocker: up means on. */
+.lu-light-switch__rocker::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 1px;
+  height: 6px;
+  border-radius: 2px;
+  background-color: var(--color-lu-accent);
+  transition: top var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease);
+}
+.lu-light-switch:disabled .lu-light-switch__rocker::after {
+  top: 7px;
+  background-color: rgb(156 163 175);
+}
+
 /* Der Aufnahme-Puls. Ein Control, das gerade zuhoert, sagt das lauter als
    „aktiv" — aber nicht in Rot: das Mikrofon nimmt auf, es ist nicht kaputt,
    und Rot heisst in dieser App an rund hundert Stellen „kaputt oder wird
@@ -1885,6 +2119,130 @@ div + div > .lu-picker-head { margin-top: 2px; }
   cursor: not-allowed;
 }
 
+/* ──────────────────────────────────────────────────────────────────
+   .lu-tonal: the action of a card in a grid.
+
+   Between the two recipes above there was nothing. `.lu-primary` is the one
+   filled accent of a screen (Send, Generate, Sign in), `.lu-control` is
+   neutral. A catalogue shows the same action once per card, up to 53 times
+   on one screen. Filled, that is a wall of violet, which is why the tiles of
+   the Model Manager kept their Get neutral until now. Neutral, it is what
+   The owner said about that page on 08.10.2026: one cannot tell where to click.
+
+   So the card action is tinted and not filled: the accent at 12 % as its
+   surface, the accent as its word, an edge of the same hue. It leads the eye
+   to the one thing a card is for and stays quiet in a grid of them.
+   `.lu-primary` keeps its place as the action of a surface that has exactly
+   one: the engine setup, an empty state.
+
+   Geometry is the neutral recipe's own (height, radius, type size), so a Get
+   stands in one line with the Stop or the picker next to it.
+
+   Contrast of the word on its own fill, computed in
+   models/__tests__/the-accent-leads-to-the-action.test.ts. The fill is 12 %
+   and not the 14 % of `--color-lu-accent-soft`: at 14 % the word drops to
+   4.48:1 the moment the tile under it is hovered and lightens.
+     dark   accent on the fill over a tile    4.84:1   tile hovered 4.64:1
+            hover, 20 % and the lifted accent 4.81:1
+     light  ink on the fill over a tile       5.56:1   tile hovered 5.28:1
+            hover, 20 %                       4.98:1
+   Focus is the ring of the house, which lies on the tile and not on the
+   fill. Disabled loses its colour like `.lu-primary` does: a Get that waits
+   for another download must not look like the one that can be pressed.
+   ───────────────────────────────────────────────────────────────── */
+.lu-tonal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  height: var(--control-h-sm);
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--color-lu-accent) 30%, transparent);
+  border-radius: var(--radius-control);
+  background-color: color-mix(in srgb, var(--color-lu-accent) 12%, transparent);
+  color: var(--color-lu-accent);
+  font-size: 0.6rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    scale var(--motion-fast) var(--motion-ease);
+}
+.light .lu-tonal {
+  border-color: color-mix(in srgb, var(--color-lu-accent-ink) 30%, transparent);
+  color: var(--color-lu-accent-ink);
+}
+.lu-tonal:hover:not(:disabled) {
+  border-color: var(--color-lu-accent-ring);
+  background-color: color-mix(in srgb, var(--color-lu-accent) 20%, transparent);
+  color: var(--color-lu-accent-hover);
+}
+.light .lu-tonal:hover:not(:disabled) {
+  border-color: var(--color-lu-accent-ink);
+  color: var(--color-lu-accent-ink);
+}
+.lu-tonal:disabled {
+  filter: grayscale(1);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   .lu-tile: the card of a catalogue grid.
+
+   The chat tile, the bundle tile, the Mac media tile, the installed row and
+   the loading skeleton each spelled the same surface by hand, five chains
+   that had to be changed together and were not. One recipe: surface, edge,
+   corner and the hover that says the card is alive.
+
+   Depth comes from the edge and not from a shadow. On the dark pane a shadow
+   tops out at 1.26:1 (the arithmetic stands at `.dark .shadow-sm` above), so
+   a raised card is a brighter edge. `--lead` is that brighter edge at rest,
+   for the cards a page puts first. `--active` is the one that is in use: the
+   soft accent ground and the accent edge, the same pair the Settings
+   navigation and the Models rail mark their selection with, and it holds
+   while the pointer is over it.
+
+   Padding stays with the caller: a tile and a list row share the surface,
+   not the measure.
+   ───────────────────────────────────────────────────────────────── */
+.lu-tile {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-xl);
+  background-color: rgba(255, 255, 255, 0.03);
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+.lu-tile:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background-color: rgba(255, 255, 255, 0.045);
+}
+.lu-tile--lead { border-color: rgba(255, 255, 255, 0.14); }
+.light .lu-tile {
+  border-color: rgba(0, 0, 0, 0.09);
+  background-color: rgb(249 250 251);
+}
+.light .lu-tile:hover {
+  border-color: rgba(0, 0, 0, 0.16);
+  background-color: rgb(243 244 246);
+}
+.light .lu-tile--lead { border-color: rgba(0, 0, 0, 0.16); }
+.lu-tile--active,
+.lu-tile--active:hover {
+  border-color: var(--color-lu-accent-ring);
+  background-color: var(--color-lu-accent-soft);
+}
+.light .lu-tile--active,
+.light .lu-tile--active:hover {
+  border-color: var(--color-lu-accent-edge);
+  background-color: var(--color-lu-accent-soft);
+}
+
 /* Checkerboard backing so transparent (background-removed) PNGs don't read
    as solid black in the Stage / gallery. */
 .lu-checker {
@@ -1897,7 +2255,7 @@ div + div > .lu-picker-head { margin-top: 2px; }
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
 
-/* Tool-call band (2.6.0, David 2026-07-31): the running tool's name gets a
+/* Tool-call band (2.6.0, 2026-07-31): the running tool's name gets a
    soft violet sweep and trailing dots, so a live call reads as "working"
    without a chip per step. Text shimmer needs background-clip, so light and
    dark pick their own base grey. */
@@ -2076,4 +2434,351 @@ select.lu-field-dark {
 }
 select.lu-field-dark option {
   background-color: var(--color-lu-base);
+}
+
+/* Computer control has LU's window while it works on the screen: the small
+   panel in the corner of the display, or the paused view
+   (components/computer/ComputerSurface). The page under it stays mounted and
+   is not shown. On Windows the window is see-through, so nothing of the page
+   may paint around the panel. */
+html[data-computer-surface]:not([data-computer-surface='window']),
+html[data-computer-surface]:not([data-computer-surface='window']) body {
+  background: transparent !important;
+}
+html[data-computer-surface]:not([data-computer-surface='window']) #root {
+  visibility: hidden;
+}
+
+/* The panel. In the app the window is exactly as large as the panel, so a
+   shadow that reaches outside would be cut off at the edge of the window:
+   the panel is drawn by its surface and its hairline alone. An opaque
+   window (macOS) has square corners, and the panel fills it to the edge. */
+.lu-computer-panel {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  transition: border-color var(--motion-slow) var(--motion-ease);
+}
+.light .lu-computer-panel {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.lu-computer-panel--flush {
+  border: 0;
+}
+.lu-computer-head {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+/* Pause and Stop stand next to the line that says what LU does: small
+   enough to leave that line its room, the same height as each other. */
+.lu-computer-head > .lu-dialog-btn {
+  min-height: 20px;
+  padding: 0 7px;
+  font-size: 11px;
+  line-height: 16px;
+  border-radius: 6px;
+}
+/* What LU does right now: small, one line, level with the middle of the logo. */
+.lu-computer-word {
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.light .lu-computer-head {
+  border-bottom-color: rgba(0, 0, 0, 0.07);
+}
+
+/* The grip: a short bar in the padding at the top edge of the panel. It
+   takes no room of its own, so nothing in the panel moves for it, and it
+   stays quiet until the pointer is on it. */
+.lu-computer-grip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  width: 64px;
+  height: 12px;
+  margin-left: -32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+}
+.lu-computer-grip:active {
+  cursor: grabbing;
+}
+.lu-computer-grip::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 18px;
+  width: 28px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background-color var(--motion-base) var(--motion-ease);
+}
+.lu-computer-grip:hover::before,
+.lu-computer-grip:focus-visible::before {
+  background: rgba(255, 255, 255, 0.5);
+}
+.light .lu-computer-grip::before {
+  background: rgba(0, 0, 0, 0.14);
+}
+.light .lu-computer-grip:hover::before,
+.light .lu-computer-grip:focus-visible::before {
+  background: rgba(0, 0, 0, 0.45);
+}
+.lu-computer-grip:focus-visible {
+  outline: none;
+}
+/* On a page that is larger than the window (a browser), the panel changes
+   corners the way the window does in the app: one slide that comes to rest. */
+.lu-computer-surface--placed {
+  transition: left 240ms cubic-bezier(0.22, 1, 0.36, 1), top 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* LU waits for the user: a question is open, or the session is paused.
+   Nothing runs until the user answers, so the panel says so in the one
+   accent: its edge takes the colour and breathes slowly, and the line in
+   the head takes it too. #b1a6ff on the panel is 9.5:1, #7c3aed on white
+   5.7:1. */
+.lu-computer-surface[data-waiting] .lu-computer-panel {
+  border-color: var(--color-lu-accent);
+  animation: lu-computer-wait 2.4s ease-in-out infinite;
+}
+.lu-computer-surface[data-waiting] .lu-computer-word {
+  color: var(--color-lu-accent-hover);
+}
+.light .lu-computer-surface[data-waiting] .lu-computer-word {
+  color: var(--color-lu-cloud);
+}
+@keyframes lu-computer-wait {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+  50% {
+    box-shadow: inset 0 0 0 1px var(--color-lu-accent), inset 0 0 18px var(--color-lu-accent-soft);
+  }
+}
+
+/* What changes inside the panel fades in. The panel itself keeps its size. */
+.lu-computer-enter {
+  animation: lu-computer-enter var(--motion-slow) var(--motion-ease) both;
+}
+@keyframes lu-computer-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* A question of computer control (components/computer/ComputerQuestion).
+   In the panel it is the lower part of the panel, under a hairline. Above
+   an input field it is a sheet of its own. */
+.lu-computer-question {
+  padding: 12px 14px;
+}
+.lu-computer-question--panel {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.22);
+  animation: lu-computer-enter var(--motion-slow) var(--motion-ease) both;
+}
+.light .lu-computer-question--panel {
+  border-top-color: rgba(0, 0, 0, 0.07);
+  background: rgba(0, 0, 0, 0.025);
+}
+/* The answers: two to a row, each as wide as its half and high enough to
+   hit without aiming. The main one stands last. */
+.lu-computer-answers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.lu-computer-answers > .lu-dialog-btn {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: var(--text-control);
+}
+/* Above an input field the sheet is wide and the window may be low (Voice
+   at 900 by 600): the answers stand in one row on the right, each wide
+   enough to hit. */
+.lu-computer-question:not(.lu-computer-question--panel) .lu-computer-answers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.lu-computer-question:not(.lu-computer-question--panel) .lu-computer-answers > .lu-dialog-btn {
+  min-width: 112px;
+  min-height: 32px;
+}
+/* The Autonomous switch. Two lines of text have room with the switch on
+   and with it off, so pressing it moves nothing. */
+.lu-computer-autonomy {
+  height: 44px;
+  transition: border-color var(--motion-base) var(--motion-ease), background-color var(--motion-base) var(--motion-ease);
+}
+.lu-computer-autonomy[data-on='true'] {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.06);
+}
+/* The two shortcuts, at the foot of the panel while no question stands there. */
+/* The note of computer control above the input field: one small line in
+   the middle. It hangs above its place and takes no room, so nothing moves
+   when it comes and goes. */
+.lu-computer-note {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(94%, 30rem);
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  color: #e5e7eb;
+  background: rgba(24, 24, 27, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  animation: lu-computer-note-in var(--motion-base, 180ms) ease-out both;
+}
+.light .lu-computer-note {
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+/* A stop with its reason can be long: it may wrap, the passing note never does. */
+.lu-computer-note[data-kind='stopped'] {
+  white-space: normal;
+  border-radius: 12px;
+}
+.lu-computer-note--passing {
+  animation: lu-computer-note-pass 2500ms ease-in-out both;
+}
+.lu-computer-note-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 9999px;
+  background: var(--color-lu-accent);
+}
+.lu-computer-note-close {
+  flex: none;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9999px;
+  color: #9ca3af;
+}
+.lu-computer-note-close:hover {
+  color: inherit;
+}
+@keyframes lu-computer-note-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 3px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes lu-computer-note-pass {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 3px);
+  }
+  8%,
+  88% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lu-computer-note,
+  .lu-computer-note--passing {
+    animation: none;
+  }
+}
+.lu-computer-keys {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.light .lu-computer-keys {
+  border-top-color: rgba(0, 0, 0, 0.07);
+}
+.lu-computer-keys kbd {
+  font: inherit;
+  padding: 1px 5px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #d1d5db;
+}
+.light .lu-computer-keys kbd {
+  border-color: rgba(0, 0, 0, 0.14);
+  background: rgba(0, 0, 0, 0.03);
+  color: #374151;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lu-computer-surface[data-waiting] .lu-computer-panel,
+  .lu-computer-enter,
+  .lu-computer-question--panel {
+    animation: none;
+  }
+  .lu-computer-surface--placed,
+  .lu-computer-grip::before {
+    transition: none;
+  }
+}
+
+/* Where the window does not shrink, the bar of computer control lies over
+   the top of the main panel and says how far down it reaches
+   (--computer-bar-clear, ComputerControlHost). In Voice the question of
+   computer control stands above the controls of the session, and in a low
+   window or before the first words that is right under the title row
+   (2.5rem): the transcript keeps the reach of the bar free, and so does the
+   lower part while it stands alone. */
+.lu-voice-transcript {
+  min-height: max(0px, calc(var(--computer-bar-clear, 0px) - 2.5rem));
+}
+.lu-voice-lower--alone {
+  padding-top: max(0.5rem, calc(var(--computer-bar-clear, 0px) - 2rem));
+  /* Centred while there is room. In a low window the content starts at the
+     top instead of growing out of it on both sides. */
+  justify-content: safe center;
+}
+
+/* Create in chat: the placeholder while a result is being made
+   (components/chat/create/CreateMedia.tsx). Same block as on the web
+   (the web app), so the mirrored card looks the same. */
+@keyframes lu-develop {
+  0% { background-position: 0% 0%, 200% 50%; }
+  100% { background-position: 0% 0%, 0% 50%; }
+}
+.lu-develop {
+  background-color: #1b1b1b;
+  background-image:
+    radial-gradient(120% 90% at 20% 110%, rgba(160, 148, 248, 0.16), transparent 60%),
+    linear-gradient(110deg, rgba(255, 255, 255, 0.015) 30%, rgba(255, 255, 255, 0.07) 50%, rgba(255, 255, 255, 0.015) 70%);
+  background-size: 100% 100%, 200% 100%;
+  animation: lu-develop 2.4s linear infinite;
+}
+/* Light mode: the same placeholder on a light ground, so the line inside it
+   (dark type in light mode) stays readable. */
+.light .lu-develop {
+  background-color: #ececec;
+  background-image:
+    radial-gradient(120% 90% at 20% 110%, rgba(160, 148, 248, 0.24), transparent 60%),
+    linear-gradient(110deg, rgba(0, 0, 0, 0.01) 30%, rgba(0, 0, 0, 0.06) 50%, rgba(0, 0, 0, 0.01) 70%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lu-develop { animation: none; }
 }

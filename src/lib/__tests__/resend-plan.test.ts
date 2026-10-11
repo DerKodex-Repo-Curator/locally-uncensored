@@ -205,3 +205,35 @@ describe('a question with attached files (3.0.5)', () => {
     expect(planResend(loop, 'a1')).toEqual({ deleteFromId: 'u1', content: 'the real instruction' })
   })
 })
+
+describe('Create in chat: the hidden report and the attachment note', () => {
+  const REPORT = '[Create report] Order 1 is finished. Item 1 (image): done, 300 credits.'
+  const withOrder = [
+    { id: 'u1', role: 'user' as const, content: 'make a fox' },
+    { id: 'a1', role: 'assistant' as const, content: 'Here is the order.' },
+    { id: 'r1', role: 'user' as const, content: REPORT, hidden: true },
+    { id: 'a2', role: 'assistant' as const, content: 'Your fox is ready.' },
+  ]
+
+  it('regenerating the answer to a report sends the report again, hidden, and never the first question', () => {
+    // Anchoring on u1 would lay the order out a second time and ask the
+    // customer to pay for the same picture twice.
+    expect(planResend(withOrder, 'a2')).toEqual({ deleteFromId: 'r1', content: REPORT, createReport: true })
+  })
+
+  it('regenerating the answer before the report is an ordinary regenerate', () => {
+    expect(planResend(withOrder, 'a1')).toEqual({ deleteFromId: 'u1', content: 'make a fox' })
+  })
+
+  it('a hidden message that is not a report is not treated as one', () => {
+    const other = [
+      { id: 'u1', role: 'user' as const, content: 'continue', hidden: true },
+      { id: 'a1', role: 'assistant' as const, content: 'ok' },
+    ]
+    expect(planResend(other, 'a1')).toEqual({ deleteFromId: 'u1', content: 'continue' })
+  })
+
+  it('a report cannot be edited into something else', () => {
+    expect(planResend(withOrder, 'a2', 'new text')).toBeNull()
+  })
+})

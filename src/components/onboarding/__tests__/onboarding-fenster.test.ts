@@ -134,7 +134,12 @@ describe('die Dekoration folgt dem Hauptfenster der jeweiligen Plattform', () =>
 
   it('im eigenen Fenster gibt es kein Maximieren, auf dem Mac keine eigenen Knöpfe', () => {
     expect(ONBOARDING_TSX).toContain("const ownWindow = hostWindow === 'onboarding'")
-    expect(ONBOARDING_TSX).toContain('{!(ownWindow && isMacOS()) && (<>')
+    // Seit dem 09.10.2026 gilt das auf dem Mac auch im Hauptfenster (der
+    // Notweg ohne eigenes Fenster): dort zeichnet das System die Ampeln
+    // ebenfalls, und die drei Knoepfe rechts waren ein zweiter Satz.
+    // e2e/mac-persona-walk.spec.ts haelt es im Browser fest, samt Windows.
+    expect(ONBOARDING_TSX).toContain('{!isMacOS() && (<>')
+    expect(ONBOARDING_TSX).not.toContain('{!(ownWindow && isMacOS()) && (<>')
     expect(ONBOARDING_TSX).toContain('{!ownWindow && (')
     expect(RUST).toContain('.resizable(false)')
     expect(RUST).toContain('.maximizable(false)')

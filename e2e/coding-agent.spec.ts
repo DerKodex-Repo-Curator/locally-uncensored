@@ -14,7 +14,7 @@ import { toolCalls } from './support/recorded'
  *
  *   A1  the Code tab streams on a NON-Ollama transport (the built-in engine
  *       is providerId 'openai'); it used to sit silent until the whole call
- *       returned, which is what David reported repeatedly.
+ *       returned, which is what the owner reported repeatedly.
  *   A2  a run started before a tab switch is still stoppable afterwards — the
  *       view unmounts, the hook is rebuilt, and the store aborter is what
  *       carries the handle across.
@@ -29,12 +29,13 @@ const FILE_LINES = Array.from({ length: 200 }, (_, i) => `line ${i + 1}`).join('
 
 type Turn = { text?: string; toolCalls?: Array<{ name: string; args: Record<string, unknown> }> }
 
-async function boot(page: Page, agentTurns: Turn[]) {
+async function boot(page: Page, agentTurns: Turn[], holdTools = false) {
   await page.addInitScript(tauriMockInit, {
     assistantReply: 'unused in agent specs',
     modelName: DEFAULT_MODEL_NAME,
     replyChunkDelayMs: 8,
     agentTurns,
+    holdTools,
     files: { 'big.ts': FILE_LINES },
   })
   await seedOnboardingDone(page)
@@ -92,16 +93,23 @@ test('the Code tab streams on the built-in engine instead of painting in one tic
 })
 
 test('a run survives a tab switch and is still stoppable afterwards', async ({ page }) => {
-  // A long script so the run is still going while we switch away and back.
+  // The run has to be going for the whole trip to another view and back, and a
+  // script of tool rounds cannot promise that: the mock answers on timers, so
+  // forty rounds are over after about 3.8 s whatever the machine is doing,
+  // while the trip (0.9 s on an idle machine) waits for a lazy chunk and grows
+  // with every worker that shares the dev server. With enough workers the run
+  // ended first, and the Stop this spec looks for was honestly not there.
+  // So the first tool call is held open instead: the run sits inside it until
+  // the spec lets go, however long the trip takes.
   const turns: Turn[] = Array.from({ length: 40 }, (_, i) => ({
     text: `step ${i + 1}`,
     toolCalls: [{ name: 'file_read', args: { path: `src/file-${i}.ts` } }],
   }))
-  await boot(page, turns)
+  await boot(page, turns, true)
 
   await instruct(page, 'walk the whole source tree')
-  // The run is under way.
-  await expect.poll(async () => (await toolCalls(page)).length, { timeout: 20_000 }).toBeGreaterThan(0)
+  // The first tool call has reached the bridge and waits there.
+  await expect.poll(async () => (await toolCalls(page)).length, { timeout: 20_000 }).toBe(1)
 
   // Look at another view and come back. AppShell mounts ChatView on
   // `currentView === 'chat'`, so this really unmounts CodexView and rebuilds
@@ -120,27 +128,27 @@ test('a run survives a tab switch and is still stoppable afterwards', async ({ p
   // fresh hook reported idle, offered a second Send and no Stop at all.
   const stop = page.getByRole('button', { name: /Stop/i })
   await expect(stop).toBeVisible({ timeout: 20_000 })
+  // Still the same run, and still inside its first tool call.
+  expect((await toolCalls(page)).length).toBe(1)
 
   await stop.click()
+  // The held call answers now, the way a tool that was in flight when Stop
+  // landed still reports back through the bridge. From here every tool answers
+  // at once, so a loop that Stop did not reach would run on through the script.
+  await page.evaluate(() => (window as unknown as { __E2E_RELEASE_TOOLS__: () => void }).__E2E_RELEASE_TOOLS__())
   // Stop actually reached the controller the OLD hook instance created. The
   // observable proof is the composer: Stop gives its slot back to Send only
   // when the run is really over, so this waits for the stop instead of
   // sleeping through it.
   await expect(page.getByRole('button', { name: 'Send message' })).toBeVisible({ timeout: 20_000 })
 
-  // A tool call that was already in flight when Stop landed still reports back
-  // through the bridge, so give it one short settle before taking the
-  // reference count …
-  await page.waitForTimeout(1_000)
-  const settled = (await toolCalls(page)).length
-  // … and after that nothing more may arrive at all. This is the falsifiable
-  // half and it is the one the audit cares about: an orphaned loop would keep
-  // pushing calls into this window. There is no event for "no event", so this
-  // half needs a window — but it is now ONLY the observation, not also the
-  // wait for the stop to take effect, which is what the old 1.5 s + 2.5 s pair
-  // was doing in one lump.
+  // And after that nothing more may arrive at all. This is the falsifiable
+  // half and it is the one the audit cares about: an orphaned loop would ask
+  // the model for step 2 and push its tool call into this window. There is no
+  // event for "no event", so this half needs a window, but the count it is
+  // compared with is exact now and no longer a reading taken after a settle.
   await page.waitForTimeout(2_500)
-  expect((await toolCalls(page)).length).toBe(settled)
+  expect((await toolCalls(page)).length).toBe(1)
 })
 
 /**
@@ -339,7 +347,7 @@ test('file_edit: several edits in one call, one of them with the indentation off
 })
 
 /**
- * Customer case 30.09.2026 (swift_maple90, Windows desktop), second mail: "if
+ * Customer case 30.09.2026 (Windows desktop), second mail: "if
  * i go to any other tabs like setting or somewhere task is stopped and start
  * from begining again". The spec above only walked Code → Models → back. This
  * walks the customer's way, into Settings, in both loops, and checks the two

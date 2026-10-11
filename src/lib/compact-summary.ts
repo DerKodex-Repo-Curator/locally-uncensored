@@ -272,8 +272,29 @@ export function parseCompactSummary(text: string): CompactSummary {
   const out: CompactSummary = { ...EMPTY_SUMMARY }
   const buckets: Record<string, string[]> = { rest: [] }
   let current = 'rest'
+  let fence: { marker: string; length: number; line: number } | undefined
+  // The first fence that opens outside a section and closes again. Only that
+  // one can be a wrapper around the whole answer (see below).
+  let wrapper: { from: number; to: number } | undefined
 
-  for (const line of src.split('\n')) {
+  const lines = src.split('\n')
+  lines.forEach((line, i) => {
+    // Section names inside fenced code are literal text, not summary headings.
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/)
+    if (fence) {
+      if (marker && marker[1][0] === fence.marker && marker[1].length >= fence.length
+          && marker[2].trim() === '') {
+        if (!wrapper && current === 'rest') wrapper = { from: fence.line, to: i }
+        fence = undefined
+      }
+      buckets[current].push(line)
+      return
+    }
+    if (marker && (marker[1][0] === '~' || !marker[2].includes('`'))) {
+      fence = { marker: marker[1][0], length: marker[1].length, line: i }
+      buckets[current].push(line)
+      return
+    }
     const m = line.match(headingRe)
     if (m) {
       const wort = m[1].toLowerCase()
@@ -281,18 +302,40 @@ export function parseCompactSummary(text: string): CompactSummary {
       if (found || wort === REST_HEADING.toLowerCase()) {
         current = found ? found.key : 'rest'
         if (!buckets[current]) buckets[current] = []
-        continue
+        return
       }
     }
     if (!buckets[current]) buckets[current] = []
     buckets[current].push(line)
-  }
+  })
+
+  // A fence the model never closed (cut off at the token limit, or simply
+  // forgotten) is closed here. The section is rendered into the payload with
+  // other sections and the closing marker behind it, and an open fence would
+  // turn all of that into code for the next reader, this parser included.
+  if (fence) buckets[current].push(fence.marker.repeat(fence.length))
 
   for (const key of Object.keys(buckets)) {
     const body = buckets[key].join('\n').trim()
     // "none" is the prompt's own word for an empty section; keeping it would
     // spend tokens saying nothing on every future request.
     out[key as keyof CompactSummary] = /^none\.?$/i.test(body) ? '' : body
+  }
+
+  // Small models like to hand back the whole answer inside one code fence,
+  // often after a line such as "Here is the summary:". Read literally, every
+  // heading in it is code and the summary collapses into loose text. So when
+  // nothing outside a fence was a section, look inside the first fence, and
+  // take its sections if it has any. Text around the fence stays as notes.
+  if (wrapper && SECTIONS.every((sec) => !out[sec.key])) {
+    const inner = parseCompactSummary(lines.slice(wrapper.from + 1, wrapper.to).join('\n'))
+    if (SECTIONS.some((sec) => inner[sec.key])) {
+      const around = [...lines.slice(0, wrapper.from), ...lines.slice(wrapper.to + 1)]
+        .join('\n')
+        .trim()
+      inner.rest = [inner.rest, around].filter(Boolean).join('\n\n')
+      return inner
+    }
   }
   return out
 }

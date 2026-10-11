@@ -32,6 +32,8 @@ vi.mock('../../api/mlx-video', () => ({
   listVideoModels: vi.fn(async () => []),
   buildMlxVideoModels: vi.fn(() => []),
   mlxVideoModelIdFor: vi.fn(() => 'ltx'),
+  mlxTakesStartImage: vi.fn(() => false),
+  stageStartImage: vi.fn(),
   generateVideo: vi.fn(async (o: { prompt: string }) => { mlx.videoRuns.push({ prompt: o.prompt }); throw new Error('stop here') }),
   getVideoProgress: vi.fn(),
   cancelVideo: vi.fn(),

@@ -79,7 +79,7 @@ export function ChatView() {
   )
   // A chat that is open but has nothing in it yet. Counted the way MessageList
   // counts: the system prompt and hidden bookkeeping are not something the user
-  // has said. Screen check on the bundle (David, 2026-09-02): after New Chat the
+  // has said. Screen check on the bundle (2026-09-02): after New Chat the
   // main area went blank, because the recent list only stood on the no-chat
   // screen.
   //
@@ -131,7 +131,7 @@ export function ChatView() {
   // ein toter Klick.
   const appMode = useSettingsStore((s) => s.settings.appMode)
 
-  // Per-conversation generating flag (David 2026-06-12): the typing indicator
+  // Per-conversation generating flag (2026-06-12): the typing indicator
   // + realtime counter must show ONLY in the chat that is actually generating,
   // not in every other chat the user switches to.
   //
@@ -171,7 +171,7 @@ export function ChatView() {
   )
   // Docs (RAG) needs a LOCAL EMBEDDINGS backend, which is not the same thing as
   // a local CHAT backend. That mix-up is what hid the button in Cloud mode until
-  // A9 (aldrich_ironhart, 2026-09-01). The embeddings sidecar on 127.0.0.1:8128
+  // A9 (2026-09-01). The embeddings sidecar on 127.0.0.1:8128
   // runs in Cloud mode too, and retrieval reaches the model through the system
   // prompt, which every provider takes. So the question is whether this machine
   // can embed, and that is what useDocsAvailability asks.
@@ -363,7 +363,7 @@ export function ChatView() {
               // gebaut: sie waeren Inhalt, den niemand bestellt hat, und der
               // Audit verlangt sie nicht.
               //
-              // David, 19.09.2026, AUFTRAG: der Block sitzt in beiden Lagen
+              // 19.09.2026, AUFTRAG: der Block sitzt in beiden Lagen
               // (Chat und Code) MITTIG, nicht mehr unten. Am 05.09.2026 stand
               // hier noch die Regel „unten verankert im Chat, mittig im
               // Code" (`justify-end` fuer Chat, `justify-center` fuer Code):
@@ -377,17 +377,26 @@ export function ChatView() {
               // Fensterhoehe, weil `justify-end` den Block am Composer
               // festnagelt statt an der Mitte). Der Code-Bereich stand mit
               // `justify-center` schon richtig (-0,9 bis -1,5 Prozent, leicht
-              // ueber der Mitte). David: „er soll mittig sitzen." Die
+              // ueber der Mitte). Der Inhaber: „er soll mittig sitzen." Die
               // Bedingung faellt deshalb weg, beide Lagen bekommen dieselbe
               // Regel.
               <motion.div
                 key="home"
-                className="flex-1 flex flex-col items-center justify-center min-h-0 px-3 pb-4"
+                className="relative flex-1 flex flex-col items-center justify-center min-h-0 px-3 pb-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.2 }}
               >
+                {/* The lines the composer raises (a file that is too large,
+                    too many attachments) have to be readable before the first
+                    message too: a refusal nobody sees is a file that silently
+                    did not attach. Same place as in a running chat, the top of
+                    the surface and never the prompt field, and out of the
+                    flow so the block below stays centred. */}
+                <div className="absolute inset-x-0 top-0">
+                  <ChatNotices onAttachDocs={() => setRagPanelOpen(true)} />
+                </div>
                 <div
                   data-testid="chat-landing"
                   className="w-full max-w-[var(--lu-measure)] flex flex-col items-center text-center gap-2"
@@ -413,7 +422,7 @@ export function ChatView() {
                   )}
 
                   {/* The latest chats stand here only while the side panel is
-                      collapsed (David, web parity). Expanded, the list lives in
+                      collapsed (the owner, web parity). Expanded, the list lives in
                       the panel and would be on screen twice. They come AFTER
                       the headline: the block says where you are first and
                       offers somewhere to go second. */}
@@ -447,7 +456,7 @@ export function ChatView() {
                   <PlanBar />
 
                   {/* Der Platz, an den die Zeilen aus dem Composer gezogen
-                      sind (David, 21.09.2026: „NICHTS im prompt fenster!").
+                      sind (21.09.2026: „NICHTS im prompt fenster!").
                       Oben im Verlauf, ruhig, mit x, und ausdruecklich NICHT am
                       Eingabefeld. `ChatNotices` traegt die beiden Zeilen, die
                       im Composer entstehen (ein Dokument gehoert in die Ablage,
@@ -476,7 +485,7 @@ export function ChatView() {
                       Transkript sonst nimmt, also bleibt der Composer, wo er
                       ist.
 
-                      FUND (David, 19.09.2026, N9-Nachtest Windows-Box,
+                      FUND (19.09.2026, N9-Nachtest Windows-Box,
                       box-gruen/n2/BERICHT.md Teil A): die Bedingung war
                       vorher NICHT `activeConvIsEmpty`, sondern
                       `!sidebarOpen && activeConvIsEmpty`
@@ -510,7 +519,7 @@ export function ChatView() {
                       an der Stelle des Transkripts sitzt.
 
                       Mittig, mit dem Zeichen aus `brand.ts`, aus demselben
-                      Grund wie die Eingangsseite selbst (D-S05, David
+                      Grund wie die Eingangsseite selbst (D-S05, der Inhaber
                       19.09.2026): am 05.09.2026 stand hier noch „unten
                       verankert ... wie am Composer". Gemessen am 19.09.2026
                       (Playwright, headless): dieselbe Regel gab hier eine
@@ -518,7 +527,7 @@ export function ChatView() {
                       tief, exakt der Fehler der Eingangsseite, nur an einem
                       zweiten Ort mit demselben Rezept. */}
                   {activeConvIsEmpty && (
-                    // Runde 2 (David, Auflage A1, review-leer2-offload.md):
+                    // Runde 2 (the owner, Auflage A1, review-leer2-offload.md):
                     // `chat-landing` stand vorher auf DIESEM flex-1-Container
                     // selbst, also der sichtbaren Flaeche selbst, nicht auf
                     // dem Inhalt darin. `measureLanding` in
@@ -620,16 +629,16 @@ export function ChatView() {
                   {/* Auf der Breite der Promptbox, nicht auf der des ganzen
                       Bereichs. Gemessen am Windows-Bau (1296x808): die Leiste
                       war 980,9 px breit gegen 792,3 px Promptbox, ragte also
-                      auf jeder Seite 94,3 px darueber hinaus. David,
+                      auf jeder Seite 94,3 px darueber hinaus. Der Inhaber,
                       05.09.2026: gleiche Breite, gleiche Mitte, und nie
                       breiter. Der Rahmen ist deshalb WOERTLICH der des
                       Composers, `COMPOSER_MAX_W` plus dessen `px-3`; zwei
                       eigene Zahlen koennten wieder auseinanderlaufen. */}
                   <div className={`w-full ${COMPOSER_MAX_W} mx-auto px-3`}>
-                    <div data-testid="chat-session-strip" className="flex items-center gap-1.5 px-2 py-0.5">
+                    <div data-testid="chat-session-strip" data-computer-note-yields="" className="flex items-center gap-1.5 px-2 py-0.5">
                       <AgentModeToggle />
                       {/* Was diese Runde kostet, direkt neben dem Agent-Schalter
-                          (David, 19.09.2026): kein Band mehr ueber der Eingabe,
+                          (19.09.2026): kein Band mehr ueber der Eingabe,
                           das diese Leiste nach oben schob, sondern ein Etikett
                           in genau dieser Leiste. Rendert `null` ohne
                           Flash-Modell, verschiebt also nichts, wenn es fehlt. */}
@@ -651,7 +660,7 @@ export function ChatView() {
                       {isAgentActive && <SmallModelModeToggle />}
 
                       {/* Memory, standalone, top-right (moved out of the header model
-                          picker; David 2026-07-11). View / add / delete injected context. */}
+                          picker; 2026-07-11). View / add / delete injected context. */}
                       <MemoryDebugToggle />
 
                       {/* Export */}
@@ -666,7 +675,7 @@ export function ChatView() {
                         {exportOpen && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                            <div ref={exportMenuRef} style={exportMenu.style} className={`absolute right-0 z-50 w-32 rounded-lg bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/10 shadow-xl py-1 overflow-y-auto scrollbar-thin ${exportMenu.nachOben ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+                            <div ref={exportMenuRef} style={exportMenu.style} className={`absolute right-0 z-50 w-32 rounded-lg lu-elevated py-1 overflow-y-auto scrollbar-thin ${exportMenu.nachOben ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
                               {(['markdown', 'json'] as const).map(fmt => (
                                 <button
                                   key={fmt}
@@ -809,12 +818,12 @@ export function ChatView() {
             composerModel={
               /* What this chat's answers were written by rides on the
                  picker itself now, as a dot plus a tooltip, instead of a
-                 second chip in the row (Meldung 4, R5 re-measure; David
+                 second chip in the row (Meldung 4, R5 re-measure; the owner
                  2026-09-02 wanted it hidden away). */
               <ModelSelector openUpward answeredBy={conversationModelHint} />
             }
             // No plan lives here. The prompt window is the prompt window
-            // (David, 2026-08-22): the plan band sits in the session strip
+            // (2026-08-22): the plan band sits in the session strip
             // above, next to the other standing status controls.
             // Was HIER noch steht, ist genau eine Zeile, und sie steht
             // unter Vorbehalt: `GroupCostHint` sagt, was der naechste Enter
@@ -857,7 +866,7 @@ export function ChatView() {
                     {toolsDropdownOpen && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setToolsDropdownOpen(false)} />
-                        <div ref={toolsMenuRef} style={toolsMenu.style} className={`absolute left-0 z-50 w-28 rounded-md bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/10 shadow-xl py-0.5 px-0.5 overflow-y-auto scrollbar-thin ${toolsMenu.nachOben ? 'bottom-full mb-0.5' : 'top-full mt-0.5'}`}>
+                        <div ref={toolsMenuRef} style={toolsMenu.style} className={`absolute left-0 z-50 w-28 rounded-md lu-elevated py-0.5 px-0.5 overflow-y-auto scrollbar-thin ${toolsMenu.nachOben ? 'bottom-full mb-0.5' : 'top-full mt-0.5'}`}>
                           <PermissionOverrideBar />
                         </div>
                       </>

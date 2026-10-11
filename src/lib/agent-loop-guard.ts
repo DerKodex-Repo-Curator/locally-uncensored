@@ -51,6 +51,11 @@
  *     a successful MUTATING call resets the streaks, because only a mutation
  *     can change what the retry will find; a read-only success proves
  *     nothing. Steer at 3 per executable, halt at 6.
+ *
+ *  7. The user keeps declining the same command: a declined call has its own
+ *     status and counted as neither success nor failure, so it reset detector
+ *     5 and never fed detector 6. Steer at 3 per command, halt at 6. A
+ *     declined call also no longer counts as a success anywhere.
  */
 
 export type LoopGuardVerdict =
@@ -80,6 +85,15 @@ const FAIL_HALT_AT = 6
  */
 const EXEC_FAIL_STEER_AT = 3
 const EXEC_FAIL_HALT_AT = 6
+/**
+ * The user said no to the same command this often in a row (detector 7).
+ * A no is an answer, not an error to route around: the second ask is already
+ * one too many, the third gets told so, and at six the turn ends. Seen on a
+ * Windows test machine, 09.10.2026: 75 declined shell commands in one turn,
+ * every one a new spelling of the same made up command.
+ */
+const DECLINED_STEER_AT = 3
+const DECLINED_HALT_AT = 6
 
 /** Tools whose args carry a shell command whose first token names the work. */
 const EXEC_TOOLS = new Set<string>(['shell_execute', 'shell_execute_background'])
@@ -126,6 +140,9 @@ export class AgentLoopGuard {
   /** Detector 6: consecutive failures per executable, reset by mutations. */
   private execFailStreaks = new Map<string, number>()
   private execSteeredKeys = new Set<string>()
+  /** Detector 7: how often in a row the user declined the same command or tool. */
+  private declinedStreaks = new Map<string, number>()
+  private declinedSteeredKeys = new Set<string>()
 
   /**
    * Record one iteration's tool-call batch BEFORE executing it. `args` must
@@ -233,20 +250,50 @@ export class AgentLoopGuard {
    * neither is a model that fixes its command on the second or third try.
    */
   recordResults(
-    results: Array<{ name: string; failed: boolean; error?: string; args?: Record<string, unknown> }>,
+    results: Array<{ name: string; failed: boolean; rejected?: boolean; error?: string; args?: Record<string, unknown> }>,
   ): LoopGuardVerdict {
     if (results.length === 0) return { action: 'ok' }
+
+    // ── Detector 7: the user keeps saying no to the same thing ──
+    // A declined call ran nothing, so it is no success: it resets no count
+    // below. Its own count is per command (per tool where there is no
+    // command), and only that same command being let through clears it. A
+    // no followed by a different command is a fresh start for that command.
+    let declinedSteer: LoopGuardVerdict | null = null
+    for (const r of results) {
+      const key = execKeyOf(r.name, r.args) ?? r.name
+      if (!r.rejected) {
+        this.declinedStreaks.delete(key)
+        continue
+      }
+      const n = (this.declinedStreaks.get(key) ?? 0) + 1
+      this.declinedStreaks.set(key, n)
+      const what = EXEC_TOOLS.has(r.name) && key !== r.name ? `'${key}' commands` : `'${r.name}' calls`
+      if (n >= DECLINED_HALT_AT) {
+        return { action: 'halt', reason: `the user declined ${n} ${what} in a row` }
+      }
+      if (n >= DECLINED_STEER_AT && !this.declinedSteeredKeys.has(key)) {
+        this.declinedSteeredKeys.add(key)
+        declinedSteer = {
+          action: 'steer',
+          message:
+            `The user has now declined ${n} ${what} in a row. A no is their answer. ` +
+            'Do not ask for it again in another spelling. Tell the user what you wanted to do and why, and ask how they want to go on.',
+        }
+      }
+    }
+    const ran = results.filter((r) => !r.rejected)
 
     // ── Detector 6: per-executable failure streaks ──
     // The reset runs BEFORE this round's failures are counted, so a retry
     // that follows a real fix (a successful file_edit, a successful other
     // command) starts a fresh streak. Read-only successes keep the streaks:
     // listing the directory again does not change what the retry will find.
-    if (results.some((r) => !r.failed && !READ_ONLY_TOOLS.has(r.name))) {
+    if (ran.some((r) => !r.failed && !READ_ONLY_TOOLS.has(r.name))) {
       this.execFailStreaks.clear()
     }
     let execSteer: LoopGuardVerdict | null = null
-    for (const r of results) {
+    for (const r of ran) {
       if (!r.failed) continue
       const key = execKeyOf(r.name, r.args)
       if (!key) continue
@@ -272,21 +319,26 @@ export class AgentLoopGuard {
     }
 
     // ── Detector 5: rounds where every call failed ──
-    if (results.some((r) => !r.failed)) {
+    if (ran.some((r) => !r.failed)) {
       this.failingRounds = 0
       this.failSteered = false
-      return execSteer ?? { action: 'ok' }
+      return execSteer ?? declinedSteer ?? { action: 'ok' }
     }
 
+    // Nothing ran to a good end: every call failed or the user declined it.
     this.failingRounds++
     const names = [...new Set(results.map((r) => r.name))].join(', ')
+    const outcome = ran.length === 0 ? 'was declined by the user' : ran.length === results.length ? 'failed' : 'failed or was declined by the user'
     if (this.failingRounds >= FAIL_HALT_AT) {
       return {
         action: 'halt',
-        reason: `${this.failingRounds} rounds in a row where every tool call failed (${names}) and nothing changed in between`,
+        reason: `${this.failingRounds} rounds in a row where every tool call ${outcome} (${names}) and nothing changed in between`,
       }
     }
     if (execSteer) return execSteer
+    if (declinedSteer) return declinedSteer
+    // A round of nothing but a no has no error to quote; detector 7 speaks for it.
+    if (ran.length === 0) return { action: 'ok' }
     if (this.failingRounds >= FAIL_STEER_AT && !this.failSteered) {
       this.failSteered = true
       const lastError = results.find((r) => r.error)?.error

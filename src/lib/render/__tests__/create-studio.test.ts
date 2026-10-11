@@ -1,6 +1,6 @@
 // Der Create-Tab und das Preset-Fenster bieten dieselben Modelle an.
 //
-// 19.09.2026, Entscheid von David: die neuen Endpunkte sollen auch in den
+// 19.09.2026, Entscheid des Inhabers: die neuen Endpunkte sollen auch in den
 // Unterkategorien von Create waehlbar sein. Bis dahin kannte der normale
 // Composer den Studio-Pfad ueberhaupt nicht, und die Unterkategorien zeigten
 // eine eigene, aeltere Liste. Der Fall unten haelt beide Seiten zusammen.
@@ -72,11 +72,11 @@ describe('die Unterkategorien von Create fahren dieselben Modelle wie die Preset
   })
 
   it('laesst Enhance Video auf dem Endpunkt starten, auf dem es bisher lief', () => {
-    // Ohne Auswahl lief diese Unterkategorie fest auf wavespeed-ai/video-upscaler.
+    // Ohne Auswahl lief diese Unterkategorie fest auf einem Endpunkt.
     // Wer nichts waehlt, bekommt weiterhin genau den.
     expect(intentPickerModels('video_upscale')[0].id).toBe('video-upscaler')
     expect(resolveIntentPick('video_upscale', '')).toBe('video-upscaler')
-    expect(STUDIO_MODELS['video-upscaler'].endpoint).toBe('wavespeed-ai/video-upscaler')
+    expect(STUDIO_MODELS['video-upscaler'].endpoint).toBe('base/video-upscaler')
   })
 
   it('haelt eine gueltige Wahl fest und faengt eine fremde ab', () => {

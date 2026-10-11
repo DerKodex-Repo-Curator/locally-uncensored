@@ -1,10 +1,10 @@
-// Stufe und Herkunft jedes Cloud-Modells (02.10.2026, Entscheid von David),
+// Stufe und Herkunft jedes Cloud-Modells (02.10.2026, Entscheid des Inhabers),
 // im Desktop.
 //
 // `tier` ordnet die Waehler, `weights` sagt, woher das Modell stammt. Im Web
 // traegt jedes Modell beides. Der Desktop hat zwei Quellen: den Notvorrat
 // (CLOUD_MODEL_SEED, ohne Netz) und die mitgelieferte Studio-Registrierung
-// (studio-models.json, byteidentisch zum Web). Beide muessen vollstaendig sein,
+// (studio-models.json, gehalten gegen das Web). Beide muessen vollstaendig sein,
 // sonst steht ein Modell ungeordnet und ohne Herkunft im Waehler, sobald der
 // Server die Felder liefert.
 
@@ -62,7 +62,7 @@ describe('jedes Cloud-Modell traegt Stufe und Herkunft', () => {
     }
   })
 
-  it('stuft die benannten Modelle so ein, wie David es vorgegeben hat', () => {
+  it('stuft die benannten Modelle so ein, wie der Inhaber es vorgegeben hat', () => {
     const t = (id: string) => neuerServer().find((m) => m.id === id)!
     for (const id of ['minimax-h3', 'wan-3.0', 'z-image', 'z-image-turbo', 'seedance-2.5']) expect(t(id).tier, id).toBe('best')
     for (const id of ['flux-schnell', 'flux-dev', 'qwen-image', 'hidream', 'hunyuan-image', 'wan-2.2-720p', 'wan-2.2-fast', 'ltx-2', 'ltx-2.3', 'hunyuan-video']) {

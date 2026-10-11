@@ -1,10 +1,10 @@
 /**
  * @vitest-environment jsdom
  *
- * lapbo, Discord 2026-09-28: "DELETE BUTTON pls", with three chat rows that
+ * Discord 2026-09-28: "DELETE BUTTON pls", with three chat rows that
  * had Bench and Details and no bin. They were LM Studio models. LM Studio has
  * no delete in its API or in `lms` and names no file, so LU cannot delete
- * them without guessing. David decided on 2026-10-01 that the row says where
+ * them without guessing. The owner decided on 2026-10-01 that the row says where
  * the model is deleted. Details also asked Ollama about these rows and then
  * showed nothing at all.
  *
@@ -19,6 +19,13 @@ const showModel = vi.fn(async () => ({ license: 'x' }))
 /** Was die Engine gerade tut. Ueberschreibbar, siehe den Fall zum toten
  *  Prozess weiter unten. */
 const engineStatus = vi.fn(async () => ({ running: true, healthy: true, port: 8127 }))
+
+// Die Seite hat seit dem 08.10.2026 zwei Fassungen: die klassische auf
+// Windows und Linux, das Redesign auf dem Mac (skin/which.ts entscheidet).
+// Die Regeln, die diese Datei bewacht, gelten fuer beide, also laeuft jeder
+// Fall einmal je Fassung.
+const face = vi.hoisted(() => ({ name: 'classic' as 'classic' | 'mac' }))
+vi.mock('../skin/which', () => ({ modelSkinName: () => face.name }))
 
 vi.mock('../../../api/backend', () => ({
   isTauri: () => true,
@@ -99,7 +106,11 @@ async function openInstalled(providerName?: string) {
 function row(name: string): HTMLElement {
   const el = document.querySelector(`span[title="${displayModelName(name)}"]`)
   if (!el) throw new Error(`no row for ${name}`)
-  return el.closest('div[class*="rounded-lg"]') as HTMLElement
+  // The row is found by its surface: the corner radius it spells out in the
+  // classic face, the house surface `.lu-tile` in the Mac face.
+  const surface = el.closest(face.name === 'mac' ? '.lu-tile' : 'div[class*="rounded-lg"]')
+  if (!surface) throw new Error(`no row surface for ${name} in the ${face.name} face`)
+  return surface as HTMLElement
 }
 const detailsOf = (name: string) => row(name).querySelector('button[title^="Details"]') as HTMLButtonElement
 
@@ -114,33 +125,37 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); __resetLuEngineSwapLockForTests() })
 
-describe('a chat model LM Studio serves', () => {
-  it('Details says to delete it in LM Studio, without asking Ollama', async () => {
-    await openInstalled()
-    expect(detailsOf(LMS).title).toContain('Delete it in LM Studio under My Models')
-    await act(async () => { fireEvent.click(detailsOf(LMS)) })
-    expect(screen.getByText('This model belongs to LM Studio. Delete it in LM Studio under My Models.')).toBeTruthy()
-    expect(showModel).not.toHaveBeenCalled()
-  })
+describe.each(['classic', 'mac'] as const)('Fassung %s', (fassung) => {
+  beforeEach(() => { face.name = fassung })
 
-  it('another local server is named the same way', async () => {
-    await openInstalled('KoboldCpp')
-    await act(async () => { fireEvent.click(detailsOf(LMS)) })
-    expect(screen.getByText('This model belongs to KoboldCpp. Delete it there.')).toBeTruthy()
-  })
+  describe('a chat model LM Studio serves', () => {
+    it('Details says to delete it in LM Studio, without asking Ollama', async () => {
+      await openInstalled()
+      expect(detailsOf(LMS).title).toContain('Delete it in LM Studio under My Models')
+      await act(async () => { fireEvent.click(detailsOf(LMS)) })
+      expect(screen.getByText('This model belongs to LM Studio. Delete it in LM Studio under My Models.')).toBeTruthy()
+      expect(showModel).not.toHaveBeenCalled()
+    })
 
-  // Negative controls: rows that can be deleted, or have nothing to delete.
-  it('an Ollama row keeps its bin and asks Ollama for its details', async () => {
-    await openInstalled()
-    expect(detailsOf(OLLAMA).title).toBe('Details')
-    await act(async () => { fireEvent.click(detailsOf(OLLAMA)) })
-    expect(showModel).toHaveBeenCalledWith(OLLAMA)
-    expect(screen.queryByText(/Delete it/)).toBeNull()
-  })
+    it('another local server is named the same way', async () => {
+      await openInstalled('KoboldCpp')
+      await act(async () => { fireEvent.click(detailsOf(LMS)) })
+      expect(screen.getByText('This model belongs to KoboldCpp. Delete it there.')).toBeTruthy()
+    })
 
-  it('a cloud row and an LU Engine row get no such line', async () => {
-    await openInstalled()
-    expect(detailsOf(ROUTER).title).toBe('Details')
-    expect(detailsOf(LU).title).toBe('Details')
+    // Negative controls: rows that can be deleted, or have nothing to delete.
+    it('an Ollama row keeps its bin and asks Ollama for its details', async () => {
+      await openInstalled()
+      expect(detailsOf(OLLAMA).title).toBe('Details')
+      await act(async () => { fireEvent.click(detailsOf(OLLAMA)) })
+      expect(showModel).toHaveBeenCalledWith(OLLAMA)
+      expect(screen.queryByText(/Delete it/)).toBeNull()
+    })
+
+    it('a cloud row and an LU Engine row get no such line', async () => {
+      await openInstalled()
+      expect(detailsOf(ROUTER).title).toBe('Details')
+      expect(detailsOf(LU).title).toBe('Details')
+    })
   })
 })

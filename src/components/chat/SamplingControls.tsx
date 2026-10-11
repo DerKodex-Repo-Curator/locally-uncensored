@@ -26,7 +26,7 @@ import type { SamplingOverrides } from '../../lib/sampling'
  *
  * ## Why this is a popup and not an inline panel
  *
- * David, 2026-09-11: "der sample anklickbar im prompt fenster muss ein pop up
+ * 2026-09-11: "der sample anklickbar im prompt fenster muss ein pop up
  * sein, und nicht das prompt fenster veraendern. mit einem sauberen x zum
  * wegklicken und nicht einfach wieder auf den text klicken zum entfernen, soll
  * windows mac und webapp ueberall gleich sein."
@@ -61,7 +61,7 @@ import type { SamplingOverrides } from '../../lib/sampling'
  *
  * Top K stays on the settings page, where Ollama and Anthropic read it
  * (`ollama-provider.ts:150`, `anthropic-provider.ts:320`). That is the same
- * arrangement the web app describes in `apps/web/lib/sampling.ts:22-26`.
+ * arrangement the web app describes in the web app.
  */
 const FIELDS = [
   { key: 'temperature', label: 'Temperature', min: 0, max: 2, step: 0.05 },
@@ -88,7 +88,7 @@ export function normalizeMaxTokens(raw: string): number {
 }
 
 /** The close button's accessible name. Word for word the same string as in the
- *  web app (apps/web/lib/sampling.ts), which a parity test there re-reads from
+ *  web app (the web app), which a parity test there re-reads from
  *  this file: one close button on Windows, Mac and the web app. */
 export const SAMPLING_CLOSE_LABEL = 'Close sampling settings'
 
@@ -197,8 +197,8 @@ export function SamplingControls() {
         aria-expanded={open}
         aria-controls={panelId}
         data-testid="sampling-trigger"
-        // Word for word the web app's trigger (apps/web/components/chat/
-        // SamplingControls.tsx:82-83), so the button has one name on Windows,
+        // Word for word the web app's trigger (the web app),
+        // so the button has one name on Windows,
         // Mac and the web app instead of being read out as a bare number.
         title="Sampling for this chat"
         aria-label={`Sampling: temperature ${value.temperature}`}

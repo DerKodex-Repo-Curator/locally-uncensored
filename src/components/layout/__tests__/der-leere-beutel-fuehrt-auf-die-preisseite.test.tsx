@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * R5-51, Entscheid David vom 12.09.2026: der Dialog bei leerem Guthaben
+ * R5-51, Entscheid vom 12.09.2026: der Dialog bei leerem Guthaben
  * oeffnet die Preisseite und nicht die Aufladeseite.
  *
  * Der Knopf sprang bis dahin mitten in einen Kauf. Wer leer ist, hat aber die

@@ -64,6 +64,8 @@ export interface CapturedArtifact {
 export interface AgentRunContext {
   /** Unique per run. Ownership token for the singleton mirror below. */
   token: string
+  /** Epoch ms of the start. A stop of computer control binds every run that was already going. */
+  startedAt?: number
   chatId: string | null
   conversationId: string | null
   workspace: AgentWorkspace | null
@@ -76,7 +78,7 @@ export interface AgentRunContext {
   mode: string | null
   /**
    * Die Freigabe-Entscheidung dieses Laufs, EINMAL beim Start aufgeloest
-   * (Auftrag 2.3, David 04.09.2026).
+   * (Auftrag 2.3, 04.09.2026).
    *
    * `confirmExec` ist codexModeKnobs().confirmExec, also die Antwort auf "fragt
    * dieser Lauf vor Werkzeugen mit beliebiger Ausfuehrung nach". Alles, was der
@@ -107,6 +109,12 @@ export interface AgentRunContext {
    */
   abortSignal?: AbortSignal
   /**
+   * A run that stays open while the user decides what to ask next: a voice
+   * session is one run from Start to Stop. That such a run is open does not
+   * mean it is working on anything (see `isAgentRunOpen`).
+   */
+  standing?: boolean
+  /**
    * Der Beweis fuer `run-slot.ts`s `runsInHeldLane` (Opus-Review Runde 4,
    * bau/review-w2lane.md): gesetzt, sobald DIESER Lauf die lokale Spur
    * wirklich haelt (`null` fuer einen Cloud-Lauf, der keine haelt). Ein
@@ -117,6 +125,30 @@ export interface AgentRunContext {
    * `abortSignal`): so ein Aufruf kann nur normal buchen, nie mitfahren.
    */
   heldLocalLane?: HeldLocalLane | null
+  /**
+   * A long tool says how far it is, in one short line. Set by a surface that
+   * can pass it on while the call runs (the voice session hands it to the
+   * model's context). Undefined elsewhere; a tool calls it and never needs it.
+   */
+  onToolProgress?: (text: string) => void
+  /**
+   * The tool call that is running, as the surface knows it (the id of its card
+   * in the conversation). Set per call by the executor, see `runForCall`.
+   */
+  toolCallId?: string
+}
+
+/**
+ * The run as one tool call sees it: the same object, plus the id of the call.
+ * A view and not a copy, because tools write to the run (its workspace, its
+ * artifacts) and read fields the hook sets after the start; both must reach
+ * the one run object.
+ */
+export function runForCall(run: AgentRunContext, toolCallId: string): AgentRunContext {
+  return new Proxy(run, {
+    get: (target, key, receiver) => (key === 'toolCallId' ? toolCallId : Reflect.get(target, key, receiver)),
+    has: (target, key) => key === 'toolCallId' || Reflect.has(target, key),
+  })
 }
 
 interface AgentCtxState {
@@ -147,6 +179,14 @@ let _runSeq = 0
  * does not thread (standalone tool calls, older surfaces). Returns the object
  * the caller must pass down to its tool calls.
  */
+/** Runs between beginAgentRun and endAgentRun. */
+const openRuns = new Set<string>()
+
+/** Is this run still going? False for a token no run was opened with. */
+export function isAgentRunOpen(token: string | null | undefined): boolean {
+  return !!token && openRuns.has(token)
+}
+
 export function beginAgentRun(init: {
   chatId?: string | null
   conversationId?: string | null
@@ -158,6 +198,7 @@ export function beginAgentRun(init: {
   _runSeq += 1
   const run: AgentRunContext = {
     token: `run-${Date.now().toString(36)}-${_runSeq}`,
+    startedAt: Date.now(),
     chatId: init.chatId ? String(init.chatId) : null,
     conversationId: init.conversationId ? String(init.conversationId) : null,
     workspace: normalizeWorkspace(init.workspace),
@@ -166,6 +207,7 @@ export function beginAgentRun(init: {
     mode: init.mode ?? null,
     artifacts: [],
   }
+  openRuns.add(run.token)
   ctx.runToken = run.token
   ctx.chatId = run.chatId
   ctx.conversationId = run.conversationId
@@ -187,6 +229,7 @@ export function endAgentRun(run: AgentRunContext | null | undefined): void {
     return
   }
   run.artifacts = []
+  openRuns.delete(run.token)
   if (ctx.runToken !== run.token) return
   clearActiveChatId()
 }
@@ -270,7 +313,7 @@ export function isReadOnlyShellTurn(run?: AgentRunContext | null): boolean {
   return pick(run, 'readOnlyShellTurn')
 }
 
-// ── Chat-tools artifact mode (David 2026-06-12) ────────────────
+// ── Chat-tools artifact mode (2026-06-12) ────────────────
 //
 // In PLAIN chat, "file writes" must behave like ChatGPT: the content is shown
 // IN the chat with a preview + download, never silently dumped to a folder.
@@ -313,7 +356,7 @@ export function takeChatArtifacts(run?: AgentRunContext | null): CapturedArtifac
   return out
 }
 
-// ── Multi-Repo Agent (Sprint C #8 from uselu) ──────────────────
+// ── Multi-Repo Agent (Sprint C #8 from the web app) ──────────────────
 //
 // When the agent loop runs in a 'folder' workspace (vs the per-chat
 // sandbox), the bridge resolves relative paths against `ws.path` and

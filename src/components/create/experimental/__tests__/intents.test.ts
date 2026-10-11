@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { INTENTS, INTENT_MAP, isIntentAvailable, isIntentLocked, visibleIntents } from '../intents'
 import { LOCAL_LANE_OPS } from '../../../../stores/createStore'
 
-// David 2026-07-10 made the advanced ops cloud-only; David 2026-07-12 brought
+// 2026-07-10 made the advanced ops cloud-only; 2026-07-12 brought
 // Edit BACK to local as the 4th local tab (checkpoint mask inpaint —
-// VAEEncodeForInpaint / InpaintModelConditioning); David 2026-07-17 brought
+// VAEEncodeForInpaint / InpaintModelConditioning); 2026-07-17 brought
 // Animate (local I2V) back as the 5th. 2.5.8 gives FOUR specialized categories
 // REAL local lanes (hasLocalLane): music / lipsync / extend / motion on core
 // ComfyUI node families (motion additionally needs the DWPose pack, which

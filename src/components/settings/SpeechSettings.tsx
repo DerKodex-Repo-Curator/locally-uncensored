@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { useVoiceStore } from '../../stores/voiceStore'
 import { checkWhisperAvailable, checkTtsAvailable, downloadPiperVoice, listInstalledPiperVoices } from '../../api/voice'
 import { InlineToggle } from './InlineToggle'
+import { MicrophoneSetting } from './MicrophoneSetting'
 import { initialProbe, makeProbeReducer, needsInstall, showsHint } from './probe-install'
 
 /**
@@ -219,7 +220,7 @@ export function SpeechSettings() {
   // re-check the installed list + TTS availability. The selection is applied
   // optimistically (so the dropdown reflects the pick) but REVERTED if the
   // download fails — otherwise piperVoice pointed at a missing model and every
-  // read fell back to the Windows SAPI voice (#77, ElBiggus).
+  // read fell back to the Windows SAPI voice (#77).
   const handlePickVoice = async (id: string) => {
     setVoiceError(null)
     const prev = voiceSettings.piperVoice
@@ -246,6 +247,8 @@ export function SpeechSettings() {
       <p className="text-[0.55rem] text-gray-500 leading-snug">
         Cloud mode: dictation and read-aloud run on lu-labs.ai (hosted Whisper speech-to-text + MiniMax text-to-speech) and are metered against your credits. No local installs needed.
       </p>
+      {/* Voice is not offered in cloud mode, so the choice covers dictation only. */}
+      <MicrophoneSetting coversVoice={false} />
       <InlineToggle label="Enable read-aloud" enabled={voiceSettings.ttsEnabled} onChange={() => voiceSettings.updateVoiceSettings({ ttsEnabled: !voiceSettings.ttsEnabled })} icon={<Volume2 size={11} className="text-gray-500" />} />
       {voiceSettings.ttsEnabled && (
         <InlineToggle label="Auto-read new responses" enabled={voiceSettings.autoReadAloud} onChange={() => voiceSettings.updateVoiceSettings({ autoReadAloud: !voiceSettings.autoReadAloud })} icon={<Volume2 size={11} className="text-gray-500" />} />
@@ -301,6 +304,8 @@ export function SpeechSettings() {
       </p>
     )}
 
+    <MicrophoneSetting coversVoice />
+
     {/* Text-to-Speech, Piper neural (read responses aloud) */}
     <div className="flex items-center gap-2 text-[0.65rem] pt-1">
       <span className="flex items-center gap-1.5">
@@ -345,13 +350,13 @@ export function SpeechSettings() {
     <InlineToggle label="Enable read-aloud" enabled={voiceSettings.ttsEnabled} onChange={() => voiceSettings.updateVoiceSettings({ ttsEnabled: !voiceSettings.ttsEnabled })} icon={<Volume2 size={11} className="text-gray-500" />} />
     {/* Auto-read is a SEPARATE opt-in (default OFF). The toggle above only
         surfaces the per-message Speaker button; this one also reads each
-        finished response aloud (#77, ElBiggus, the old single toggle was
+        finished response aloud (#77, the old single toggle was
         labelled "Read responses aloud" but never auto-read). */}
     {voiceSettings.ttsEnabled && (
       <InlineToggle label="Auto-read new responses" enabled={voiceSettings.autoReadAloud} onChange={() => voiceSettings.updateVoiceSettings({ autoReadAloud: !voiceSettings.autoReadAloud })} icon={<Volume2 size={11} className="text-gray-500" />} />
     )}
     {/* Neural voice picker (Piper), replaces the old Microsoft/browser
-        voices (David 2026-06-06). Picking one not yet on disk downloads
+        voices (2026-06-06). Picking one not yet on disk downloads
         it (~63 MB). Browser-only rate/pitch knobs dropped, they didn't
         apply to Piper. */}
     <div className="flex items-center justify-between gap-2">

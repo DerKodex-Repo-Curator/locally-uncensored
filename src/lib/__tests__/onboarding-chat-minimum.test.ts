@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import { ONBOARDING_MODELS } from '../constants'
 import { getMainstreamTextModels, getUncensoredTextModels } from '../../api/discover'
 
-// Both picks are abliterated since 2026-10-01 (David, after a refusal report).
+// Both picks are abliterated since 2026-10-01 (the owner, after a refusal report).
 const textCatalog = () => [...getMainstreamTextModels(), ...getUncensoredTextModels()]
 
 it('uses an existing catalog model meeting the 7B minimum with exact download integrity', () => {

@@ -148,7 +148,7 @@ export interface CodexModeKnobInput {
  *
  * The cloud shell gate is not a fourth mode: it is the user's own opt-in and
  * is off by default, so on a cloud model every mode behaves exactly as it does
- * on a local one (David 2026-08-22). A user who opts in gets the cloud confirm
+ * on a local one (2026-08-22). A user who opts in gets the cloud confirm
  * in all three modes, Bypass included.
  *
  * Where a mode and Code-Review Mode or a read-only slash command disagree, the

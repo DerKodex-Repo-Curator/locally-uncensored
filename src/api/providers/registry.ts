@@ -52,7 +52,7 @@ export function getProvider(id: ProviderId): ProviderClient {
   // agent / Test-button request, while the model list (getEnabledProviders,
   // which deobfuscates) worked — Groq answered "Invalid API Key", OpenRouter's
   // public /models made Test claim "connected" and chat then 401ed
-  // (m9mx Discord 2026-07-26, four providers).
+  // (Discord 2026-07-26, four providers).
   const config = { ...stored, apiKey: state.getProviderApiKey(id) }
 
   return cachedClient(config, () => createClient(config))

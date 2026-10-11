@@ -1,8 +1,8 @@
 /**
  * A finished download is not a finished install.
  *
- * Voxyl AI, Discord #general 2026-08-13 17:00 UTC with a screenshot, confirmed
- * five minutes later by Aldrich Ironhart: on Extend Video and Animate Image the
+ * A user AI, Discord #general 2026-08-13 17:00 UTC with a screenshot, confirmed
+ * five minutes later by a user: on Extend Video and Animate Image the
  * Download and install button runs to the end and then sits on "Refreshing the
  * model list…" for good. Both have ComfyUI.
  *
@@ -163,7 +163,7 @@ describe('the install path uses it, and says something honest when it runs out',
     // their own copy and they drifted. 3.0.0 took the last step: the loaders
     // are COMFY_MODEL_FOLDERS in comfyui.ts, the same table the catalog's
     // download folders are checked against, so a folder cannot be written into
-    // and then not read back (.__nothing_, 2026-09-02).
+    // and then not read back (2026-09-02).
     const reader = discoverSrc.slice(
       discoverSrc.indexOf('export async function readComfyModelNames'),
       discoverSrc.indexOf('/** The folders this ComfyUI really enumerates'),

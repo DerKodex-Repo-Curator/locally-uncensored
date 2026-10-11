@@ -2,7 +2,7 @@
  * Realtime pass 01.10.2026 (R1). A model that answers with a tool call streams
  * the call's arguments for seconds: a 4 kB file_write on Mistral Small took
  * ~11 s from the first argument byte to the end (measured live against
- * DeepInfra). The providers kept the pieces to themselves until the done
+ * the upstream). The providers kept the pieces to themselves until the done
  * chunk, and the run showed "Working" with an "Analyzing..." placeholder the
  * whole time. They now report the call while it is being written.
  *

@@ -5,7 +5,9 @@ import { getProviderIdFromModel, displayModelName } from '../api/providers'
 import { getModelContextCached } from '../api/ollama'
 import { getLmStudioModelContext } from '../api/lmstudio'
 import { getModelMaxTokens } from '../lib/context-compaction'
-import { effectiveContextWindow } from '../lib/context-window'
+import { ollamaWindowFor, type WindowUse } from '../lib/context-window'
+import { useChatStore } from '../stores/chatStore'
+import { useAgentModeStore } from '../stores/agentModeStore'
 import { effectiveSendWindow, isPaidProvider, sendWindowFor } from '../lib/send-window'
 import { isManagedBuiltinSlot } from '../api/builtin-ensure'
 import { ENGINE_DEFAULT_CTX } from '../lib/builtin-ctx'
@@ -117,8 +119,21 @@ export function remoteWindowSource(
  */
 const lastResolved = new Map<string, ActiveContext>()
 
+/**
+ * Which of the two Ollama windows the conversation on screen runs in: the
+ * agent window in the Code tab and with Agent mode on, the chat window
+ * otherwise. The same split the turn hooks make when they send.
+ */
+export function useActiveWindowUse(): WindowUse {
+  const id = useChatStore((s) => s.activeConversationId)
+  const code = useChatStore((s) => s.conversations.find((c) => c.id === id)?.mode === 'codex')
+  const agent = useAgentModeStore((s) => (id ? s.agentModeActive[id] ?? false : false))
+  return code || agent ? 'agent' : 'chat'
+}
+
 export function useActiveContextWindow(reloadTick = 0): ActiveContext {
   const activeModel = useModelStore((s) => s.activeModel)
+  const windowUse = useActiveWindowUse()
   const override = useSettingsStore((s) => s.settings.contextWindowOverride)
   const builtinCtx = useSettingsStore((s) => s.settings.builtinEngine.ctx)
   const globalSendWindow = useSettingsStore((s) => s.settings.codexSendWindowTokens)
@@ -161,7 +176,7 @@ export function useActiveContextWindow(reloadTick = 0): ActiveContext {
       if (providerId === 'ollama') {
         const max = await getModelContextCached(activeModel).catch(() => 0)
         if (cancelled) return
-        const ollamaCtx = effectiveContextWindow(max, override)
+        const ollamaCtx = ollamaWindowFor(windowUse, max, override)
         setState({
           provider: 'ollama',
           contextWindow: ollamaCtx,
@@ -324,7 +339,7 @@ export function useActiveContextWindow(reloadTick = 0): ActiveContext {
     })()
 
     return () => { cancelled = true }
-  }, [activeModel, override, builtinCtx, globalSendWindow, cloudPicks, capEnabled, reloadTick, reloadBump])
+  }, [activeModel, override, windowUse, builtinCtx, globalSendWindow, cloudPicks, capEnabled, reloadTick, reloadBump])
 
   return activeModel && resolved?.model === activeModel ? resolved.ctx : NO_CONTEXT
 }

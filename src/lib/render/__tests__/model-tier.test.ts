@@ -1,4 +1,4 @@
-// Wie die Waehler Modelle ordnen und kennzeichnen (02.10.2026, David), und was
+// Wie die Waehler Modelle ordnen und kennzeichnen (02.10.2026), und was
 // sie mit einem Modell tun, das keine Stufe traegt.
 //
 // Der Desktop liest seinen Katalog vom Server, und ein aelterer Server liefert
@@ -67,7 +67,7 @@ describe('ein Modell ohne Stufe und Herkunft ist neutral (alter Server, lokales 
   })
 })
 
-// 05.10.2026, David: die Cloud-Waehler in Create gruppieren nach Familie, mit
+// 05.10.2026: die Cloud-Waehler in Create gruppieren nach Familie, mit
 // denselben einzeiligen Koepfen wie die Modellauswahl im Chat. Der Entscheid
 // vom 02.10. (Beste oben, Aeltere gesammelt unten) gilt daneben weiter.
 describe('mediaFamily', () => {

@@ -5,11 +5,11 @@ import { seedOnboardingDone } from './support/cloud-mock'
 
 /**
  * Two wishes from the 3.0.4 bug hunt, on the real Settings page:
- *  - Discord, boromirofgeo 2026-09-23: limit the download speed. The number
+ *  - Discord 2026-09-23: limit the download speed. The number
  *    typed under Model Storage reaches `set_download_limit`.
- *  - GitHub Discussion 4, kreake 2026-09-22: statistics for the Local API.
+ *  - GitHub Discussion 4 2026-09-22: statistics for the Local API.
  *    A running API shows what went through it.
- * Screenshots land in test-results/304-wishes for David's design check.
+ * Screenshots land in test-results/304-wishes for the owner's design check.
  *
  * Run: npx playwright test e2e/download-limit-and-local-api-usage.spec.ts
  */

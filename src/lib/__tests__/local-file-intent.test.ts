@@ -1,7 +1,7 @@
 /**
- * Discord 2026-09-28 (xambran): every agent permission on Auto, and the model
+ * Discord 2026-09-28: every agent permission on Auto, and the model
  * still said it could not access his files. Replayed on the installed 3.0.3 on
- * lu-box: in plain chat the request never reaches a tool, because Chat Tools
+ * a Windows test machine: in plain chat the request never reaches a tool, because Chat Tools
  * carry no file_read. The chat now says that the agent reads files, and how to
  * turn it on.
  */

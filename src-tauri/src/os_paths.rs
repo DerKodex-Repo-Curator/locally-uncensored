@@ -120,11 +120,44 @@ pub(crate) mod test_storage {
     fn config_base() -> PathBuf {
         if cfg!(target_os = "linux") { root().join("config") } else { roaming_base() }
     }
-    pub fn data_dir() -> PathBuf { root().join("local").join(APP_DIR) }
-    pub fn cache_dir() -> PathBuf {
-        root().join(if cfg!(windows) { "local" } else { "cache" }).join(APP_DIR)
+    /// Whether this test process is the real run on the Mac
+    /// (`commands::real_run_mac`): the commands of the app against the app's
+    /// own folders, with real engines and real models.
+    ///
+    /// Two things have to be true, and one alone is not enough: the variable
+    /// is set, AND every test filter on the command line names the real run.
+    /// A plain `cargo test` with the variable left over in the shell stays in
+    /// the scratch storage, where the other tests write and delete freely.
+    pub fn real_run() -> bool {
+        static ON: OnceLock<bool> = OnceLock::new();
+        *ON.get_or_init(|| {
+            let filters: Vec<String> = std::env::args()
+                .skip(1)
+                .filter(|a| !a.starts_with('-') && a.parse::<u64>().is_err())
+                .collect();
+            cfg!(target_os = "macos")
+                && std::env::var("LU_REAL_RUN").as_deref() == Ok("1")
+                && !filters.is_empty()
+                && filters.iter().all(|f| f.contains("real_run_mac"))
+        })
     }
-    pub fn config_root() -> PathBuf { config_base().join(APP_DIR) }
+
+    /// The three folders the media engines live in are the app's own in the
+    /// real run. Everything else (settings, stores, workspace) stays scratch.
+    fn real(dir: Option<PathBuf>) -> Option<PathBuf> {
+        if real_run() { dir.map(|d| d.join(APP_DIR)) } else { None }
+    }
+
+    pub fn data_dir() -> PathBuf {
+        real(dirs::data_local_dir()).unwrap_or_else(|| root().join("local").join(APP_DIR))
+    }
+    pub fn cache_dir() -> PathBuf {
+        real(dirs::cache_dir())
+            .unwrap_or_else(|| root().join(if cfg!(windows) { "local" } else { "cache" }).join(APP_DIR))
+    }
+    pub fn config_root() -> PathBuf {
+        real(dirs::config_dir()).unwrap_or_else(|| config_base().join(APP_DIR))
+    }
     pub fn app_config_dir() -> PathBuf { config_base().join(APP_CONFIG_DIR) }
     pub fn tools_bin_dir() -> PathBuf { root().join("local").join(APP_CONFIG_DIR).join("bin") }
     pub fn display_data_dir() -> PathBuf { roaming_base().join(APP_DISPLAY_DIR) }
@@ -201,12 +234,11 @@ pub fn find_python() -> Option<PathBuf> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        for c in unix_python_candidates() {
-            if let Ok(p) = which::which(c) {
-                return Some(p);
-            }
-        }
-        None
+        // PATH first, then the directories a Finder-started app does not have
+        // on it (`python::fixed_python_dirs`).
+        unix_python_candidates()
+            .iter()
+            .find_map(|c| crate::python::python_paths_for(c).into_iter().next())
     }
 }
 

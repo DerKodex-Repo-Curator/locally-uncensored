@@ -1,5 +1,5 @@
 /**
- * The refusal notice under an answer (David, 2026-10-05).
+ * The refusal notice under an answer (2026-10-05).
  *
  * Measured that day: a refusal in the history is copied by better models in
  * the same chat. The app says so under the refusing answer. This file pins
@@ -206,7 +206,7 @@ describe('refusalNoticeApplies: only the plain chat', () => {
 describe('the wording', () => {
   it('is the sentence agreed with the web app, and names the mark of the model picker', () => {
     expect(REFUSAL_NOTICE).toBe(
-      'This model declined. A refusal stays in the chat history, and other models tend to copy it. Start a new chat and pick a model marked No refusals.',
+      'This model declined. A refusal stays in the chat history, and other models tend to copy it. Start a new chat and pick a model marked No Filter.',
     )
   })
 })

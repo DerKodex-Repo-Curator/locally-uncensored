@@ -9,6 +9,9 @@ import { splitForMiddleEllipsis } from '../../lib/model-label'
 import { isBuiltinEngineEntry } from '../../lib/lmstudio-match'
 import type { AIModel } from '../../types/models'
 import { fileFormat } from '../../lib/model-file-format'
+import { ICON_SM } from '../ui/icon-size'
+import { modelSkin } from './skin'
+import { AddImageInput } from './AddImageInput'
 
 interface Props {
   model: AIModel
@@ -51,15 +54,20 @@ interface Props {
   useBusy?: boolean
 }
 
+// The glyph of each kind of model. Its tone, like every other class of this
+// row, comes from the face the page wears (skin/classic.tsx, skin/mac.tsx):
+// the row is one structure with two looks.
 const TYPE_CONFIG = {
-  text: { label: 'Text', icon: MessageSquare, color: 'text-blue-400' },
-  image: { label: 'Image', icon: Image, color: 'text-purple-400' },
-  video: { label: 'Video', icon: Video, color: 'text-green-400' },
+  text: { label: 'Text', icon: MessageSquare },
+  image: { label: 'Image', icon: Image },
+  video: { label: 'Video', icon: Video },
 }
 
 export function ModelCard({ model, isActive, onSelect, onDelete, onInfo, infoTitle, canDelete = true, onUse, useBusy = false, engineStopped: luEngineRuht = false }: Props) {
   const typeInfo = TYPE_CONFIG[model.type] || TYPE_CONFIG.text
   const TypeIcon = typeInfo.icon
+  const look = modelSkin().card
+  const kind = model.type in TYPE_CONFIG ? model.type : 'text'
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
 
   // EIN Satz Aktionen fuer die Karte. Die sichtbaren Knoepfe unten lesen aus
@@ -86,14 +94,10 @@ export function ModelCard({ model, isActive, onSelect, onDelete, onInfo, infoTit
         e.preventDefault()
         setMenu({ x: e.clientX, y: e.clientY })
       }}
-      className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg border cursor-pointer transition-all group ${
-        isActive
-          ? 'bg-blue-50 dark:bg-white/[0.05] border-blue-400/40 ring-1 ring-blue-400/40'
-          : 'bg-gray-50 dark:bg-white/[0.03] border-gray-200 dark:border-white/[0.06] hover:bg-gray-100 dark:hover:bg-white/[0.05]'
-      }`}
+      className={look.row(isActive)}
     >
       {/* Type icon */}
-      <TypeIcon size={13} className={`${typeInfo.color} shrink-0`} />
+      <TypeIcon size={look.typeIconSize} className={look.typeIcon(kind, isActive)} />
 
       {/* Name, grows to fill the row (single-line, LM-Studio style).
           Ohne das `openai::` davor: das ist unser Steckplatzname, kein Name,
@@ -108,7 +112,7 @@ export function ModelCard({ model, isActive, onSelect, onDelete, onInfo, infoTit
           hingehoert, und nicht unter dem Mauszeiger eines Kunden. */}
       <span
         title={displayModelName(model.name)}
-        className="flex-1 min-w-0 flex text-[0.7rem] text-gray-800 dark:text-gray-200 font-medium"
+        className={look.name}
       >
         {/* Gekuerzt wird in der MITTE. Gegenprobe G1, 04.09.2026: am Ende
             gekuerzt sahen `qwen2.5-0.5b-instruct@q4_k_m` und
@@ -129,17 +133,17 @@ export function ModelCard({ model, isActive, onSelect, onDelete, onInfo, infoTit
           <span
             data-testid="model-card-stopped"
             title="This is your pick, but the LU Engine is not running. Use starts it."
-            className="shrink-0 text-[0.5rem] text-gray-500 dark:text-gray-400 font-medium uppercase"
+            className={look.stopped}
           >
             Not running
           </span>
         ) : (
-          <span className="shrink-0 text-[0.5rem] text-blue-400 font-medium uppercase">Active</span>
+          <span className={look.active}>Active</span>
         )
       )}
 
       {/* Compact meta — size · params · quant, dot-separated, mono figures */}
-      <span className="hidden md:flex items-center gap-1.5 shrink-0 t-micro text-gray-500 lu-hud-num">
+      <span className={look.meta}>
         {model.size > 0 && <span>{formatBytes(model.size)}</span>}
         {model.type === 'text' && 'details' in model && model.details?.parameter_size && (
           <><span className="opacity-40">·</span><span>{model.details.parameter_size}</span></>
@@ -166,13 +170,16 @@ export function ModelCard({ model, isActive, onSelect, onDelete, onInfo, infoTit
             onClick={(e) => { e.stopPropagation(); if (!useBusy) onUse() }}
             disabled={useBusy}
             data-testid="model-card-use"
-            className="px-2 py-0.5 mr-1 rounded t-micro font-medium bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/15 border border-gray-200 dark:border-white/10 transition-colors disabled:opacity-60 disabled:cursor-default inline-flex items-center gap-1"
+            className={look.use}
             title="Load this model on the LU Engine and use it for chat"
           >
-            {useBusy && <Loader2 size={9} className="animate-spin" />}
+            {useBusy && <Loader2 size={look.useSpinnerSize} className="animate-spin" />}
             {useBusy ? 'Loading…' : 'Use'}
           </button>
         )}
+        {/* A model that could take images and has no image part installed:
+            one click fetches it. Draws nothing for every other row. */}
+        {model.type === 'text' && <AddImageInput model={model} label={`${displayModelName(model.name)} image input`} />}
         {model.type === 'text' && (
           <div onClick={(e) => e.stopPropagation()}>
             <BenchmarkButton modelName={model.name} />
@@ -180,18 +187,18 @@ export function ModelCard({ model, isActive, onSelect, onDelete, onInfo, infoTit
         )}
         <button
           onClick={(e) => { e.stopPropagation(); actions.info() }}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+          className={look.info}
           title={infoTitle ?? 'Details'}
         >
-          <Info size={12} />
+          <Info size={ICON_SM} />
         </button>
         {canDelete && (
           <button
             onClick={(e) => { e.stopPropagation(); actions.remove() }}
-            className="p-1 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+            className={look.remove}
             title="Delete"
           >
-            <Trash2 size={12} />
+            <Trash2 size={ICON_SM} />
           </button>
         )}
       </div>

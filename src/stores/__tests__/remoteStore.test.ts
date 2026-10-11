@@ -134,7 +134,7 @@ describe('remoteStore', () => {
       expect(state.enabled).toBe(false)
     })
 
-    // Reported by @phantomderp on v2.4.2 — clicking LAN/Internet from
+    // Reported by a user on v2.4.2 — clicking LAN/Internet from
     // `npm run dev` produced an HTTP 404 + JSON.parse SyntaxError because
     // the dev server can't host the Rust backend Remote needs. The store
     // short-circuits with REMOTE_DEV_MODE_ERROR; backendCall is never

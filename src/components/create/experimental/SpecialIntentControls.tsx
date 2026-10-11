@@ -10,11 +10,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePopoverPlatz } from '../../../hooks/usePopoverPlatz'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  AudioLines, Download, Film, ImagePlus, Info, Mic, Music2, Trash2, Upload, Wand2, X,
+  AudioLines, Download, Film, ImagePlus, Info, Loader2, Mic, Music2, Trash2, Upload, Wand2, X,
 } from 'lucide-react'
 import { useCreateStore, type CreateIntent, type GalleryItem } from '../../../stores/createStore'
-import { useCloudCatalogStore, cloudModelById, modelForOp } from '../../../stores/cloudCatalogStore'
-import { listLoras, deleteLora, type CloudLora } from '../../../api/cloud/loras'
+import { useCloudCatalogStore, cloudModelById, lengthCredits, lengthPrice, modelForOp } from '../../../stores/cloudCatalogStore'
+import { listLoras, deleteLora, downloadLora, type CloudLora, type LoraDownloadProgress } from '../../../api/cloud/loras'
+import { errorText } from '../../../types/json-guards'
 import {
   characterTrainerStatus, installCharacterTrainer, parseLocalCharacterLora,
   TRAINER_BASE_FILES, baseDownloadRunning, baseDownloadPercent, type TrainerStatus,
@@ -39,6 +40,7 @@ import { Slider } from '../ui/Slider'
 import { cn } from '../ui/cn'
 import { useClickAway } from '../ui/useClickAway'
 import { Modal } from '../../ui/Modal'
+import { ModalActions, ModalButton } from '../../ui/ModalActions'
 import { MIN_TRAIN_IMAGES, maxTrainImages } from '../../../lib/train-image-cap'
 
 export function SpecialControls({ intent }: { intent: CreateIntent }) {
@@ -152,6 +154,63 @@ const FAMILY_LABEL: Record<string, string> = {
   'ltx-2': 'LTX video',
 }
 
+/** Saves a trained cloud character as a file. The weights are the customer's
+ *  own, a few hundred megabytes: the button shows how far the file is, and a
+ *  failure lands in the red bar of the Create surface. Once the place is
+ *  picked and the file comes in, a second button cancels it: the backend drops
+ *  the connection and removes the unfinished file, and the row says so. */
+function CharacterDownload({ lora }: { lora: CloudLora }) {
+  const [progress, setProgress] = useState<LoraDownloadProgress | null>(null)
+  // Set while the backend is downloading, which is when there is something to cancel.
+  const [running, setRunning] = useState<AbortController | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelled, setCancelled] = useState(false)
+  const busy = progress !== null
+  const percent = progress && progress.total > 0 ? Math.floor((progress.received / progress.total) * 100) : null
+  const start = () => {
+    if (busy) return
+    const controller = new AbortController()
+    setCancelled(false)
+    setProgress({ received: 0, total: 0 })
+    void downloadLora(lora, (p) => { setProgress(p); setRunning(controller) }, controller.signal)
+      .then((end) => { if (end === 'stopped') setCancelled(true) })
+      .catch((err: unknown) => useCreateStore.getState().setError(`Download failed: ${errorText(err)}`))
+      .finally(() => { setProgress(null); setRunning(null); setCancelling(false) })
+  }
+  return (
+    <>
+      <button
+        onClick={start}
+        disabled={busy}
+        className={cn('flex items-center gap-1 p-1', busy ? 'text-gray-400' : 'text-gray-600 hover:text-gray-200')}
+        title={busy ? `Saving the .safetensors file${percent === null ? '…' : `, ${percent}%`}` : 'Download the .safetensors file'}
+        aria-label="Download character"
+        data-testid="character-download"
+      >
+        {busy ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+        {percent !== null && <span className="t-micro tabular-nums">{percent}%</span>}
+      </button>
+      {running && (
+        <button
+          onClick={() => { setCancelling(true); running.abort() }}
+          disabled={cancelling}
+          className={cn('p-1', cancelling ? 'text-gray-500' : 'text-gray-600 hover:text-red-400')}
+          title={cancelling ? 'Cancelling the download…' : 'Cancel the download'}
+          aria-label="Cancel download"
+          data-testid="character-download-cancel"
+        >
+          <X size={11} />
+        </button>
+      )}
+      {cancelled && (
+        <span role="status" className="t-micro text-gray-500 px-1" data-testid="character-download-cancelled">
+          Download cancelled
+        </span>
+      )}
+    </>
+  )
+}
+
 function CharacterPanel() {
   const backend = useCreateStore((s) => s.backend)
   const characterTab = useCreateStore((s) => s.characterTab)
@@ -228,11 +287,12 @@ function CharacterPanel() {
                       ? 'bg-white/10 border-white/20 text-white'
                       : 'bg-white/[0.03] border-white/[0.06] text-gray-400 hover:text-gray-200',
                   )}
-                  title={`Trigger word: ${c.trigger_word}`}
+                  title={`${c.name}, trigger word: ${c.trigger_word}`}
                 >
                   <span className="max-w-[110px] truncate">{c.name}</span>
                   <span className="t-label text-gray-500">{FAMILY_LABEL[c.base_family] ?? c.base_family}</span>
                 </button>
+                <CharacterDownload lora={c} />
                 <button
                   onClick={() => {
                     void deleteLora(c.id)
@@ -334,22 +394,14 @@ function TrainerReinstallModal({
           This sets up the trainer's Python environment again: PyTorch and musubi-tuner get reinstalled. Your training photos and downloaded base models are not touched. Setup needs about 3 GB of downloads, same as the first install.
         </p>
         <p className="t-label text-gray-500 text-center">Trainer folder: {status.root}</p>
-        <div className="flex flex-col gap-2 pt-1">
-          <button
-            onClick={onConfirm}
-            data-destructive
-            className="w-full px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-200 text-sm font-medium transition-colors"
-          >
-            Reinstall
-          </button>
-          <button
-            onClick={onClose}
-            data-autofocus
-            className="w-full px-4 py-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-gray-300 text-xs transition-colors"
-          >
+        <ModalActions>
+          <ModalButton variant="quiet" onClick={onClose} data-autofocus>
             Cancel
-          </button>
-        </div>
+          </ModalButton>
+          <ModalButton variant="primary" onClick={onConfirm} data-destructive>
+            Reinstall
+          </ModalButton>
+        </ModalActions>
       </div>
     </Modal>
   )
@@ -368,7 +420,7 @@ function LocalTrainControls() {
   const [status, setStatus] = useState<TrainerStatus | null>(null)
   const [busy, setBusy] = useState<'install' | 'bases' | null>(null)
   const [note, setNote] = useState<string | null>(null)
-  // K5 (DIE-301-LISTE, Discord "Storage", x_guestieco_x): the trainer's
+  // K5 (DIE-301-LISTE, Discord "Storage"): the trainer's
   // venv, torch and its pip/HF/torch caches all follow `trainer_root`
   // (see apply_trainer_cache_env in commands/trainer.rs), but nothing ever
   // let a customer set `trainer_root` in the first place, so the redirect
@@ -588,7 +640,7 @@ function LocalTrainControls() {
               longer the only way out of a broken install. It stays because
               the button used to render ONLY while the environment counted as
               not ready, which is exactly when a customer with a stale torch
-              build could not reach it (bob80817, D#102). */}
+              build could not reach it (D#102). */}
           <button
             type="button"
             onClick={() => setReinstallOpen(true)}
@@ -710,7 +762,7 @@ function LipsyncControls() {
   )
 }
 
-// The hosted tts endpoint requires one of WaveSpeed's own preset voices —
+// The hosted tts endpoint requires one of the service's own preset voices —
 // these exact ids, live-verified 2026-07-18 (invented names get a 400).
 const TTS_VOICES = [
   'Serena', 'Vivian', 'Dylan', 'Eric', 'Ryan', 'Aiden', 'Sohee', 'Ono_Anna', 'Uncle_Fu',
@@ -733,6 +785,8 @@ function VoiceChip({
   const [makerOpen, setMakerOpen] = useState(false)
   const [text, setText] = useState('')
   const [mode, setMode] = useState<'speak' | 'design'>('speak')
+  // The model the voice maker runs (useCloudCreate, makeVoice), for its price.
+  const voiceModel = mode === 'design' ? 'qwen3-tts-design' : 'qwen3-tts'
   const [voice, setVoice] = useState<string>(TTS_VOICES[0])
   const [description, setDescription] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -877,7 +931,8 @@ function VoiceChip({
                     setMakerOpen(false)
                   }}
                 >
-                  Make voice
+                  {/* What this text costs, the figure the start sends as its ceiling. */}
+                  Make voice{text.trim() && lengthPrice(voiceModel, 'tts') ? ` · ${lengthCredits(voiceModel, Array.from(text.trim()).length).toLocaleString('en-US')} credits` : ''}
                 </Button>
               </div>
             )}
@@ -913,7 +968,7 @@ function MusicControls() {
   // Local: every music checkpoint runs through buildMusicWorkflow, which feeds
   // the lyrics box straight into the encoder. Asking the CLOUD catalog about a
   // local checkpoint is how the local tab once hid the box while sitting on
-  // the one model that sings yours (#108, ElBiggus).
+  // the one model that sings yours (#108).
   const text = isCloud ? musicText(model) : LOCAL_MUSIC_TEXT
   const second = text.second
   const secondValue = !second ? '' : second.option
@@ -1252,7 +1307,7 @@ function CloudExtendControls() {
                       url: g.remoteUrl ?? '',
                       // P9: 'Cloud video' was the old blanket notname
                       // gallery-label.ts's own header comment names as the
-                      // problem it fixes (David, 19.09.2026: "everything
+                      // problem it fixes (19.09.2026: "everything
                       // after that is just Cloud videos"). A prompt-less
                       // entry here is routinely a Studio step (sharpen,
                       // extend, a preset step), galleryLabelShort names

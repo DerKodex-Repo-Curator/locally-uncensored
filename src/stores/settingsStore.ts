@@ -12,7 +12,7 @@ import { RETIRED_SEND_WINDOW_DEFAULT } from '../lib/send-window'
 // version is all that's needed — the new default fills in while every existing
 // user value is preserved. Rehydration is NOT broken: a persisted v4 blob runs
 // the same merge path that has handled every prior additive field.
-// v6 (uselu design port): added settings.personasEnabled (master persona
+// v6 (the web app design port): added settings.personasEnabled (master persona
 // switch, default true). Bumped so existing users get the default ON instead
 // of an undefined → falsy "personas off" surprise.
 // v7 (Small-Model Mode v2.5.0): added settings.smallModelMode (lean profile
@@ -26,7 +26,7 @@ import { RETIRED_SEND_WINDOW_DEFAULT } from '../lib/send-window'
 // before the VRAM swap"). Same additive merge path — existing users simply
 // see the picker on their next generation.
 // v10 (2026-06-16): one-time RESET of those three picker preferences. Video had
-// kept a silently-saved model and only offered "Change model"; David wants the
+// kept a silently-saved model and only offered "Change model"; the owner wants the
 // full picker to come FIRST again on both image AND video. Clearing the saved
 // picks once on upgrade makes the picker the default until the user deliberately
 // saves a model again via the picker's Remember.
@@ -79,7 +79,7 @@ import { RETIRED_SEND_WINDOW_DEFAULT } from '../lib/send-window'
 // build switch and quietly wipe a user preference each time.
 // v21 (2.6.6): added settings.codexCloudConfirmOptIn (default false) and
 // retired settings.codexCloudConfirmShell (default true). Bypass means bypass
-// on a cloud model too (David 2026-08-22, replacing G15a of 2026-08-07), so
+// on a cloud model too (2026-08-22, replacing G15a of 2026-08-07), so
 // the cloud shell confirm is an opt-in now.
 // The key had to be a NEW one, not a flipped default on the old one: this
 // store persists the whole settings object, so every existing profile has
@@ -205,7 +205,7 @@ export const useSettingsStore = create<SettingsState>()(
           const storedSettings = isRecord(blob.settings) ? blob.settings : {}
           const mergedSettings = { ...DEFAULT_SETTINGS, ...storedSettings }
           // v10: clear the saved model-picker preferences ONCE so the picker is
-          // shown first again on image + video (David 2026-06-16). The additive
+          // shown first again on image + video (2026-06-16). The additive
           // merge above would otherwise preserve a previously-saved pick.
           if (version < 10) {
             mergedSettings.preferredImageModel = ''

@@ -79,9 +79,9 @@ export interface CloudPitchNumbers {
    *
    * ACHTUNG, gewollte Abweichung: die Kaufseite auf lu-labs.ai nennt eine
    * KLEINERE Zahl. Sie zaehlt nicht den Katalog, sondern was sie auf dieser
-   * Domain zeigen darf: `apps/web/app/(marketing)/pricing/pricing-detail.ts`
+   * Domain zeigen darf: the web app
    * filtert ueber `keptOffThisDomain`, der Entscheid dazu steht in
-   * `apps/web/lib/marketing/public-copy.ts` (10.09.2026). Seit acaa0c9d haengt
+   * the web app (10.09.2026). Seit acaa0c9d haengt
    * diese Auswahl am Katalogfeld `adult` statt am Namen, `CLAIM_IN_NAME` ist
    * dort geloescht: die Umbenennung auf "Spicy" aendert die Zahl der
    * Zahlungsdomain deshalb nicht. Der Desktop haengt an keiner Zahlungsdomain
@@ -89,7 +89,7 @@ export interface CloudPitchNumbers {
    *
    * Beide Zahlen sind je fuer sich bewacht, aber nirgends stand, dass sie
    * absichtlich verschieden sind (R5-47). Ob der Desktop weiter die groessere
-   * nennen soll, ist Entscheid David; hier steht nur, dass es kein Versehen
+   * nennen soll, ist Entscheid des Inhabers; hier steht nur, dass es kein Versehen
    * ist. `scripts/check-cloud-sales.mjs` haelt diese Zahl gegen die volle
    * Katalogliste, nicht gegen die Kaufseite.
    */
@@ -97,11 +97,11 @@ export interface CloudPitchNumbers {
   /**
    * Bildmodelle OHNE eingebaute Inhaltsschranke, ueber den GANZEN Katalog
    * gezaehlt: die `adult: true`-Zeilen mit `kind: 'image'` in
-   * `apps/web/lib/render/cloud-models.ts`, einschliesslich der Zeilen, die die
+   * the web app, einschliesslich der Zeilen, die die
    * erste Zeile dieses Arrays aus `studio-models.json` ueber `STUDIO_MODELS`
    * mit `ops: ['studio']` hereinholt.
    *
-   * ## Die Zaehlregel, Entscheid David 22.09.2026
+   * ## Die Zaehlregel, Entscheid vom 22.09.2026
    *
    * Gezaehlt wird jeder Endpunkt mit `adult: true` und `kind: 'image'`, den
    * ein Kunde selbst waehlen kann, egal ob er im klassischen Waehler oder im
@@ -130,7 +130,7 @@ export interface CloudPitchNumbers {
    * `scripts/check-cloud-sales.mjs` zaehlt noch nach der ALTEN Regel (ohne
    * `ops`) und widerspricht dieser Zahl deshalb. Das Skript laeuft seit
    * 14.09.2026 ohnehin nicht mehr durch und wird in einem eigenen Auftrag
-   * nachgezogen (Entscheid David 22.09.2026).
+   * nachgezogen (Entscheid vom 22.09.2026).
    *
    * Das Flag markiert, was ein Modell KANN, und entscheidet nichts; was
    * durchgeht, entscheidet die Kontoeinstellung beim Absenden. Die Zeile im
@@ -142,11 +142,11 @@ export interface CloudPitchNumbers {
    * Videomodelle ohne eingebaute Inhaltsschranke, ueber den GANZEN Katalog
    * gezaehlt.
    *
-   * ## Die Zaehlregel, Entscheid David 22.09.2026
+   * ## Die Zaehlregel, Entscheid vom 22.09.2026
    *
    * Gezaehlt wird, was einen Clip ERZEUGT und was ein Kunde selbst waehlen
    * kann: `adult: true` mit `kind: 'video'` in
-   * `apps/web/lib/render/cloud-models.ts`, einschliesslich der Eintraege mit
+   * the web app, einschliesslich der Eintraege mit
    * `ops: ['studio']`, die die erste Zeile jenes Arrays aus
    * `studio-models.json` hereinholt.
    *
@@ -184,19 +184,19 @@ export interface CloudPitchNumbers {
    * zaehlt sechs, einer ohne den Studio-Katalog zehn. Die Vierzehn ist der
    * Sollwert. Bei jedem Commit rechnet
    * `__tests__/offene-modelle-in-den-texten.test.ts` sie aus den Zeilen der
-   * Preistabelle zusammen; `scripts/check-cloud-sales.mjs` zaehlt dagegen noch
-   * nach der alten Regel und wird in einem eigenen Auftrag nachgezogen.
+   * Preistabelle zusammen; `scripts/check-cloud-sales.mjs` zaehlt seit dem
+   * 09.10.2026 nach derselben Regel gegen den Katalog im Web-Repo.
    */
   openVideoModels: number
   /**
    * Der Monatspreis des guenstigsten bezahlten Plans, in Euro.
    *
-   * Quelle: `apps/web/lib/pricing.ts`, Eintrag `hosted`. Steht hier, weil der
+   * Quelle: the web app, Eintrag `hosted`. Steht hier, weil der
    * Knopf den Preis nennt, BEVOR jemand angemeldet ist, es also nichts zu
    * lesen gibt. Getippt stand er bis 3.0.0 dreimal in `CloudGateModal.tsx`.
    */
   hostedMonthlyEUR: number
-  /** Monatsguthaben desselben Plans. `TIER_CREDITS.hosted` im Web-Repo. */
+  /** Monatsguthaben desselben Plans. Die Zahl haelt der Server. */
   hostedCredits: number
 }
 
@@ -232,8 +232,7 @@ export const CLOUD_PITCH: CloudPitchNumbers = {
  *     gegen einen ausgeschriebenen Wert. Wer sie aendert, aendert sie zweimal,
  *     und die zweite Aenderung ist die Stelle, an der er es merkt.
  *   * `scripts/check-cloud-sales.mjs` TEILT sie vor jedem Release aus den
- *     lebenden Tabellen des Web-Repos (`TOPUP_PACKS`, `TIER_CREDITS`,
- *     `pricing.ts`) und faellt, wenn sie herausgelaufen ist.
+ *     lebenden Tabellen des Servers und faellt, wenn sie herausgelaufen ist.
  *
  * Geteilt wird dort gegen das BESTE Paket, damit der Satz untertreibt statt zu
  * schmeicheln: gegen das kleinste waere der Abstand groesser.
@@ -259,7 +258,7 @@ export function cloudPitchLines(p: CloudPitchNumbers = CLOUD_PITCH): string[] {
 
 /**
  * Die drei Zeilen des Verkaufs-Panels, das der Wolkenschalter OHNE Sitzung
- * zeigt (David, 13.09.2026).
+ * zeigt (13.09.2026).
  *
  * Kuerzer als `cloudPitchLines` und mit Absicht: der Schalter-Hinweis erklaert
  * einem Benutzer, der schon da ist, was hinter dem Schalter liegt. Diese drei
@@ -271,7 +270,7 @@ export function cloudPitchLines(p: CloudPitchNumbers = CLOUD_PITCH): string[] {
  */
 export function cloudSalesLines(p: CloudPitchNumbers = CLOUD_PITCH): string[] {
   return [
-    `${p.unfilteredChatModels} chat models with no refusals`,
+    `${p.unfilteredChatModels} No Filter chat models`,
     `${p.openVideoModels} uncensored video models`,
     `${p.openImageModels} uncensored image models`,
   ]
@@ -286,7 +285,7 @@ export const HOSTED_CREDITS_PER_EUR =
  * CHANGELOG und der Dialog beim leeren Beutel ihn zeichengleich tragen.
  *
  * Zeichengleich mit dem Web-Repo, wo derselbe Satz aus
- * `apps/web/lib/billing/subscriber-rate.ts` auf vier Oberflaechen steht
+ * the web app auf vier Oberflaechen steht
  * (Paketkarten, Kontobereich, Dialog beim leeren Beutel, Kaufrueckkehr). Zwei
  * Repos, ein Wortlaut, und auf beiden Seiten aus Konstanten gerechnet.
  *
@@ -321,7 +320,7 @@ export const REFUSAL_RATE_PERCENT = Math.round(
 
 /**
  * Der Messsatz, zeichengleich im CHANGELOG und auf dem Was-ist-neu-Blatt
- * (David, 13.09.2026). Die Zahl darin kommt aus der Rechnung darueber.
+ * (13.09.2026). Die Zahl darin kommt aus der Rechnung darueber.
  */
 export const CLOUD_REFUSAL_LINE =
   `We measured refusals in ${REFUSAL_RATE_PERCENT}% of answers.`

@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, type ReactNode } from 'react'
 import { usePopoverPlatz } from '../../hooks/usePopoverPlatz'
 import { SamplingControls } from './SamplingControls'
-import { Send, Square, Paperclip, X, Brain, Gauge, Terminal } from 'lucide-react'
+import { Send, Square, Paperclip, X, Brain, Gauge, Terminal, Film, Music } from 'lucide-react'
 import { matchAgentCommands, type AgentCommand, type CommandScope } from '../../lib/agent-commands'
 import { VoiceButton } from './VoiceButton'
 import { ApprovalDialog } from './ApprovalDialog'
+import { ComputerQuestionSlot } from '../computer/ComputerQuestion'
+import { ComputerNote } from '../computer/ComputerNote'
+import { dismissComputerStop } from '../../api/computer-use'
 import { useVoiceStore } from '../../stores/voiceStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useUIStore } from '../../stores/uiStore'
@@ -23,9 +26,14 @@ import { consumeComposerFocusPending } from '../../hooks/useKeyboardShortcuts'
 import { useChatNoticeStore, CHAT_NOTICE_MS } from '../../stores/chatNoticeStore'
 import { MONOGRAM, MONOGRAM_INVERT } from '../layout/brand'
 import { fitTextarea } from '../../lib/fit-textarea'
+import { createActive, createChatLive, createInChatOf, servedWindowOf } from '../../lib/create/chat-switch'
+import { useCreateChatReleased } from '../../lib/create/chat-release'
+import {
+  ATTACH_TOO_LARGE, ATTACH_TOO_MANY, addPendingMedia, mediaKindOf, tooLargeToAttach, type PendingMedia,
+} from '../../lib/create/chat-attachments'
 
 interface Props {
-  onSend: (content: string, images?: ImageAttachment[], files?: ChatFileInput[]) => void
+  onSend: (content: string, images?: ImageAttachment[], files?: ChatFileInput[], media?: PendingMedia[]) => void
   onStop: () => void
   /** THIS conversation is answering: the slot shows Stop. */
   isGenerating: boolean
@@ -112,6 +120,12 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
   // Files of any other kind (3.0.5). Each entry is a description plus the
   // handle to the bytes; nothing of the file itself is held here.
   const [files, setFiles] = useState<ChatFileInput[]>([])
+  // Create in chat: with the switch on, a clip or a sound track is an input
+  // for an order. It never goes to the model and never into the chat store;
+  // the bytes stay here until the message is sent.
+  const [media, setMedia] = useState<PendingMedia[]>([])
+  const mediaRef = useRef<PendingMedia[]>([])
+  mediaRef.current = media
   const [isDragOver, setIsDragOver] = useState(false)
   const [preparingImages, setPreparingImages] = useState(false)
   const [preparingFiles, setPreparingFiles] = useState(false)
@@ -205,6 +219,9 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
     setInput(zurueck?.text ?? '')
     setImages(zurueck?.bilder ?? [])
     setFiles(zurueck?.dateien ?? [])
+    // Clips and sound tracks are bytes of this session and belong to the
+    // draft they were picked for; they are not carried across conversations.
+    setMedia([])
     setCmdMenu([])
   }
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -245,6 +262,12 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
   const showEffort = effortSteps.length > 0 && thinkingIsOn
   const serverVision = declaredVision(activeModelMeta)
   const canSeeImages = serverVision !== undefined ? serverVision : isVisionCompatible(activeModel)
+  // Is Create in chat on for the next message? Follows the account's release,
+  // the mode, the model and the switch (lib/create/chat-switch.ts).
+  const createReleased = useCreateChatReleased()
+  const servedWindow = useModelStore((s) => servedWindowOf(s.activeModel, s.models))
+  const modelReleased = useModelStore((s) => createInChatOf(s.activeModel, s.models))
+  const createOn = useSettingsStore((s) => createActive(s.settings, activeModel, createChatLive(s.settings.appMode === 'cloud', createReleased), servedWindow, modelReleased))
 
   /**
    * Auflage 1 (Review composer, 19.09.2026): `key={conversationId}` weiter
@@ -333,11 +356,32 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
   const addFiles = useCallback(async (picked: FileList | File[]) => {
     const all = Array.from(picked)
     const imageFiles = all.filter(f => f.type.startsWith('image/'))
-    const otherFiles = all.filter(f => !f.type.startsWith('image/'))
+    // Create on: a clip or a sound track is an input for an order, up to the
+    // size the server takes. Checked here, before any upload, so nobody waits
+    // for a refusal. With Create off they are files like any other.
+    const mediaFiles = createOn ? all.filter(f => !f.type.startsWith('image/') && mediaKindOf(f) !== null) : []
+    const otherFiles = all.filter(f => !f.type.startsWith('image/') && !mediaFiles.includes(f))
+    if (mediaFiles.length > 0) {
+      const notices = useChatNoticeStore.getState()
+      const fits: PendingMedia[] = []
+      let note = ''
+      for (const f of mediaFiles) {
+        const kind = mediaKindOf(f)!
+        if (tooLargeToAttach(f)) { note = ATTACH_TOO_LARGE; continue }
+        fits.push({ kind, mimeType: f.type || (kind === 'video' ? 'video/mp4' : 'audio/mpeg'), name: f.name, size: f.size, blob: f })
+      }
+      if (fits.length) {
+        const next = addPendingMedia(mediaRef.current, fits)
+        if (next.dropped) note = ATTACH_TOO_MANY
+        setMedia(next.media)
+      }
+      // The line stands above the thread (ChatNotices), never in the composer.
+      if (note) notices.show('file-attach', note, 'ruhig', CHAT_NOTICE_MS)
+    }
     if (otherFiles.length > 0) void addOtherFiles(otherFiles)
     if (imageFiles.length === 0) return
     // Die Zeilen zum Bildanhang stehen oben im Verlauf (`ChatNotices`), nie
-    // im Eingabekasten: „NICHTS im Prompt-Fenster", David 21.09.2026.
+    // im Eingabekasten: „NICHTS im Prompt-Fenster", 21.09.2026.
     const notices = useChatNoticeStore.getState()
     const job = imageJob.current
     if (job.busy) {
@@ -370,7 +414,7 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
         useChatNoticeStore.getState().dismiss('image-attach')
       }
     }
-  }, [images.length, conversationId, addOtherFiles])
+  }, [images.length, conversationId, addOtherFiles, createOn])
 
   /**
    * Ein Bild an einem Modell, das keine sieht.
@@ -382,7 +426,9 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
    * Speicher kein Render sein darf. gthvidsten, GH Discussion #67.
    */
   useEffect(() => {
-    const blind = images.length > 0 && !!activeModel && !canSeeImages
+    // With Create on, an image is of use without a vision model too (as the
+    // template for an order), so the line would be wrong there.
+    const blind = images.length > 0 && !!activeModel && !canSeeImages && !createOn
     const speicher = useChatNoticeStore.getState()
     if (!blind) {
       speicher.dismiss('model-cannot-see-images')
@@ -392,7 +438,7 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
       'model-cannot-see-images',
       "This model can't read images. Switch to a vision model (Gemma 4, LLaVA, Qwen-VL) to use the attachment.",
     )
-  }, [images.length, activeModel, canSeeImages])
+  }, [images.length, activeModel, canSeeImages, createOn])
 
   const removeImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index))
@@ -404,14 +450,14 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
 
   // Write a dictation transcript (interim or final) into the input as
   // base + transcript; the layout effect above sizes the field. NEVER sends,
-  // because the user reviews and presses Send (David 2026-06-06).
+  // because the user reviews and presses Send (2026-06-06).
   const applyDictation = (text: string) => {
     const base = dictationBaseRef.current
     const sep = base && !/\s$/.test(base) ? ' ' : ''
     setInput(base + sep + text)
   }
 
-  // Synchronous double-fire guard (David 2026-06-20: "ok generiere jetzt" landed
+  // Synchronous double-fire guard (2026-06-20: "ok generiere jetzt" landed
   // twice in one chat). The `isGenerating` prop and the cleared input only update
   // on the NEXT render, so two Enter keydowns in the same tick (key-repeat / IME
   // / a held Enter) both pass the checks below and send the identical message
@@ -419,7 +465,7 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
   const sendLockRef = useRef(0)
   const handleSend = () => {
     const trimmed = input.trim()
-    if (imageJob.current.busy || fileJob.current.busy || (!trimmed && images.length === 0 && files.length === 0) || isGenerating || waitingForLocalLane || disabled) return
+    if (imageJob.current.busy || fileJob.current.busy || (!trimmed && images.length === 0 && files.length === 0 && media.length === 0) || isGenerating || waitingForLocalLane || disabled) return
     // No chat model to answer: the send handlers return without a word in that
     // case, and the lines below would then empty the field and the chips for a
     // message that went nowhere (found in the Windows build of 3.0.5). The
@@ -430,15 +476,20 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
       return
     }
     if (!passSendLock(sendLockRef)) return
+    // A message is sent: the note about a stop has been seen.
+    dismissComputerStop()
     const text = trimmed || (images.length > 0 ? '(image)' : FILE_ONLY_TEXT)
     const pictures = images.length > 0 ? images : undefined
     // The third argument only exists for a message that carries files, so a
     // send without them reaches its handler exactly as it always did.
-    if (files.length > 0) onSend(text, pictures, files)
+    // And the fourth only for one that carries a clip or a sound track.
+    if (media.length > 0) onSend(trimmed || '(attachment)', pictures, files.length > 0 ? files : undefined, media)
+    else if (files.length > 0) onSend(text, pictures, files)
     else onSend(text, pictures)
     setInput('')
     setImages([])
     setFiles([])
+    setMedia([])
     setCmdMenu([])
   }
 
@@ -449,6 +500,8 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
   // offering work the surface cannot do.
   const updateInput = (value: string) => {
     setInput(value)
+    // The user writes on: the note about a stop has been seen.
+    dismissComputerStop()
     const matches = slashCommands ? matchAgentCommands(value, slashCommands) : []
     setCmdMenu(matches)
     setCmdIndex(0)
@@ -532,8 +585,8 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
 
   return (
     <div className={`px-3 pb-2 pt-1 w-full ${COMPOSER_MAX_W} mx-auto`}>
-      {/* David, 19.09.2026, Runde 2 (Nachtrag): ueber dem Eingabefeld steht
-          seither GAR KEINE Marke mehr, weder "No credits" noch "No refusals".
+      {/* 19.09.2026, Runde 2 (Nachtrag): ueber dem Eingabefeld steht
+          seither GAR KEINE Marke mehr, weder "No credits" noch "No Filter".
           Die Komponente, die sie hier zeigte, ist geloescht, nicht nur
           entkoppelt (siehe flash-hinweis-verschiebt-nichts.test.ts). Das
           Etikett neben dem Agent-Schalter (ChatView.tsx, der Flash-Hinweis)
@@ -602,6 +655,14 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
           <ApprovalDialog toolCall={pendingApproval} onApprove={onApprove} onReject={onReject} />
         )}
 
+        {/* A question of computer control (may LU use this app, may it run
+            this action). The owner's one exception to "nothing above the input
+            field" (08.10.2026): it stands here, as a surface of its own. */}
+        <ComputerQuestionSlot className="mb-1.5" />
+        {/* The note of computer control: the second exception (09.10.2026).
+            One small line that hangs above this place and takes no room. */}
+        <ComputerNote />
+
         {/* Prompt area: hints, image previews, then the textarea (buttons live
             in the action bar below, web-parity two-row composer). */}
         <div className="px-3 pt-2.5">
@@ -623,7 +684,7 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
               previews, then a chip per file of any other kind (3.0.5). A chip
               IS the attachment (name, detected type, size), not a hint
               about it. */}
-          {(images.length > 0 || files.length > 0) && (
+          {(images.length > 0 || files.length > 0 || media.length > 0) && (
             <div className="flex gap-1.5 mb-1.5 flex-wrap">
               {images.map((img, i) => (
                 <div key={i} className="relative group">
@@ -650,6 +711,20 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
                   testId="composer-file-chip"
                   onRemove={() => removeFile(i)}
                 />
+              ))}
+              {/* Clips and sound tracks for Create: the same row. */}
+              {media.map((clip, i) => (
+                <div key={`${clip.name}-${i}`} data-testid="composer-media-chip" className="relative flex h-[var(--control-h-md)] max-w-44 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 pl-2 pr-6 t-micro text-gray-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-gray-300">
+                  {clip.kind === 'video' ? <Film size={11} className="shrink-0 text-gray-400" /> : <Music size={11} className="shrink-0 text-gray-400" />}
+                  <span className="truncate">{clip.name}</span>
+                  <button
+                    onClick={() => setMedia(prev => prev.filter((_, k) => k !== i))}
+                    aria-label={`Remove ${clip.name}`}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-800 dark:hover:bg-white/10 dark:hover:text-gray-200"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -697,14 +772,14 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
 
         {/* Action bar, attach · voice · think · view actions · model · send.
             Same in Chat, Code and Remote; each surface passes its own
-            composerActions + composerModel (David 2026-07-11, web parity).
+            composerActions + composerModel (2026-07-11, web parity).
 
             ONE row, always. It used to be `flex-wrap`, and a run starting was
             enough to break it: the Code mode trigger grows by a dot or a
             "then bypass" label the moment a loop is in flight, the row ran out
             of width and the tail (model picker and the Stop button) dropped
             onto a second line. So the composer was a different height standing
-            still than it was working, which is what David saw as "der Stop
+            still than it was working, which is what the owner saw as "der Stop
             Knopf oeffnet eine weitere Zeile, alles sieht asymmetrisch aus".
             No wrapping, a fixed-height row, and every control shrink-0 with
             only the middle spacer giving way, das `flex: 0 0 auto` steckt
@@ -716,7 +791,7 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
             onClick={() => fileInputRef.current?.click()}
             disabled={isGenerating || preparingImages || preparingFiles}
             className="lu-control lu-control--icon"
-            title="Attach images or files"
+            title={createOn ? 'Attach images, clips, audio or files' : 'Attach images or files'}
           >
             <Paperclip size={14} />
           </button>
@@ -858,7 +933,7 @@ export function ChatInput({ onSend, onStop, isGenerating, waitingForLocalLane, p
             ) : (
               <button
                 onClick={handleSend}
-                disabled={preparingImages || preparingFiles || (!input.trim() && images.length === 0 && files.length === 0) || isTranscribing || !!waitingForLocalLane}
+                disabled={preparingImages || preparingFiles || (!input.trim() && images.length === 0 && files.length === 0 && media.length === 0) || isTranscribing || !!waitingForLocalLane}
                 className="lu-control lu-control--icon lu-primary w-full h-full"
                 aria-label="Send message"
               >

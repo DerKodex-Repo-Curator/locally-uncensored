@@ -3,7 +3,7 @@
  *
  * ── Der Befund vom 07.09.2026 ──
  *
- * David: das Kontextfenster im Chat ist abgeschnitten, "wenn man den Context
+ * Der Inhaber: das Kontextfenster im Chat ist abgeschnitten, "wenn man den Context
  * neu ausfuellen moechte". Nachgemessen im laufenden Fenster (1280x800,
  * Chromium, `e2e/kontextfenster-wird-nicht-abgeschnitten.spec.ts`): die Liste
  * stand von y=686 bis y=874, also 74 px unter dem Fensterrand, und der
@@ -34,7 +34,7 @@
  *
  * ── GitHub #149, 03.10.2026: zwei Masseinheiten in einer Rechnung ──
  *
- * nexd3v, CachyOS mit Hyprland, AppImage: die Modellauswahl in Create ging im
+ * Ein Nutzer, CachyOS mit Hyprland, AppImage: die Modellauswahl in Create ging im
  * hohen Fenster nach unten auf und lag unter dem Fensterrand, im halbhohen
  * stand sie 110 px ueber ihrem Ausloeser. Aus seinen Bildern nachgerechnet:
  * die App liegt unter `zoom: 1.15`, und das WebKitGTK des AppImage liefert
@@ -134,6 +134,20 @@ export interface Kasten {
   readonly bottom: number
   readonly left: number
   readonly right: number
+}
+
+/**
+ * Can any part of the trigger be seen inside the panels it scrolls in?
+ *
+ * A trigger that sits in a scrolling panel can be scrolled out of it while its
+ * popover is open. A popover that keeps following it then hangs from nothing:
+ * measured in the advanced settings of Create (window 1280x560), the trigger
+ * stood at y=805 and its list was drawn from y=512 to y=799, over the window
+ * edge. Touching edges count as out of sight.
+ */
+export function ankerInSicht(anker: Kasten, flaeche: Kasten): boolean {
+  return anker.bottom > flaeche.top && anker.top < flaeche.bottom
+    && anker.right > flaeche.left && anker.left < flaeche.right
 }
 
 /** Was die Engine ueber den Massstab verraet, roh abgelesen. */

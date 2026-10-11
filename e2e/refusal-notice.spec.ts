@@ -4,7 +4,7 @@ import { seedOnboardingDone } from './support/cloud-mock'
 import { openNewChat } from './support/ui'
 
 /**
- * The notice under a refusing answer (David, 2026-10-05).
+ * The notice under a refusing answer (2026-10-05).
  *
  * Measured that day: a refusal in the history is copied by better models in
  * the same chat. The app says so directly under the refusing answer and
@@ -19,7 +19,7 @@ import { openNewChat } from './support/ui'
 
 const REFUSAL = "I can't create explicit content. Is there anything else I can help you with?"
 const NOTICE =
-  'This model declined. A refusal stays in the chat history, and other models tend to copy it. Start a new chat and pick a model marked No refusals.'
+  'This model declined. A refusal stays in the chat history, and other models tend to copy it. Start a new chat and pick a model marked No Filter.'
 
 const picker = (page: Page) => page.getByRole('button', { name: 'Select chat model', exact: true })
 const notice = (page: Page) => page.getByTestId('refusal-notice')
@@ -51,9 +51,20 @@ test('a refusing answer gets the notice under it, and "New chat" opens a chat on
   await expect(button).toBeVisible()
 
   // Under the answer, above the prompt field, and not part of the composer.
-  const answerBox = (await answer(page).boundingBox())!
-  const noticeBox = (await notice(page).boundingBox())!
-  const promptBox = (await page.locator('textarea').first().boundingBox())!
+  // One reading for all three: read one after the other, the transcript could
+  // move between two readings, and the notice then seemed to begin a pixel
+  // above the end of the answer (once in a full run on Windows, 08.10.2026).
+  const [answerBox, noticeBox, promptBox] = await page.evaluate(
+    (els) => els.map((el) => {
+      const { y, height } = el!.getBoundingClientRect()
+      return { y, height }
+    }),
+    [
+      await answer(page).elementHandle(),
+      await notice(page).elementHandle(),
+      await page.locator('textarea').first().elementHandle(),
+    ],
+  )
   expect(noticeBox.y).toBeGreaterThanOrEqual(answerBox.y + answerBox.height - 1)
   expect(noticeBox.y + noticeBox.height).toBeLessThan(promptBox.y)
   // The transcript scrolls, the composer does not: the notice is a child of

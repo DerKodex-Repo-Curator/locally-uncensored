@@ -48,6 +48,8 @@ export function buildExtractionPrompt(
 ## Rules
 - Only extract genuinely useful cross-conversation information
 - Do NOT save: trivial greetings, one-off questions, code snippets, debugging sessions
+- Do NOT save that a tool, a file or the app failed, was denied or is unavailable: that state ends with the conversation, and a memory of it stops the assistant from trying again
+- Do NOT save instructions about what to remember or how memories work
 - Do NOT duplicate existing memories (listed below)
 - Keep titles under 60 characters, descriptions under 120 characters
 - Content should be concise but complete (1-3 sentences)
@@ -95,7 +97,7 @@ export function parseExtractionResponse(response: string): ExtractionResult {
     // FIRST balanced object that parses, so a brace pair inside that block would
     // be stored as the user's memory. Drop it (an unterminated one means the
     // token budget died mid-think: nothing to parse). Word for word the web's
-    // apps/web/lib/memory-extraction.ts.
+    // the web app.
     jsonStr = jsonStr.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
     if (/<think>/i.test(jsonStr)) return fallback
 

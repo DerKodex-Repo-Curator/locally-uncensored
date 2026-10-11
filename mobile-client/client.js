@@ -458,7 +458,7 @@ import {
     } else if(dispatchedSystemPrompt && !agentOn && !isCodex){
       // Only apply the desktop-dispatched system prompt in plain chat
       // mode. In agent / codex mode any extra prompt fights with the
-      // autonomy rules and breaks tool calling — David's "Devil's
+      // autonomy rules and breaks tool calling — the owner's "Devil's
       // Advocate hijack" repro. The desktop side now also defaults
       // personaEnabled to false, so dispatchedSystemPrompt should
       // typically be empty here anyway. Defense in depth.
@@ -1827,7 +1827,7 @@ import {
         // guard in useCodex.ts. Once retries are exhausted the echo
         // is replaced with an empty content so finishToolLoop builds
         // a step-summary instead of leaking the literal greeting to
-        // the user (this was Bug 2 reported by David — after several
+        // the user (this was Bug 2 reported by the owner — after several
         // failures the model ended the turn with the greeting as the
         // final answer).
         if(isSystemPromptEcho(turnContent)){

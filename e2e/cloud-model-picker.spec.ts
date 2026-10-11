@@ -24,7 +24,7 @@ const SUPABASE_ANON = process.env.LU_E2E_SUPABASE_ANON_KEY
 const APP = process.env.LU_E2E_APP_URL ?? 'https://lu-labs.ai'
 const enabled = Boolean(email && password && SUPABASE_URL && SUPABASE_ANON)
 
-/** The models DeepInfra refuses a native `tools` payload for. */
+/** The models the upstream refuses a native `tools` payload for. */
 const UNRESTRICTED = [
   'Sao10K/L3-8B-Lunaris-v1-Turbo',
   'Gryphe/MythoMax-L2-13b',

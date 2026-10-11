@@ -48,7 +48,7 @@ export interface QwenEncoderOption {
 
 const ENCODER_LABEL: Record<QwenEncoderVariant, string> = {
   official: 'Qwen3-VL 8B',
-  unfiltered: 'Qwen3-VL 8B, no refusals',
+  unfiltered: 'Qwen3-VL 8B, No Filter',
 }
 
 /** One file per installed edition, official first. */
@@ -74,4 +74,4 @@ export function pickQwenEncoder(textEncoders: readonly string[], choice: QwenEnc
 }
 
 export const QWEN_ENCODER_HELP =
-  'The model that reads your prompt for Qwen-Image 2.1. The no refusals edition has its refusal direction removed by the community (Heretic). The image model is the same.'
+  'The model that reads your prompt for Qwen-Image 2.1. The No Filter edition has its refusal direction removed by the community (Heretic). The image model is the same.'

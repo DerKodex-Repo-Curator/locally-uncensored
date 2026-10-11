@@ -296,7 +296,7 @@ describe('compactMessages — oversized tool results', () => {
   })
 })
 
-// ── Message-count ceiling (yaserrieh, 2026-08-21) ────────────────
+// ── Message-count ceiling (2026-08-21) ────────────────
 // A chat of many SHORT turns sits under every token budget while the count
 // grows past the LU Cloud proxy's 400-message gate; from then on every send
 // 400s ("too many messages") and the chat is a permanent dead end. The cap

@@ -1,5 +1,5 @@
 /**
- * GH #143 (duindain): Ollama and ComfyUI as services on a LAN box, LU on a
+ * GH #143: Ollama and ComfyUI as services on a LAN box, LU on a
  * Windows PC. Every model download for ComfyUI failed, with "Create models dir:
  * permission denied (os error 5)" or "ComfyUI path not set", and the node pack
  * install with "ComfyUI not found".

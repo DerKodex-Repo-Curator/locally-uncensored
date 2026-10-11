@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Discord, boromirofgeo 2026-09-23: "is there a way to limit download speed
+ * Discord 2026-09-23: "is there a way to limit download speed
  * that this app does whenever it downloads anything?" Settings, Model Storage
  * now holds a limit in MB/s, and the downloader in Rust gets it at boot and on
  * every change (the shared throttle itself is tested in download.rs).

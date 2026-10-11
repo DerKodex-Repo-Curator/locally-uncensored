@@ -181,7 +181,7 @@ interface ChatState {
   deleteMessage: (conversationId: string, messageId: string) => void
   getActiveConversation: () => Conversation | undefined
   searchConversations: (query: string) => Conversation[]
-  /** Bulk-import conversations from an exported backup (konata 2026-06-28: the
+  /** Bulk-import conversations from an exported backup (a user 2026-06-28: the
    *  web build has no store_backup.json, so a tunnel/origin change loses chats).
    *  merge = add unseen ids + refresh ones with a newer updatedAt; existing
    *  chats are never dropped. replace = swap the whole list. Returns counts. */
@@ -279,7 +279,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
  * kannte, und behielt ihn fuer immer — zehn Sitzungen hiessen zehnmal gleich
  * und waren in der Seitenleiste nur am Datum auseinanderzuhalten.
  *
- * David am 02.09.2026: "Code bereich heisst im Chat immer nur Coding Chat. da
+ * Am 02.09.2026: "Code bereich heisst im Chat immer nur Coding Chat. da
  * brauchen wir das selbe verhalten wie im normalen Chat, das sauber erkennbar
  * ist, welche Session, welche war."
  */
@@ -343,7 +343,7 @@ export const useChatStore = create<ChatState>()(
           mode: mode || 'lu',
           createdAt: Date.now(),
           updatedAt: Date.now(),
-          // Per David's request: persona starts OFF by default on every
+          // Per the owner's request: persona starts OFF by default on every
           // new conversation. The user has to flip it on explicitly via
           // the Plugins dropdown toggle. Without this, a globally
           // selected persona (e.g. "Devil's Advocate") would silently
@@ -362,11 +362,11 @@ export const useChatStore = create<ChatState>()(
         // Stop any in-flight turn (chat stream OR agent loop) for this chat
         // BEFORE dropping it, so deleting/closing a chat halts its activity
         // completely — no orphaned stream burning tokens / GPU after the chat
-        // is gone (David 2026-06-15).
+        // is gone (2026-06-15).
         try { useGenerationStore.getState().abortConversation(id) } catch { /* best-effort */ }
         // If this is the dispatched Remote chat, deleting/closing it must also
         // tear down the whole Remote session — stop the axum server AND kill
-        // the Cloudflare tunnel/cloudflared process (David 2026-06-15: closing
+        // the Cloudflare tunnel/cloudflared process (2026-06-15: closing
         // the remote chat has to stop *everything*, not leave the server +
         // tunnel running in the background). undispatch() → stopServer() →
         // stop_remote_server (taskkill /T /F on the tunnel PID + abort serve).

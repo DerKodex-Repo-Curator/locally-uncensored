@@ -41,8 +41,9 @@ export function RemoteAccessDocs() {
       <p className="text-[0.6rem] text-gray-500 leading-relaxed">
         Remote Access lets you continue a chat from your phone (or any device on
         the same network, or over the internet) while the model keeps running on
-        this machine. Nothing leaves your computer except the chat with your
-        paired device. Generation still happens locally.
+        this machine. The only thing that leaves this computer is the chat with
+        your paired device: directly over your network with LAN, and through
+        Cloudflare with Internet.
       </p>
 
       <p className="text-[0.6rem] text-gray-500 leading-relaxed">
@@ -69,6 +70,8 @@ export function RemoteAccessDocs() {
           reach LU from anywhere. LU starts a Cloudflare tunnel and gives you a public
           <span className="text-gray-400"> https://…trycloudflare.com</span> URL, with no router or
           port-forwarding setup. The tunnel only exists while the session is dispatched.
+          Cloudflare relays the traffic. It is encrypted between each device and Cloudflare, not
+          end to end.
         </Step>
 
         <Step n={4} icon={<QrCode size={12} className="text-gray-500" />} title="Scan the QR or enter the passcode">

@@ -1,7 +1,7 @@
 /**
  * Regression: the Motion Control card kept printing "add a character image and
  * a driving dance/pose video above, then hit Create" while both chips were
- * filled and the sampler was already counting steps (David, 2026-07-26, live
+ * filled and the sampler was already counting steps (2026-07-26, live
  * run on the 2.5.9 ship exe). The caption hung off `!needsPrompt` alone, so it
  * never reacted to the inputs or to a run being in flight.
  *
@@ -35,7 +35,7 @@ describe('shouldShowLaneHint', () => {
   })
 
   it('hides every caption while a run is in flight', () => {
-    // The exact case David watched: ready inputs plus a running sampler.
+    // The exact case the owner watched: ready inputs plus a running sampler.
     expect(show('motion', { specialReady: true, isGenerating: true })).toBe(false)
     // And the incomplete case too, because mid run it is not an instruction.
     expect(show('motion', { specialReady: false, isGenerating: true })).toBe(false)

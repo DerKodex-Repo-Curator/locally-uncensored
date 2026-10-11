@@ -5,7 +5,7 @@ import { exportAllConversations, parseImportedChats, missingImagesNote } from '.
 import { backendCall, isTauri } from '../../api/backend'
 
 /**
- * Chat Backup (konata 2026-06-28) — export ALL conversations to one JSON file
+ * Chat Backup (a user 2026-06-28) — export ALL conversations to one JSON file
  * and re-import them. The web build has no store_backup.json, so a web user on
  * an SSH tunnel loses chats when the origin (host/port) changes; this is their
  * manual backup + restore path. Works on desktop too (native Save As dialog).

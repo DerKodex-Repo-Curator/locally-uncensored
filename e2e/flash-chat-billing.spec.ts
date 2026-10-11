@@ -40,7 +40,7 @@ test('flash metadata and paid fallback reach the actual desktop composer', async
   const menu = page.getByTestId('model-picker-menu')
   const row = menu.getByRole('option').filter({ hasText: 'Llama 3.1 8B Turbo' })
   // Der Aufdruck der Marke ist zweimal gewandert: "Flash", dann "No credits",
-  // dann "Included". David am 12.09.2026 endgueltig zurueck auf "No credits",
+  // dann "Included". Am 12.09.2026 endgueltig zurueck auf "No credits",
   // weil "Included" nur sagt, dass etwas dabei ist. Dass die Marke am KONTO
   // haengt, traegt die Logik daneben und der Satz dazu, nicht das Etikett.
   //

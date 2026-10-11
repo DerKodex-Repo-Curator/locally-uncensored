@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * A14 (2.6.8), David: "es muss klar sein, ob der Ordner fuer LM Studio, Ollama
+ * A14 (2.6.8), der Inhaber: "es muss klar sein, ob der Ordner fuer LM Studio, Ollama
  * oder die LU Engine gilt."
  *
  * Before this, Model Storage was one field labelled "(auto-detect)" over a
@@ -184,7 +184,7 @@ describe('row 3: Ollama has no folder, and the row says why', () => {
 describe('the panel warns before macOS asks', () => {
   it('says so under the field for a folder on the Desktop', async () => {
     onMac = true
-    useSettingsStore.getState().updateSettings({ hfDownloadPathOverride: '/Users/david/Desktop/LU/models' })
+    useSettingsStore.getState().updateSettings({ hfDownloadPathOverride: '/Users/alice/Desktop/LU/models' })
     render(createElement(HfDownloadPathSetting))
     await settle()
     expect(screen.getByTestId('macos-folder-access-note').textContent)
@@ -195,7 +195,7 @@ describe('the panel warns before macOS asks', () => {
   // be noise that teaches the user to skip the real one.
   it('stays quiet for an ordinary folder on the same Mac', async () => {
     onMac = true
-    useSettingsStore.getState().updateSettings({ hfDownloadPathOverride: '/Users/david/AI/models' })
+    useSettingsStore.getState().updateSettings({ hfDownloadPathOverride: '/Users/alice/AI/models' })
     render(createElement(HfDownloadPathSetting))
     await settle()
     expect(screen.queryByTestId('macos-folder-access-note')).toBeNull()
@@ -204,7 +204,7 @@ describe('the panel warns before macOS asks', () => {
   // NEGATIVE CONTROL: the same folder on Windows. Nothing asks there.
   it('stays quiet off the Mac', async () => {
     onMac = false
-    useSettingsStore.getState().updateSettings({ hfDownloadPathOverride: '/Users/david/Desktop/LU/models' })
+    useSettingsStore.getState().updateSettings({ hfDownloadPathOverride: '/Users/alice/Desktop/LU/models' })
     render(createElement(HfDownloadPathSetting))
     await settle()
     expect(screen.queryByTestId('macos-folder-access-note')).toBeNull()

@@ -1,6 +1,6 @@
 //! English text for errors the operating system worded itself.
 //!
-//! David, 2026-08-22, from the box: the app showed a proxy failure whose text
+//! 2026-08-22, from the box: the app showed a proxy failure whose text
 //! was half German. No German word exists anywhere in this repo. Windows wrote
 //! it: `std::io::Error`'s Display calls FormatMessageW, which answers in the
 //! system language, so a German Windows hands us "Es konnte keine Verbindung
@@ -648,7 +648,7 @@ mod tests {
 
     #[test]
     fn the_line_from_7_2_loses_the_system_wording_and_keeps_everything_else() {
-        let line = r#"OSError: [WinError 126] Das angegebene Modul wurde nicht gefunden. Error loading "C:\Users\ddrob\ComfyUI\venv\Lib\site-packages\torch\lib\c10_cuda.dll" or one of its dependencies."#;
+        let line = r#"OSError: [WinError 126] Das angegebene Modul wurde nicht gefunden. Error loading "C:\Users\alice\ComfyUI\venv\Lib\site-packages\torch\lib\c10_cuda.dll" or one of its dependencies."#;
         // Ohne Lookup, also ueber die Strukturregel allein. Das ist der Punkt:
         // der Fall MIT Nummer haengt nicht daran, dass diese Maschine deutsch
         // spricht.
@@ -658,7 +658,7 @@ mod tests {
         assert!(!out.contains("Das angegebene Modul"), "der Systemsatz lebt noch: {out}");
         // Was torch selbst geschrieben hat, bleibt Wort fuer Wort stehen.
         assert!(
-            out.contains(r#"Error loading "C:\Users\ddrob\ComfyUI\venv\Lib\site-packages\torch\lib\c10_cuda.dll" or one of its dependencies."#),
+            out.contains(r#"Error loading "C:\Users\alice\ComfyUI\venv\Lib\site-packages\torch\lib\c10_cuda.dll" or one of its dependencies."#),
             "got: {out}"
         );
     }

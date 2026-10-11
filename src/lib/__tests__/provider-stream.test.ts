@@ -80,7 +80,7 @@ describe('streamProviderTurn', () => {
   })
 })
 
-// Kundenfall swift_maple90, 30.09.2026: ein langer file_write auf einem nativen
+// Kundenfall ein Nutzer, 30.09.2026: ein langer file_write auf einem nativen
 // Modell. Die Argumente sammeln sich im Provider, der dabei nichts liefert,
 // waehrend die Bytes weiter fliessen. Der alte Waechter hier brach nach 300 s
 // ohne gelieferten Chunk ab, mitten im Schreiben.

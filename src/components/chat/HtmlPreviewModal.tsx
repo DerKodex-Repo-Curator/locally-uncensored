@@ -45,7 +45,7 @@ export function HtmlPreviewModal({ code, language, onClose }: Props) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-[200] flex items-center justify-center lu-dialog-scrim p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -53,7 +53,7 @@ export function HtmlPreviewModal({ code, language, onClose }: Props) {
         onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       >
         <motion.div
-          className="lu-elevated rounded-lg flex flex-col overflow-hidden w-full max-w-[95vw] h-[90vh] max-h-[900px]"
+          className="lu-dialog rounded-lg flex flex-col overflow-hidden w-full max-w-[95vw] h-[calc(90vh/var(--ui-scale))] max-h-[900px]"
           initial={{ scale: 0.96, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.96, opacity: 0 }}

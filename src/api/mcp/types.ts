@@ -14,7 +14,7 @@ export const DEFAULT_PERMISSIONS: PermissionMap = {
   system: 'auto',
   image: 'confirm',
   // Video generation went LIVE in v2.5.3 (T2V via Wan/Hunyuan/AnimateDiff,
-  // I2V via SVD/FramePack — David 2026-06-10 "T2V und I2V klappen beide
+  // I2V via SVD/FramePack — 2026-06-10 "T2V und I2V klappen beide
   // problemlos"). Same confirm-gate as image. permissionStore migrates the
   // old persisted 'blocked' (which was UI-locked, never a user choice) up.
   video: 'confirm',

@@ -1,4 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { blobFromUrl } from '../lib/render/data-url'
+import { videoRunGivenUp, videoRunProgress, videoRunStatus } from '../lib/mlx-video-progress'
 import { v4 as uuid } from 'uuid'
 import {
   checkComfyConnection,
@@ -52,7 +54,7 @@ import {
   type ComfyWSEvent,
 } from '../api/comfyui-ws'
 import { phaseForExecutingNode, phaseForProgressStep } from '../lib/render-phase-labels'
-import { buildDynamicWorkflow, buildLocalOpWorkflow, checkVideoOutputCapability } from '../api/dynamic-workflow'
+import { buildDynamicWorkflow, buildLocalOpWorkflow, checkVideoOutputCapability, qwenEditResolution } from '../api/dynamic-workflow'
 import { getAllNodeInfo, clearNodeCache } from '../api/comfyui-nodes'
 import { cutoutModelOf, cutoutDownloadLine } from '../api/cutout-model'
 import { apiNodes, type ComfyApiGraph, type ComfyExecutionMessage, type ComfyHistoryEntry } from '../types/comfy-graph'
@@ -61,7 +63,7 @@ import { installCustomNodes } from '../api/discover'
 import { buildWithFixups, wasDeclined, WAITING_FOR_ANSWER } from '../lib/render-fixups'
 import { renderFixupDeps } from '../api/render-fixup-deps'
 import { checkPromptSafety, SAFETY_BLOCK_MESSAGE } from '../lib/render/safety'
-import { wantsTransparent } from '../lib/transparent-image'
+import { transparentPrompt, wantsTransparent } from '../lib/transparent-image'
 import { scenePromptFor } from '../lib/ltx-multishot'
 import { intentTakesPrompt } from '../components/create/experimental/intents'
 import { improveKindForIntent, IMPROVING_PROMPT, type ImproveOutcome } from '../lib/render/improve-prompt'
@@ -72,6 +74,7 @@ import { pickQwenEnhancer, rewrittenByName, type ImproveWriter } from '../lib/re
 import { buildQwenEnhancerWorkflow, runQwenEnhancer } from '../api/qwen-enhancer'
 import { extraReferenceSlots } from '../lib/edit-references'
 import { resolveRunSeed } from '../lib/run-seed'
+import { bumpSeed } from '../lib/render/image-count'
 import {
   clearTrainingSet, stageTrainingImage, startCharacterTraining,
   characterTrainingStatus, cancelCharacterTraining,
@@ -81,13 +84,16 @@ import { useWorkflowStore } from '../stores/workflowStore'
 import { injectParameters } from '../api/workflows'
 import { applyNativeHiresFix } from '../api/hires-fix'
 import { lorasForRun, skippedLorasLine } from '../lib/lora-stack'
+import { macNoLocalLaneLine, macNoModelLine } from '../lib/mac-create-wording'
 import {
   generateMlxImageDataUrl, isMlxImageHost, isMlxImageModel,
   mlxStatus, listMlxImageModels, buildMlxImageModels, mergeImageModels, mlxModelIdFor,
 } from '../api/mlx-image'
+import { anyImageEngineReady, editCanvas, imageLaneModels, macEditCanvas, macEditSide, takesMlxLoras } from '../lib/image-engines'
+import { listMlxLoras } from '../api/mlx-loras'
 import {
   getVideoStatus, listVideoModels, generateVideo, getVideoProgress, cancelVideo,
-  buildMlxVideoModels, mlxVideoModelIdFor, readVideoAsBlobUrl,
+  buildMlxVideoModels, mlxFramesOnGrid, mlxVideoModelIdFor, mlxVideoSeconds, readVideoAsBlobUrl, stageStartImage,
 } from '../api/mlx-video'
 
 /** What the stage says while the graphics card is handed to the render
@@ -95,6 +101,34 @@ import {
 const HANDOFF_LINE: Record<RenderEvictionPhase, string> = {
   'waiting-for-chat-model': 'Waiting for the chat model to finish loading...',
   freeing: 'Freeing graphics memory...',
+}
+
+/** The same two waits on a Mac, where the chat model and the render share one
+ *  pool of memory and there is no graphics memory to name. */
+const MAC_HANDOFF_LINE: Record<RenderEvictionPhase, string> = {
+  'waiting-for-chat-model': HANDOFF_LINE['waiting-for-chat-model'],
+  freeing: 'Freeing memory...',
+}
+
+/**
+ * Take the resident chat model out of memory before a render on a Mac.
+ *
+ * The two MLX branches used to start with the chat model still loaded: only
+ * the ComfyUI path handed the memory over. A Mac has one pool for both, so a
+ * 23 GB chat model stayed beside the image model and macOS paged 16 GB to
+ * disk for a single picture (48 GB Mac, 11.10.2026). The haul goes back
+ * through restoreChatBackendsAfterRender in the caller's finally.
+ * exclusiveVramMode 'never' skips it, as everywhere. Never throws.
+ */
+async function freeMacMemoryForRender(say: (text: string) => void): Promise<RenderEviction | null> {
+  const handoff = elapsedLine(say, MAC_HANDOFF_LINE.freeing)
+  try {
+    return await evictChatBackendsForRender((phase) => handoff.setLabel(MAC_HANDOFF_LINE[phase]))
+  } catch {
+    return null
+  } finally {
+    handoff.stop()
+  }
 }
 
 /**
@@ -111,6 +145,9 @@ function historyMessages(entry: ComfyHistoryEntry | null): [string, ComfyExecuti
   const raw = entry?.status?.messages
   return Array.isArray(raw) ? raw : []
 }
+
+/** A click on Create after Cancel, while the engine is still at the image. */
+const PREVIOUS_IMAGE_FINISHING = 'The previous image is still finishing. Try again in a moment.'
 
 export function useCreate() {
   const [connected, setConnected] = useState<boolean | null>(null)
@@ -129,6 +166,8 @@ export function useCreate() {
   const [mlxMissing, setMlxMissing] = useState<{ image: boolean; video: boolean } | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  // A Mac image that was cancelled and that the engine has not let go of yet.
+  const imageStillFinishing = useRef(false)
   // A local character-training run is a Rust child process, not a ComfyUI
   // prompt — cancel() must reach it through its own command.
   const trainingActive = useRef(false)
@@ -170,7 +209,7 @@ export function useCreate() {
       if (mlxHost) {
         try {
           const mlx = await mlxStatus()
-          if (mlx.installed) mlxImageModels = buildMlxImageModels(await listMlxImageModels())
+          if (anyImageEngineReady(mlx)) mlxImageModels = buildMlxImageModels(await listMlxImageModels())
         } catch { /* MLX engine not set up yet — treat as no MLX models */ }
         try {
           mlxVideoModels = buildMlxVideoModels(await listVideoModels())
@@ -207,13 +246,29 @@ export function useCreate() {
           const st = useCreateStore.getState()
           setImageModels(mlxImageModels)
           st.setImageModelList(mlxImageModels)
-          if (mlxImageModels.length > 0 && !mlxImageModels.find(m => m.name === st.imageModel)) {
-            st.setImageModel(mlxImageModels[0].name, mlxImageModels[0].type)
-          }
           setVideoModelsList(mlxVideoModels)
           st.setVideoModelList(mlxVideoModels)
-          if (mlxVideoModels.length > 0 && !mlxVideoModels.find(m => m.name === st.videoModel)) {
-            st.setVideoModel(mlxVideoModels[0].name)
+          // A model that is picked here writes its own steps, CFG and size
+          // into the one set of sliders both lanes share. So the lane on
+          // screen is picked last: a fresh Mac opened Image on the video
+          // model's CFG 5.0, and Qwen-Image 2.1 takes the CFG it is given.
+          // A pick whose family the catalogue names differently now (Qwen-Image
+          // 2.1 was listed as SDXL) gets its family and its values again.
+          const listedImage = mlxImageModels.find((m) => m.name === st.imageModel)
+          const imagePick = mlxImageModels.length === 0 ? null
+            : !listedImage ? mlxImageModels[0]
+            : listedImage.type !== st.imageModelType ? listedImage : null
+          const videoPick = mlxVideoModels.length > 0 && !mlxVideoModels.find((m) => m.name === st.videoModel)
+            ? mlxVideoModels[0].name
+            : null
+          if (st.mode === 'video') {
+            if (imagePick) st.setImageModel(imagePick.name, imagePick.type)
+            const video = videoPick ?? (imagePick ? st.videoModel : '')
+            if (video) st.setVideoModel(video)
+          } else {
+            if (videoPick) st.setVideoModel(videoPick)
+            const image = imagePick ?? (videoPick ? listedImage : undefined)
+            if (image) st.setImageModel(image.name, image.type)
           }
           zeroModelRetries.current = 0
           setModelsLoaded(true)
@@ -267,7 +322,7 @@ export function useCreate() {
       // Mirror the fetched lists into createStore so the header-level
       // CreateTopControls dropdown (which does NOT host its own useCreate)
       // can render without crashing on undefined. Discord-reported by
-      // @diimmortalis (console: `activeList is undefined`).
+      // A user (console: `activeList is undefined`).
       const st = useCreateStore.getState()
       st.setImageModelList(imgModels)
       st.setVideoModelList(vidModels)
@@ -353,7 +408,7 @@ export function useCreate() {
   // Schedules three fetches because real-world ComfyUI scans take longer than
   // the /api/refresh round-trip implies: the API responds OK but the in-memory
   // model list catches up only after the directory walk finishes. A single
-  // fetch immediately after the event was leaving Draekzy + cprovencher
+  // fetch immediately after the event was leaving a user + cprovencher
   // staring at a "model installed but not in dropdown" state for minutes.
   useEffect(() => {
     let cancelled = false
@@ -597,10 +652,13 @@ export function useCreate() {
     // "MLX SD Turbo" in the picker, pressed Create, and got
     // "No image model selected. Add checkpoints or FLUX models to ComfyUI."
     // — a ComfyUI message on the one platform that never runs ComfyUI.
+    // On the Mac, Edit runs the models that take an image and no other
+    // (imageLaneModels); a ComfyUI list is the whole list on every tab.
+    const imageLane = imageLaneModels(state.imageModelList, intent)
     const effImageModel =
-      state.imageModelList.some((m) => m.name === imageModel)
+      imageLane.some((m) => m.name === imageModel)
         ? imageModel
-        : (state.imageModelList[0]?.name ?? imageModel)
+        : (imageLane[0]?.name ?? imageModel)
 
     // LTX 2.5 multishot: the prompt field is shot 1, the shots from the advanced
     // settings follow, each cut written out in plain words (lib/ltx-multishot).
@@ -673,42 +731,133 @@ export function useCreate() {
     // AND on the SELECTED model being a synthetic MLX entry, so a real ComfyUI
     // checkpoint from a manual install is never hijacked. Generation returns a
     // base64 PNG stored as a data URL on the gallery item, so display +
-    // download work with no ComfyUI /view route. ──
-    if (intent === 'image' && isMlxImageHost() && isMlxImageModel(effImageModel)) {
+    // download work with no ComfyUI /view route.
+    //
+    // `edit` arrives here too: Qwen-Image 2.1 on the second engine edits the
+    // image on the Stage, with the references under it, from the prompt alone
+    // (no mask, as on Windows). The images are files already: loadImageRef
+    // stages them on disk on this host, and their paths go to the engine. ──
+    const mlxEdit = intent === 'edit' && isMlxImageHost()
+    if (mlxEdit && !imageLane.some((m) => m.name === effImageModel && (m.editImages ?? 0) > 0)) {
+      setError('No local model that edits images is installed. Install Qwen-Image 2.1 in the Model Manager.')
+      return
+    }
+    if ((intent === 'image' || mlxEdit) && isMlxImageHost() && isMlxImageModel(effImageModel)) {
       setError(null)
       if (!prompt.trim()) { setError('Please enter a prompt.'); return }
+      if (mlxEdit && !source) { setError('Please add a source image first.'); return }
+      const listed = state.imageModelList.find((m) => m.name === effImageModel)
+      // An edit: the source first, then as many references as the model
+      // reads on Windows (lib/edit-references). The canvas set in Create is
+      // the pixel budget every image is scaled to, the number Windows hands
+      // TextEncodeQwenImage21. The result takes the shape of the source: with
+      // one image the engine does that itself, with several it would follow
+      // the last one, so the size is worked out here.
+      const editRefs = mlxEdit && source ? [source, ...references.slice(0, extraReferenceSlots(listed?.type, effImageModel))] : []
+      // Never 1024 by 1024: the model does not edit on that canvas, the
+      // engine would move the run to 1056, and the request names the size
+      // that runs (`edit_side` and `canvas` in image_mflux.rs, mirrored).
+      const editBudget = qwenEditResolution(width, height)
+      const editSide = macEditSide(editBudget)
+      const editSize = mlxEdit && source && editRefs.length > 1 ? macEditCanvas(editCanvas(editBudget, source)) : null
+      // "Transparent background": the same prompt wrapper the Windows graph
+      // uses. The model writes the alpha channel and the engine keeps it.
+      const transparent = wantsTransparent({
+        enabled: state.transparentBackground, intent, isImageToImage: mlxEdit, isSpecializedLane: false, modelType: listed?.type,
+      })
+      const own = new AbortController()
+      abortRef.current = own
+      // From Cancel until the engine has let go of the image, a click on
+      // Create is answered (see `generate`): a model that is loading cannot
+      // be interrupted, and the second engine takes a moment to end.
+      own.signal.addEventListener('abort', () => { imageStillFinishing.current = true })
       setIsGenerating(true)
       state.setProgressPhase('loading-model')
       setProgress(10, 'Starting MLX image generation...')
       addToPromptHistory(typedPrompt)
-      const startTime = Date.now()
+      // Batch size: one run per image, each with its own seed, so every one
+      // of them can be made again.
+      const count = Math.max(1, Math.min(8, Math.floor(batchSize) || 1))
+      // The LoRA stack, for a model of the second engine: the picks whose
+      // files are still in the Mac's LoRA folder and that fit this model, by
+      // the rule the Windows run applies (lib/lora-stack). What is left out
+      // is said under the result. Every image of a batch and every edit
+      // takes the same stack.
+      let runLoras: { name: string; strength: number }[] = []
+      let macSkippedNote: string | null = null
+      if (selectedLoras.length && takesMlxLoras(state.imageModelList, effImageModel)) {
+        const listedLoras = await listMlxLoras().then((l) => l.loras.map((f) => f.name)).catch(() => null)
+        const pick = lorasForRun(selectedLoras, listedLoras, listed?.type ?? 'unknown')
+        if (listedLoras && pick.missing.length) useCreateStore.getState().keepListedLoras(listedLoras)
+        macSkippedNote = skippedLorasLine(pick.missing, pick.otherModel)?.replace('models/loras', 'the LoRA folder') ?? null
+        runLoras = pick.use
+      }
+      const macEviction = await freeMacMemoryForRender((text) => setProgress(5, text))
+      setProgress(10, 'Starting MLX image generation...')
       try {
-        state.setProgressPhase('sampling')
-        setProgress(40, 'Generating with MLX...')
-        const { dataUrl, width: outW, height: outH, localPath } = await generateMlxImageDataUrl({
-          prompt, steps, seed: runSeed, width, height,
-          model: mlxModelIdFor(effImageModel),
-          negativePrompt: negativePrompt || undefined,
-        })
-        const elapsed = Math.round((Date.now() - startTime) / 1000)
-        state.setProgressPhase('complete')
-        setProgress(100, 'Complete!')
-        state.setLastGenTime(`${elapsed}s`)
-        addToGallery({
-          id: uuid(), type: 'image', filename: `mlx-${Date.now()}.png`, subfolder: '',
-          // localPath is what survives the restart: partialize strips dataUrl,
-          // and there is no ComfyUI /view to fall back to on a Mac.
-          dataUrl, localPath, prompt, ...improveFields, negativePrompt, model: imageModel, modelType: 'unknown',
-          seed: runSeed, steps, cfgScale, sampler, scheduler,
-          width: outW || width, height: outH || height, batchSize: 1,
-          createdAt: Date.now(), builderUsed: 'dynamic', intent,
-        })
+        // An image picked in cloud mode has no file yet. It is written to
+        // disk here, the way a start image is before a local video.
+        const editImages: string[] = []
+        for (const ref of editRefs) {
+          editImages.push(ref.filename || await stageStartImage(await blobFromUrl(ref.url)))
+        }
+        for (let n = 0; n < count && !own.signal.aborted; n++) {
+          const startTime = Date.now()
+          const imageSeed = bumpSeed(runSeed, n)
+          const nth = count > 1 ? `Image ${n + 1} of ${count}. ` : ''
+          state.setProgressPhase('sampling')
+          setProgress(40, `${nth}Generating with MLX...`)
+          const made = await generateMlxImageDataUrl({
+            prompt: transparent ? transparentPrompt(prompt) : prompt,
+            steps, seed: imageSeed, guidance: cfgScale,
+            ...(mlxEdit
+              ? { images: editImages, resolution: editSide, ...(editSize ?? {}) }
+              : { width, height }),
+            model: mlxModelIdFor(effImageModel),
+            negativePrompt: negativePrompt || undefined,
+            ...(runLoras.length ? { loras: runLoras } : {}),
+          }, {
+            signal: own.signal,
+            onStep: (step, of) => setProgress(Math.min(95, 10 + Math.round((step / of) * 85)), `${nth}Step ${step}/${of}`),
+          })
+          if (own.signal.aborted) break
+          const elapsed = Math.round((Date.now() - startTime) / 1000)
+          state.setLastGenTime(`${elapsed}s`)
+          addToGallery({
+            id: uuid(), type: 'image', filename: `mlx-${Date.now()}.png`, subfolder: '',
+            // localPath is what survives the restart: partialize strips dataUrl,
+            // and there is no ComfyUI /view to fall back to on a Mac.
+            dataUrl: made.dataUrl, localPath: made.localPath, prompt, ...improveFields, negativePrompt, model: effImageModel, modelType: 'unknown',
+            // What the run took: a pack with a Turbo adapter runs at its own
+            // steps and guidance whatever the sliders say.
+            seed: imageSeed, steps: made.steps ?? steps, cfgScale: made.guidance ?? cfgScale, sampler, scheduler,
+            width: made.width || width, height: made.height || height, batchSize: 1,
+            createdAt: Date.now(), builderUsed: 'dynamic', intent,
+            ...(transparent ? { transparent: true as const } : {}),
+            ...(macSkippedNote ? { runNote: macSkippedNote } : {}),
+          })
+        }
+        if (!own.signal.aborted) {
+          state.setProgressPhase('complete')
+          setProgress(100, 'Complete!')
+        }
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        useCreateStore.getState().setError(`Generation failed: ${msg}`)
+        // Cancel ends the engine's process, and its last word is not an error.
+        if (!own.signal.aborted) {
+          const msg = e instanceof Error ? e.message : String(e)
+          useCreateStore.getState().setError(`Generation failed: ${msg}`)
+        }
       } finally {
-        useCreateStore.getState().setIsGenerating(false)
-        useCreateStore.getState().setProgress(0)
+        if (macEviction) void restoreChatBackendsAfterRender(macEviction)
+        imageStillFinishing.current = false
+        // The line that answered a click in the meantime has done its work.
+        if (useCreateStore.getState().error === PREVIOUS_IMAGE_FINISHING) useCreateStore.getState().setError(null)
+        // A run that was cancelled must not clear the state of the next one.
+        if (abortRef.current === own) {
+          abortRef.current = null
+          useCreateStore.getState().setIsGenerating(false)
+          useCreateStore.getState().setProgress(0)
+        }
       }
       return
     }
@@ -716,27 +865,65 @@ export function useCreate() {
     // ── MLX video pipeline (Apple Silicon) — hard rule: Mac local video is the
     // in-process mlx-video path, never ComfyUI. Unlike the image branch this
     // needs no model-name marker: on Mac the video picker IS the MLX catalog
-    // (fetchModels above), so every local video generation routes here. Gated
-    // on the derived `video` intent, which is text-to-video by definition —
-    // animate/extend/motion have no local lane on this host (the IntentBar
-    // shows them hidden / as cloud teasers), and their source images are staged
-    // through a ComfyUI upload that doesn't exist here. Generation is a
-    // subprocess polled via video_progress every 2s (no WebSocket/node graph). ──
-    if (intent === 'video' && isMlxImageHost()) {
+    // (fetchModels above), so every local video generation routes here. Two
+    // intents arrive: `video` is text to video, and `animate` hands the engine
+    // the image on the Stage as its first frame. Which models take one is the
+    // catalogue's word (`startImage` on the list entry). extend and motion have
+    // no local lane on this host. Generation is a subprocess polled via
+    // video_progress every 2s (no WebSocket/node graph). ──
+    if ((intent === 'video' || intent === 'animate') && isMlxImageHost()) {
       setError(null)
+      // The model on the chip: the first one this lane can run when the stored
+      // pick cannot (see effVideoModel above).
+      const mlxModel = effVideoModel
+      const mlxEntry = state.videoModelList.find((m) => m.name === mlxModel)
       if (!prompt.trim()) { setError('Please enter a prompt.'); return }
-      if (!videoModel) { setError('No local video model selected — pick one from the model picker.'); return }
-      const catalogId = mlxVideoModelIdFor(videoModel)
-      if (!catalogId) { setError(`Unknown MLX video model "${videoModel}" — re-select it from the picker.`); return }
+      // With nothing installed the picker is empty, and "pick one" has
+      // nothing to pick from.
+      if (!mlxModel) {
+        setError(state.videoModelList.length === 0 ? macNoModelLine('video') : 'No local video model selected. Pick one from the model picker.')
+        return
+      }
+      const catalogId = mlxVideoModelIdFor(mlxModel)
+      if (!catalogId) { setError(`Unknown MLX video model "${mlxModel}". Select it again from the picker.`); return }
+      // Before anything loads: a model that animates a start image would
+      // spend minutes loading and then fail on a tensor shape.
+      if (intent === 'animate' && !source) { setError('Add a start image first.'); return }
+      if (intent === 'video' && mlxEntry?.startImage === 'required') {
+        setError(`"${mlxModel}" needs a start image. Open Animate Image to give it one.`)
+        return
+      }
+      // The engine reads the image from disk. One picked on this Mac in local
+      // mode is staged already, one picked in cloud mode is staged now.
+      let startImage: string | undefined
+      if (intent === 'animate' && source) {
+        try {
+          startImage = source.filename || await stageStartImage(await blobFromUrl(source.url))
+        } catch (e) {
+          setError(`Could not prepare the start image: ${e instanceof Error ? e.message : String(e)}`)
+          return
+        }
+      }
       try {
         const status = await getVideoStatus()
         if (!status.available) { setError('Local video generation is Apple Silicon only.'); return }
-        if (!status.mlxInstalled) { setError('The local video engine is not set up on this Mac yet (a one-time setup is needed before local video works).'); return }
-        if (!status.installedModels.includes(catalogId)) { setError(`The local video model "${videoModel}" isn't downloaded yet.`); return }
+        if (!status.mlxInstalled && !status.ltx2MlxInstalled) { setError('The local video engine is not set up on this Mac yet (a one-time setup is needed before local video works).'); return }
+        if (!status.installedModels.includes(catalogId)) { setError(`The local video model "${mlxModel}" isn't downloaded yet.`); return }
       } catch (e) {
         setError(`Local video status check failed: ${e instanceof Error ? e.message : String(e)}`)
         return
       }
+
+      const clip = mlxEntry?.mlxVideo
+      const clipFps = clip?.fps ?? fps
+      const clipSeconds = clip
+        ? mlxVideoSeconds(mlxFramesOnGrid(frames, clip.frameStep), clip.fps)
+        : Math.max(0.5, frames / Math.max(1, fps))
+      // The negative prompt reaches the models that read one (Wan, and the
+      // dev pipelines of LTX). For every other one the field is not shown,
+      // and what an earlier tab left in it goes neither out nor into the
+      // gallery entry.
+      const clipNegative = clip?.negativePrompt ? negativePrompt.trim() : ''
 
       setIsGenerating(true)
       state.setProgressPhase('loading-model')
@@ -744,44 +931,60 @@ export function useCreate() {
       addToPromptHistory(typedPrompt)
       const startTime = Date.now()
       abortRef.current = new AbortController()
+      const macEviction = await freeMacMemoryForRender((text) => setProgress(0, text))
+      setProgress(0, 'Starting MLX video generation...')
       let result: Awaited<ReturnType<typeof generateVideo>>
       try {
         result = await generateVideo({
           id: catalogId,
           prompt,
-          seconds: Math.max(0.5, frames / Math.max(1, fps)),
-          fps,
+          // The length in frames, on the model's grid and at the model's
+          // rate, so the engine makes the clip the slider showed. The rate in
+          // the store belongs to the stored pick, which on Animate may be
+          // another model than the one the lane runs.
+          seconds: clipSeconds,
+          fps: clipFps,
           seed: runSeed,
+          initImage: startImage,
+          negativePrompt: clipNegative || undefined,
         })
       } catch (e) {
         useCreateStore.getState().setError(`Failed to start: ${e instanceof Error ? e.message : String(e)}`)
         useCreateStore.getState().setIsGenerating(false)
         abortRef.current = null
+        if (macEviction) void restoreChatBackendsAfterRender(macEviction)
         return
       }
       try {
         state.setProgressPhase('sampling')
         await new Promise<void>((resolve, reject) => {
+          let lastStep: number | null = null
+          let lastStepAt = Date.now()
           const tick = async () => {
             if (abortRef.current?.signal.aborted) {
               try { await cancelVideo() } catch { /* already finished/gone */ }
               reject(new Error('Cancelled'))
               return
             }
-            // Safety net (David: the machine glowed for hours). Local MLX video
-            // is slow — tens of minutes — so give it a full hour, but never
-            // poll forever. On the cap, KILL the mlx-video subprocess so it
-            // stops pinning the machine; before this it kept running after the
-            // UI had given up.
-            if (Date.now() - startTime > 60 * 60 * 1000) {
+            // Safety net: never poll forever, and KILL the mlx-video
+            // subprocess when the run is given up, so it stops pinning the
+            // machine. A run that keeps making steps is not cut off at the
+            // hour (lib/mlx-video-progress.ts, videoRunGivenUp).
+            const givenUp = videoRunGivenUp({ elapsedMs: Date.now() - startTime, step: lastStep, sinceStepChangeMs: Date.now() - lastStepAt })
+            if (givenUp) {
               try { await cancelVideo() } catch { /* already finished/gone */ }
-              reject(new Error('Generation timed out after 60 minutes'))
+              reject(new Error(givenUp))
               return
             }
             try {
               const prog = await getVideoProgress()
               const elapsed = Math.round((Date.now() - startTime) / 1000)
-              setProgress(Math.min(95, elapsed * 2), `Generating with MLX... ${elapsed}s`)
+              // The step and what is left, from the engine's own lines
+              // (lib/mlx-video-progress.ts).
+              const at = videoRunStatus(prog.logs, elapsed)
+              setProgress(at.percent, at.text)
+              const step = videoRunProgress(prog.logs)?.step ?? null
+              if (step !== lastStep) { lastStep = step; lastStepAt = Date.now() }
               if (prog.status === 'complete') {
                 setProgress(100, 'Complete!')
                 useCreateStore.getState().setLastGenTime(`${elapsed}s`)
@@ -804,9 +1007,11 @@ export function useCreate() {
                   // Keep the real on-disk path too, for a future
                   // download-to-disk path that wants to reference it directly.
                   localPath: result.output,
-                  prompt, ...improveFields, negativePrompt, model: videoModel, modelType: 'wan',
+                  prompt, ...improveFields, negativePrompt: clipNegative, model: mlxModel, modelType: mlxEntry?.type ?? 'wan',
                   seed: runSeed, steps, cfgScale, sampler, scheduler,
-                  width, height, batchSize: 1,
+                  // The size the run had is the entry's, not the store's:
+                  // the engine takes none from Create.
+                  width: clip?.width ?? width, height: clip?.height ?? height, batchSize: 1,
                   createdAt: Date.now(), builderUsed: 'dynamic', intent,
                 })
                 resolve()
@@ -830,7 +1035,18 @@ export function useCreate() {
         useCreateStore.getState().setIsGenerating(false)
         useCreateStore.getState().setProgress(0)
         abortRef.current = null
+        if (macEviction) void restoreChatBackendsAfterRender(macEviction)
       }
+      return
+    }
+
+    // Everything below is the ComfyUI path. A Mac has no ComfyUI and never
+    // starts one, so a run that was not taken by one of the two MLX branches
+    // above ends here, in the Mac's words, before a sentence about ComfyUI
+    // can be said (persona walk, 09.10.2026, Fund 12).
+    if (isMlxImageHost()) {
+      const laneList = mode === 'image' ? state.imageModelList : state.videoModelList
+      setError(macNoLocalLaneLine(mode, laneList.length > 0))
       return
     }
 
@@ -852,7 +1068,7 @@ export function useCreate() {
       // must not reach the builder: that is how a T2V run right after app
       // start went out as SVD's LoadImage graph and ComfyUI answered
       // "Node 2 (LoadImage): Custom validation failed" while the chip already
-      // showed a capable model (David 2026-08-02).
+      // showed a capable model (2026-08-02).
       setError('Video models are still loading. Give it a few seconds and hit Create again.')
       return
     }
@@ -1050,7 +1266,7 @@ export function useCreate() {
         prompt, negativePrompt,
         ...(transparentRequested ? { transparent: true } : {}), model: activeModel, sampler, scheduler, steps, cfgScale, width, height, seed: runSeed, batchSize,
         ...(isRemoveBg && effInputImage ? { removebg: true, inputImage: effInputImage } : {}),
-        // Discord 2026-09-25 (tbjdrw: "a house becomes a tennis court"): at
+        // Discord 2026-09-25 (a user: "a house becomes a tennis court"): at
         // strength 1.00 the builder read denoise >= 1 as "no img2img" and
         // dropped the source without a word. Edit always keeps the source;
         // 0.95 is the most it repaints (the slider tops out there too).
@@ -1195,7 +1411,7 @@ export function useCreate() {
             workflow = await buildTxt2ImgWorkflow(baseParams, imageModelType)
           }
         }
-        // Bug A (v2.4.5 — miguelkodoatie Discord 2026-05-14, Turbulent_Tomato7559
+        // Bug A (v2.4.5 — Discord 2026-05-14
         // Reddit 2026-05-10): when ComfyUI lacks VHS_VideoCombine the video
         // workflow falls back to SaveAnimatedWEBP and produces an animated
         // .webp instead of an .mp4. v2.4.4 added a warning banner; v2.4.5
@@ -1362,7 +1578,7 @@ export function useCreate() {
           // The bar and its seconds used to repaint only when ComfyUI sent an
           // event. Long silent stretches are normal here (a 14B sampling step
           // or a VAE decode on a full card emits nothing for minutes), so the
-          // label froze mid-run: David watched "Decoding... 266s" stand still
+          // label froze mid-run: the owner watched "Decoding... 266s" stand still
           // for 10+ minutes while the GPU sat at 100% (2026-08-02). Events now
           // only change phase and percent; a ticker repaints the elapsed time
           // every second so a working render never looks hung.
@@ -1707,7 +1923,12 @@ export function useCreate() {
   // fast clicks were live-reproduced queueing two ComfyUI jobs.
   const generateInFlight = useRef(false)
   const generate = useCallback(async () => {
-    if (generateInFlight.current) return
+    if (generateInFlight.current) {
+      // Not a double click: the run was cancelled, the surface is free, and
+      // the engine is still at the image. Said, and not swallowed.
+      if (imageStillFinishing.current) useCreateStore.getState().setError(PREVIOUS_IMAGE_FINISHING)
+      return
+    }
     generateInFlight.current = true
     try {
       await generateInner()

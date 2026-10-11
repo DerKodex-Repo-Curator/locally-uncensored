@@ -35,7 +35,7 @@ describe('offene Videomodelle im Seed', () => {
   })
 
   it('nennt keines nach dem, was es kann, und traegt das entschiedene Markenwort', () => {
-    // Entscheid David vom 08.10.2026: die Anzeigenamen heissen "Uncensored".
+    // Entscheid vom 08.10.2026: die Anzeigenamen heissen "Uncensored".
     // Er loest den Entscheid vom 13.09.2026 ab, nach dem sie "Spicy" hiessen.
     // Die Ids bleiben unberuehrt, sie tragen weiter `-spicy`.
     //

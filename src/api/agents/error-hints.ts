@@ -24,7 +24,7 @@ type HintRule = { pattern: RegExp; hint: string }
 /**
  * The file tools only work inside the chat's working folder (the Sandbox or a
  * picked folder, commands/filesystem.rs). The bare refusal left a small model
- * with "I can't access your files" (Discord 2026-09-28, xambran). Worded for
+ * with "I can't access your files" (Discord 2026-09-28). Worded for
  * both surfaces, the Agent chat and the Code tab, and checked first.
  */
 const OUTSIDE_WORKSPACE_HINT: HintRule = {

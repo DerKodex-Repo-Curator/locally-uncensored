@@ -1,7 +1,7 @@
 /**
  * Portiert aus dem Web (P1, Vertrag), dd29f359. Der Web-Fall "covers every
  * advertised classic video and has a price for every long choice" haengt an
- * CLOUD_MODELS und MEDIA_MODEL_USD aus lib/billing/credits, das es im Desktop
+ * der Preistabelle des Servers, die es im Desktop
  * nicht gibt (Preise kommen aus dem Katalog, nicht aus einer eigenen Tabelle).
  * Diese Deckung gehoert in P3, sobald CloudModel.clip.durations im
  * Desktop-Katalogtyp steht.
@@ -10,9 +10,9 @@
  * contract" vergleicht API- gegen Worker-Kopie im selben Repo; dafuer gibt es
  * im Desktop keine Entsprechung. Stattdessen haelt der Fall unten
  * video-durations.json byteidentisch gegen den Web-Worktree, wenn
- * LU_STUDIO_WEB_REPO gesetzt ist, und ueberspringt sonst sauber.
+ * LU_WEB_REPO gesetzt ist, und ueberspringt sonst sauber.
  *
- * Run mit Drift-Pruefung: LU_STUDIO_WEB_REPO=/pfad/zum/web npx vitest run \
+ * Run mit Drift-Pruefung: LU_WEB_REPO=/pfad/zum/web npx vitest run \
  *   src/lib/render/__tests__/video-duration.test.ts
  */
 import { describe, expect, it } from 'vitest'
@@ -23,13 +23,9 @@ import durations from '../video-durations.json'
 import endpoints from '../provider-endpoints.json'
 import schemas from '../provider-schemas.json'
 import { CLOUD_MODEL_SEED } from '../cloud-models'
+import { webCheckout } from '../../__tests__/web-checkout'
 
-const WEB = process.env.LU_STUDIO_WEB_REPO?.trim() ? resolve(process.env.LU_STUDIO_WEB_REPO.trim()) : undefined
-if (!WEB) {
-  process.stderr.write(
-    '[video-duration] Driftwaechter uebersprungen: LU_STUDIO_WEB_REPO ist nicht gesetzt.\n',
-  )
-}
+const WEB = webCheckout('video-duration', ['apps/web/lib/render/video-durations.json'])
 
 describe('priced video duration contract', () => {
   describe.skipIf(!WEB)('haelt video-durations.json byteidentisch gegen den Web-Worktree', () => {

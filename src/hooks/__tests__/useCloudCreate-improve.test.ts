@@ -1,6 +1,6 @@
 /**
  * "Improve my prompt" im Cloud-Lauf (02.10.2026, Paritaet zu
- * apps/web/hooks/__tests__/useCloudCreate-improve.test.ts).
+ * the web app).
  *
  * Nichts wird erzeugt und nichts gesprochen: Absenden, Hochladen, Abholen,
  * Preisbestaetigung und der Chat-Aufruf sind gemockt.

@@ -6,7 +6,7 @@ import { openNewChat } from './support/ui'
 /**
  * The sampling control opens a popup and leaves the prompt window alone.
  *
- * David, 2026-09-11: "der sample anklickbar im prompt fenster muss ein pop up
+ * 2026-09-11: "der sample anklickbar im prompt fenster muss ein pop up
  * sein, und nicht das prompt fenster veraendern. mit einem sauberen x zum
  * wegklicken und nicht einfach wieder auf den text klicken zum entfernen, soll
  * windows mac und webapp ueberall gleich sein."

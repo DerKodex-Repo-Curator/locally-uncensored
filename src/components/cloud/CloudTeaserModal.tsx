@@ -16,9 +16,10 @@ import { cloudModelById } from '../../stores/cloudCatalogStore'
 import { useCreateStore, type CreateIntent } from '../../stores/createStore'
 import { isIntentAvailable } from '../create/experimental/intents'
 import { isMlxImageHost } from '../../api/mlx-image'
-import { openExternal } from '../../api/backend'
+import { openExternal, isMacOS } from '../../api/backend'
 import { CLOUD_BASE } from '../../api/cloud/config'
-import { getMaxVramGb } from '../../lib/hardware'
+import { getMaxVramGb, getSharedMemoryGb } from '../../lib/hardware'
+import { sharedMemoryWording } from '../../lib/shared-memory-wording'
 
 interface TeaserCopy {
   title: string
@@ -56,25 +57,55 @@ const INTENT_COPY: Record<Extract<CloudTeaserTarget, { surface: 'intent' }>['int
   },
 }
 
+/**
+ * Where the tool on the sheet runs, as one sentence. `hasLocalLane`: it also
+ * runs on this machine. `sharedMemory`: this machine is a Mac, which is not a
+ * PC and has no VRAM. Today no lane with a sheet runs locally on a Mac (only
+ * MLX image and video do, and they open no sheet), so the Mac half of the
+ * first sentence waits for the first lane that does; it is written now so
+ * that lane cannot ship with "your PC" in it.
+ */
+export function teaserWhereLine(hasLocalLane: boolean, sharedMemory: boolean): string {
+  if (hasLocalLane) {
+    return sharedMemory
+      ? 'Runs on this Mac with downloaded models, or on LU Cloud where datacenter GPUs do the heavy lifting.'
+      : 'Runs on your PC with downloaded models, or on LU Cloud where datacenter GPUs do the heavy lifting.'
+  }
+  return sharedMemoryWording('Runs on LU Cloud, where datacenter GPUs do the heavy lifting and VRAM is not the limit.', sharedMemory)
+}
+
 export function CloudTeaserModal() {
   const target = useUIStore((s) => s.cloudTeaser)
   const setCloudTeaser = useUIStore((s) => s.setCloudTeaser)
   const setCloudHiddenNotice = useUIStore((s) => s.setCloudHiddenNotice)
   const setIntent = useCreateStore((s) => s.setIntent)
   const { updateSettings } = useSettingsStore()
-  // The card's own number (David, 2026-09-07): "Your GPU has 6 GB" says why
+  // The card's own number (2026-09-07): "Your GPU has 6 GB" says why
   // the tool is greyed out better than any adjective. Read once per opening,
   // from the same detect_gpus the hardware settings use; null when nothing
   // was found, and then the line falls back to the wording without a number.
   const [gpuGb, setGpuGb] = useState<number | null>(null)
+  // A Mac has no card and is not a PC: one memory pool, read from the Apple
+  // entry of detect_gpus (shared_memory_mib) with system_info behind it. The
+  // sheet then says "This Mac has 16 GB of memory" and "Runs on this Mac".
+  // `gpuGb` stays null there, so the checkout tag below never files a Mac's
+  // memory as a card size.
+  const sharedMemory = isMacOS()
+  const [macMemoryGb, setMacMemoryGb] = useState<number | null>(null)
   useEffect(() => {
     if (!target) return
     let alive = true
-    void getMaxVramGb().then((gb) => {
-      if (alive) setGpuGb(gb > 0 ? Math.round(gb) : null)
-    })
+    if (sharedMemory) {
+      void getSharedMemoryGb().then((pool) => {
+        if (alive) setMacMemoryGb(pool > 0 ? Math.round(pool) : null)
+      })
+    } else {
+      void getMaxVramGb().then((gb) => {
+        if (alive) setGpuGb(gb > 0 ? Math.round(gb) : null)
+      })
+    }
     return () => { alive = false }
-  }, [target])
+  }, [target, sharedMemory])
 
   // Closing the sheet changes nothing (the box, 03.10.2026). From 2026-07-19
   // until 3.0.5 every way out of it (Escape, a click beside it, X, "Not now",
@@ -122,7 +153,7 @@ export function CloudTeaserModal() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[90] flex overflow-y-auto overscroll-contain p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[90] flex overflow-y-auto overscroll-contain p-4 lu-dialog-scrim"
           onClick={close}
         >
           <motion.div
@@ -134,10 +165,10 @@ export function CloudTeaserModal() {
             role="dialog"
             aria-modal="true"
             aria-label={copy.title}
-            className="m-auto shrink-0 w-[360px] max-w-[92vw] rounded-2xl bg-[#232323] border border-white/[0.08] shadow-2xl shadow-black/50 overflow-hidden"
+            className="m-auto shrink-0 w-[360px] max-w-[92vw] rounded-2xl lu-dialog overflow-hidden"
           >
             {/* Demo stage */}
-            <div className="relative h-[130px] bg-[#1b1b1b] border-b border-white/[0.06] overflow-hidden">
+            <div className="relative h-[130px] bg-black/30 border-b border-white/[0.06] overflow-hidden">
               <TeaserDemo target={target} />
               <button
                 onClick={close}
@@ -157,18 +188,17 @@ export function CloudTeaserModal() {
                   LU Cloud
                 </span>
               </div>
-              <p className="text-[0.7rem] leading-relaxed text-gray-400">{copy.line}</p>
-              <p className="text-[0.62rem] leading-relaxed text-gray-500">
+              <p className="text-[0.7rem] leading-relaxed text-gray-400">{sharedMemoryWording(copy.line, sharedMemory)}</p>
+              <p className="text-[0.62rem] leading-relaxed text-gray-500" data-testid="cloud-teaser-where">
                 {gpuGb !== null && `Your GPU has ${gpuGb} GB. `}
-                {localLane
-                  ? 'Runs on your PC with downloaded models, or on LU Cloud where datacenter GPUs do the heavy lifting.'
-                  : 'Runs on LU Cloud, where datacenter GPUs do the heavy lifting and VRAM is not the limit.'}
+                {macMemoryGb !== null && `This Mac has ${macMemoryGb} GB of memory. `}
+                {teaserWhereLine(localLane !== null, sharedMemory)}
               </p>
               <div className="flex items-center gap-2 pt-1">
                 <button
                   onClick={() => {
                     // Straight into signup and checkout with Hosted preselected
-                    // (David, 2026-09-07: "die Pricing-Seite ist eine
+                    // (2026-09-07: "die Pricing-Seite ist eine
                     // Entscheidung zu viel"). Until 2.6.8 this opened
                     // CloudGateModal, which asks for a login before it shows a
                     // single price. The src tag names the card size, so the

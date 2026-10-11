@@ -69,7 +69,7 @@ pub async fn install_custom_node(
     }
     let comfy_path = { state.comfy_path.lock().unwrap().clone() };
     let fallback_python = { state.python_bin.lock().unwrap().clone() };
-    // Freeze fix (David 2026-07-04): the git clone + pip below are blocking. As
+    // Freeze fix (2026-07-04): the git clone + pip below are blocking. As
     // a plain sync #[command] they ran on the Tauri main thread and froze the
     // WebView2 window for the entire 30s-2min install with no feedback ("hängt
     // sich auf, keine Rückmeldung"). Run them on the blocking pool so the UI
@@ -741,7 +741,7 @@ mod tests {
     const LOCKED: &str = "Custom node ComfyUI-RMBG is cloned, but its requirements install failed.\n\n\
         Permission denied. Make sure no other process is using Python, then retry.\n\n--- pip output ---\n\
         ERROR: Could not install packages due to an OSError: [WinError 5] access is denied: \
-        'C:\\\\Users\\\\ddrob\\\\ComfyUI\\\\venv\\\\Lib\\\\site-packages\\\\cv2\\\\cv2.pyd'\nCheck the permissions.";
+        'C:\\\\Users\\\\alice\\\\ComfyUI\\\\venv\\\\Lib\\\\site-packages\\\\cv2\\\\cv2.pyd'\nCheck the permissions.";
 
     /// Runs the rule with a pip that fails `failures` times on the locked
     /// file, and records the order of everything that happened.

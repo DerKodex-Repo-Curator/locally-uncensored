@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { MCPToolDefinition } from '../../mcp/types'
 
 /**
- * Auftrag 2.3 (David, 04.09.2026): "hintergrund bzw multiagents sollen NIEMALS
+ * Auftrag 2.3 (04.09.2026): "hintergrund bzw multiagents sollen NIEMALS
  * freigabe brauchen."
  *
  * Die Entscheidung faellt EINMAL, VORNE. Was daraus folgt, steht in zwei

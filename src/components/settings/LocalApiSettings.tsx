@@ -34,7 +34,7 @@ export function LocalApiSettings() {
 
   useEffect(() => { auffrischen() }, [auffrischen])
 
-  // GH Discussion #4 (kreake): what went through the API since it started.
+  // GH Discussion #4: what went through the API since it started.
   // Asked every three seconds while it runs and the panel is open.
   // Mit dem Zeitpunkt des Abrufs, damit "vor wie langem" nicht im Rendern rechnet.
   const [nutzung, setNutzung] = useState<{ u: LocalApiNutzung; jetzt: number } | null>(null)

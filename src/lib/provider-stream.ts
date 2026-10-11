@@ -2,7 +2,7 @@
  * Consume one provider.chatStream turn into the same result shape that
  * chatWithTools returns, while feeding live callbacks along the way.
  *
- * This is the shared piece of the 2.6.0 streaming normalisation (David
+ * This is the shared piece of the 2.6.0 streaming normalisation (the owner
  * 2026-07-31): Code and Agent mode used to stream only on the Ollama
  * transport and sat silent on every other provider until the whole call
  * returned. Every transport now goes through chatStream — tool defs travel
@@ -39,7 +39,7 @@ export interface StreamedProviderTurn {
  * tool-call arguments accumulate inside it without a yield. A long file_write
  * on a native model therefore looked stalled while its bytes were still
  * flowing, and the run died with "Stream stalled" in the middle of the write
- * (customer case swift_maple90: 43 aborted requests, the run ended, "continue"
+ * (customer case a user: 43 aborted requests, the run ended, "continue"
  * repeated the step). Dead lines are caught where the bytes are: readChunks in
  * api/stream-idle.ts, which every provider reads through since 31.08.
  */

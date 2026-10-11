@@ -1,5 +1,5 @@
 /**
- * applejames, Discord 2026-09-15 and 2026-09-20: "It won't let me download
+ * Discord 2026-09-15 and 2026-09-20: "It won't let me download
  * Ollama models unless I have Ollama models installed". The pull demanded an
  * Ollama model active in the chat picker, and the picker had none to pick.
  *

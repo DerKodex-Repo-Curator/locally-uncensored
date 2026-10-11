@@ -2,7 +2,7 @@
 //
 // It used to be a raw `window.confirm`, which in the Tauri webview renders as an
 // OS dialog: system chrome, the app origin in the title bar, the whole prompt as
-// one wall of text, and no way to say "stop asking". David, 2026-07-24, on
+// one wall of text, and no way to say "stop asking". 2026-07-24, on
 // seeing it fire for the first time: "der dialog ist ja hässlich wie sau".
 //
 // A promise-bridge is what lets the same awaitApproval contract keep working:

@@ -15,14 +15,23 @@
  *   1. Behaviour. scripts/signing-config.sh is the one place that decides
  *      whether a lane is on. It is EXECUTED here in a real bash with the
  *      secret combinations that matter, including the half-filled ones, which
- *      must count as absent and say so. The notarization hand-over of
- *      scripts/macos-release-signing.sh is executed the same way.
+ *      must count as absent and say so. Of scripts/macos-release-signing.sh
+ *      the two parts that need neither a keychain nor Apple are executed the
+ *      same way: writing the notarization key, and judging the listing of
+ *      `security find-identity`.
  *
- *   2. Structure. The workflow conditions every signing step on that script's
- *      answer and has no other path to a signature or to a macOS build.
+ *   2. Structure. The workflow conditions every Windows signing step on that
+ *      script's answer. The macOS build is not switched by detected secrets:
+ *      since the merge of the Mac branch for 3.0.6 it has one lane,
+ *      build-tauri-macos, behind the repository variable LU_MAC_RELEASE, and
+ *      mac-release-lane.test.ts holds that lane. That lane calls
+ *      macos-release-signing.sh for everything that touches an Apple
+ *      credential. The macOS half of signing-config.sh stays in the
+ *      repository and stays tested here by execution, but release.yml does
+ *      not call it.
  *
- * VERIFICATION LIMIT, stated on purpose: no GitHub Actions run was permitted
- * and no certificate exists yet. No lane has ever signed anything. What
+ * VERIFICATION LIMIT, stated on purpose: no GitHub Actions run was permitted.
+ * No lane has ever signed anything. What
  * is proven is the decision logic (by execution), the workflow's syntax
  * (actionlint 1.7.12 with shellcheck 0.11.0) and the structural claims below.
  *
@@ -30,7 +39,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { readFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { generateKeyPairSync } from 'node:crypto'
+import { readFileSync, mkdtempSync, rmSync, existsSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve, join } from 'node:path'
@@ -228,54 +238,140 @@ describe('signing-config.sh, executed', () => {
   })
 })
 
-describe('the notarization hand-over, executed', () => {
-  // tauri-bundler tests the Apple ID variables for "is set" before it looks at
-  // the API key, so an empty APPLE_ID next to a real API key would be used.
-  // `prepare` must export one set and leave the other names out entirely.
-  function prepare(env: Record<string, string>): string {
-    const dir = mkdtempSync(join(tmpdir(), 'notary-env-'))
-    const envFile = join(dir, 'env')
+describe('the notarization key, written by execution', () => {
+  const SCRIPT = resolve(root, 'scripts/macos-release-signing.sh')
+  // A real P-256 key made for this run, the kind App Store Connect hands out
+  // as a .p8. It signs nothing and exists nowhere else.
+  const P8 = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' }).toString().trim()
+
+  /** Runs `notary-key` in an empty RUNNER_TEMP; returns what it left there. */
+  function notaryKey(secret: string): { log: string; key: string | null; mode: number | null } {
+    const dir = mkdtempSync(join(tmpdir(), 'notary-key-'))
+    const keyPath = join(dir, 'lu-signing', 'AuthKey.p8')
     try {
-      execFileSync(BASH, [resolve(root, 'scripts/macos-release-signing.sh'), 'prepare'], {
-        encoding: 'utf8',
-        env: { PATH: process.env.PATH ?? '', GITHUB_ENV: envFile, RUNNER_TEMP: dir, ...env },
-      })
-      const written = readFileSync(envFile, 'utf8')
-      const keyLine = written.split(/\r?\n/).find((l) => l.startsWith('APPLE_API_KEY_PATH='))
-      if (keyLine) {
-        const keyPath = keyLine.slice('APPLE_API_KEY_PATH='.length)
-        expect(existsSync(keyPath)).toBe(true)
-        expect(readFileSync(keyPath, 'utf8')).toContain('BEGIN PRIVATE KEY')
+      let log: string
+      try {
+        log = execFileSync(BASH, [SCRIPT, 'notary-key'], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: { PATH: process.env.PATH ?? '', RUNNER_TEMP: dir, APPLE_API_KEY_P8: secret },
+        })
+      } catch (error) {
+        const e = error as { stdout?: string; stderr?: string }
+        log = `FAILED\n${e.stdout ?? ''}${e.stderr ?? ''}`
       }
-      return written
+      const there = existsSync(keyPath)
+      return {
+        log,
+        key: there ? readFileSync(keyPath, 'utf8') : null,
+        mode: there ? statSync(keyPath).mode & 0o777 : null,
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
   }
 
-  // Not a key: a marker between the two PEM lines the script looks for.
-  const P8 = '-----BEGIN PRIVATE KEY-----\nbm90IGEga2V5\n-----END PRIVATE KEY-----'
-  const all = {
-    NOTARY_API_KEY: 'KEYID', NOTARY_API_ISSUER: 'issuer', NOTARY_API_KEY_P8: P8,
-    NOTARY_APPLE_ID: 'someone@example.com', NOTARY_APPLE_PASSWORD: 'placeholder', EXPECTED_TEAM_ID: 'TEAMID',
+  it('writes the .p8 as it was downloaded, readable by the runner user only', () => {
+    const { log, key, mode } = notaryKey(P8)
+    expect(log).not.toContain('FAILED')
+    expect(key?.trim()).toBe(P8)
+    // Windows has no such mode bits; the lane only ever runs on macOS.
+    if (process.platform !== 'win32') expect(mode).toBe(0o600)
+  })
+
+  it('also takes the key file as base64', () => {
+    const { log, key } = notaryKey(Buffer.from(`${P8}\n`, 'utf8').toString('base64'))
+    expect(log).not.toContain('FAILED')
+    expect(key?.trim()).toBe(P8)
+  })
+
+  it('refuses what is not a key, leaves no file behind and prints no value', () => {
+    for (const wrong of ['SECRET-VALUE-NOT-A-KEY', Buffer.from('SECRET-VALUE-NOT-A-KEY').toString('base64')]) {
+      const { log, key } = notaryKey(wrong)
+      expect(log).toContain('FAILED')
+      expect(log).toContain('APPLE_API_KEY_P8')
+      expect(log).not.toContain('SECRET-VALUE')
+      expect(key).toBeNull()
+    }
+  })
+
+  it('refuses a key that lost its line breaks on the way into the secret', () => {
+    // The classic paste accident: markers present, body on one line with them.
+    const { log, key } = notaryKey(P8.replace(/\n/g, ' '))
+    expect(log).toContain('FAILED')
+    expect(log).toContain('does not parse as a private key')
+    expect(key).toBeNull()
+  })
+
+  it('never prints the key', () => {
+    const body = P8.split('\n')[1]
+    expect(notaryKey(P8).log).not.toContain(body)
+  })
+})
+
+describe('the signing identity, judged by execution', () => {
+  const SCRIPT = resolve(root, 'scripts/macos-release-signing.sh')
+  const TEAM = 'ABCDE12345'
+  const SHA = '0123456789ABCDEF0123456789ABCDEF01234567'
+  const OTHER = 'FEDCBA9876543210FEDCBA9876543210FEDCBA98'
+  /** A line as `security find-identity -v -p codesigning` prints it. */
+  const row = (n: number, sha: string, name: string) => `  ${n}) ${sha} "${name}"`
+  const footer = (n: number) => `     ${n} valid identities found`
+
+  function pick(listing: string, team = TEAM): { ok: boolean; out: string } {
+    try {
+      const out = execFileSync(BASH, [SCRIPT, 'pick-identity', team], {
+        encoding: 'utf8',
+        input: listing,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { PATH: process.env.PATH ?? '' },
+      })
+      return { ok: true, out: out.trim() }
+    } catch (error) {
+      const e = error as { stdout?: string; stderr?: string }
+      return { ok: false, out: `${e.stdout ?? ''}${e.stderr ?? ''}` }
+    }
   }
-  const names = (written: string) => written.split(/\r?\n/).filter(Boolean).map((l) => l.slice(0, l.indexOf('='))).sort()
 
-  it('api mode exports the API key set and no Apple ID variable', () => {
-    expect(names(prepare({ ...all, NOTARY_MODE: 'api' }))).toEqual(['APPLE_API_ISSUER', 'APPLE_API_KEY', 'APPLE_API_KEY_PATH'])
+  it('one valid Developer ID Application of the team: its SHA-1, and nothing else', () => {
+    const got = pick([row(1, SHA, `Developer ID Application: Jane Doe (${TEAM})`), footer(1)].join('\n'))
+    expect(got).toEqual({ ok: true, out: SHA })
   })
 
-  it('api mode also takes the key file as base64', () => {
-    const encoded = Buffer.from(P8, 'utf8').toString('base64')
-    expect(names(prepare({ ...all, NOTARY_API_KEY_P8: encoded, NOTARY_MODE: 'api' }))).toContain('APPLE_API_KEY_PATH')
+  it('no valid identity (a chain that does not validate lists none) is refused', () => {
+    const got = pick(footer(0))
+    expect(got.ok).toBe(false)
+    expect(got.out).toContain('no valid code signing identity')
   })
 
-  it('appleid mode exports the Apple ID set and no API key variable', () => {
-    expect(names(prepare({ ...all, NOTARY_MODE: 'appleid' }))).toEqual(['APPLE_ID', 'APPLE_PASSWORD', 'APPLE_TEAM_ID'])
+  it('two valid identities are refused: codesign would have to guess', () => {
+    const got = pick([
+      row(1, SHA, `Developer ID Application: Jane Doe (${TEAM})`),
+      row(2, OTHER, `Developer ID Application: Jane Doe (${TEAM})`),
+      footer(2),
+    ].join('\n'))
+    expect(got.ok).toBe(false)
+    expect(got.out).toContain('expected exactly one')
   })
 
-  it('refuses a mode it was not told', () => {
-    expect(() => prepare({ ...all, NOTARY_MODE: '' })).toThrow()
+  it('another kind of certificate is refused, whatever its team', () => {
+    for (const name of [`Apple Development: Jane Doe (${TEAM})`, `Developer ID Installer: Jane Doe (${TEAM})`, `Mac App Distribution: Jane Doe (${TEAM})`]) {
+      const got = pick([row(1, SHA, name), footer(1)].join('\n'))
+      expect(got.ok, name).toBe(false)
+      expect(got.out, name).toContain('not a Developer ID Application certificate')
+    }
+  })
+
+  it('a Developer ID Application of another team is refused', () => {
+    const got = pick([row(1, SHA, 'Developer ID Application: Jane Doe (ZZZZZ99999)'), footer(1)].join('\n'))
+    expect(got.ok).toBe(false)
+    expect(got.out).toContain('another team')
+  })
+
+  it('a team ID that is no team ID is refused before it is used as a pattern', () => {
+    const got = pick([row(1, SHA, `Developer ID Application: Jane Doe (${TEAM})`), footer(1)].join('\n'), '.*')
+    expect(got.ok).toBe(false)
   })
 })
 
@@ -283,33 +379,30 @@ describe('the notarization hand-over, executed', () => {
 
 describe('release.yml signs only where signing-config.sh said yes', () => {
   const build = jobBlock(RELEASE_YML, 'build-tauri')
-  const mac = jobBlock(RELEASE_YML, 'build-macos')
-  const config = jobBlock(RELEASE_YML, 'signing-config')
+  const mac = jobBlock(RELEASE_YML, 'build-tauri-macos')
 
-  it('the macOS job exists only behind the detected secrets', () => {
-    expect(mac, 'no `build-macos` job in release.yml').not.toBe('')
-    expect(withoutComments(mac)).toMatch(/^\s{4}if:\s*needs\.signing-config\.outputs\.macos == 'true'\s*$/m)
-    expect(withoutComments(mac)).toMatch(/^\s{4}needs:\s*\[gate, signing-config\]\s*$/m)
-    expect(config).toContain('bash scripts/signing-config.sh macos')
+  it('there is one macOS lane, and it is the one behind the switch', () => {
+    // Two lanes that both attach Mac assets to one release would race on
+    // latest.json and could ship the unjudged build next to the judged one.
+    expect(jobBlock(RELEASE_YML, 'build-macos'), 'a second macOS job is back in release.yml').toBe('')
+    expect(jobBlock(RELEASE_YML, 'signing-config'), 'the secrets probe that only served the second macOS job is back').toBe('')
+    expect(mac, 'no `build-tauri-macos` job in release.yml').not.toBe('')
+    // The switch for a release; a dry run is the one other way in
+    // (mac-release-lane.test.ts holds the whole condition).
+    const condition = withoutComments(mac).match(/^ {4}if:.*$/m)?.[0] ?? ''
+    expect(condition).toContain("vars.LU_MAC_RELEASE == '1'")
+    expect(condition).not.toMatch(/secrets\./)
+    expect(withoutComments(RELEASE_YML)).not.toContain('signing-config.sh macos')
   })
 
-  it('and has no unsigned fallback: the build step always carries the certificate', () => {
-    const step = stepBlock(mac, 'Build, sign, notarize and release the macOS app')
-    expect(step).toContain('APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}')
-    expect(step).toMatch(/APPLE_SIGNING_IDENTITY: \$\{\{ secrets\.APPLE_SIGNING_IDENTITY \|\| 'Developer ID Application' \}\}/)
-    // The notarization variables reach the build through $GITHUB_ENV only.
-    for (const name of ['APPLE_ID', 'APPLE_PASSWORD', 'APPLE_TEAM_ID', 'APPLE_API_KEY', 'APPLE_API_ISSUER', 'APPLE_API_KEY_PATH']) {
-      expect(withoutComments(step), name).not.toMatch(new RegExp(`^\\s*${name}:`, 'm'))
-    }
-  })
-
-  it('the macOS job proves its result before it replaces the disk image', () => {
-    const finish = mac.indexOf('bash scripts/macos-release-signing.sh finish')
-    const upload = mac.indexOf('gh release upload')
-    expect(finish).toBeGreaterThan(0)
-    expect(upload).toBeGreaterThan(finish)
+  it('and has no unsigned fallback: the build step refuses to run without the proven identity', () => {
+    const step = stepBlock(mac, 'Build, sign and notarize the Mac app (no upload)')
+    // The identity is the one the keychain step proved, not a secret a
+    // person typed, and the step stops when it did not arrive: the bundler
+    // would otherwise fall back to the ad hoc identity of tauri.conf.json.
+    expect(step).toContain('APPLE_SIGNING_IDENTITY: ${{ steps.keychain.outputs.identity }}')
+    expect(step).toMatch(/\[\[ "\$\{APPLE_SIGNING_IDENTITY:-\}" =~ \^\[0-9A-F\]\{40\}\$ \]\]/)
     expect(withoutComments(mac)).not.toMatch(/continue-on-error/)
-    expect(withoutComments(mac)).not.toMatch(/\|\|\s*true/)
   })
 
   it('the Windows signing steps are skipped without the Azure secrets', () => {
@@ -337,11 +430,27 @@ describe('release.yml signs only where signing-config.sh said yes', () => {
     // SignPath signs after the build, so on that lane tauri-action must not
     // publish the unsigned installers and the updater signatures over them.
     // With the detection skipped (Linux) or answering false, the condition is
-    // true and the step is the one that always ran.
+    // true and the step is the one that always ran. A dry run is the one
+    // other run it stays out of: this is the step that publishes.
     const step = stepBlock(build, 'Build and release Tauri app')
     expect(withoutComments(step)).toMatch(
-      /^\s*if: matrix\.platform != 'windows-latest' \|\| steps\.signcfg\.outputs\.signpath != 'true'\s*$/m,
+      /^\s*if: \$\{\{ !inputs\.dry_run && \(matrix\.platform != 'windows-latest' \|\| steps\.signcfg\.outputs\.signpath != 'true'\) \}\}\s*$/m,
     )
+  })
+
+  it('a dry run signs nothing for Windows, whatever the repository holds', () => {
+    // The detection does not even run, so no signing secret is read and both
+    // answers stay empty. Each signing step says it once more itself.
+    expect(stepBlock(build, 'Which Windows signing secrets are present'))
+      .toContain("if: matrix.platform == 'windows-latest' && !inputs.dry_run")
+    for (const name of [
+      'Configure Windows code signing (Azure Artifact Signing)',
+      'Verify the Windows signatures',
+      'Build and sign the Windows installers (SignPath)',
+      'Attach the signed Windows installers and update latest.json',
+    ]) {
+      expect(stepBlock(build, name), name).toMatch(/^\s*if: .* && !inputs\.dry_run\s*$/m)
+    }
   })
 
   it('a release never accepts the self-signed test certificate', () => {
@@ -436,6 +545,6 @@ describe('release.yml signs only where signing-config.sh said yes', () => {
   })
 
   it('the release stays out of Latest until every build job is through', () => {
-    expect(jobBlock(RELEASE_YML, 'enforce-prerelease')).toMatch(/^\s*needs:\s*\[build-tauri, build-macos\]\s*$/m)
+    expect(jobBlock(RELEASE_YML, 'enforce-prerelease')).toMatch(/^\s*needs:\s*\[build-tauri, build-tauri-macos\]\s*$/m)
   })
 })

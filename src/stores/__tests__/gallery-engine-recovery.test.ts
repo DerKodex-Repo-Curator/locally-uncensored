@@ -1,5 +1,5 @@
 /**
- * Discord 2026-09-26 (tbjdrw: "This render lives on the local engine, which
+ * Discord 2026-09-26 (a user: "This render lives on the local engine, which
  * isn't reachable right now. Why do I keep getting that?"): a tile that
  * failed while ComfyUI was away stayed dark until the next app start. When
  * the engine answers again every such tile gets a fresh URL and loads again.

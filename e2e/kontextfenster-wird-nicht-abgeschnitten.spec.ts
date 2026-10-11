@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { openNewChat } from './support/ui'
 
 /**
- * David am 07.09.2026: das Kontextfenster im Chat ist abgeschnitten, "wenn man
+ * Am 07.09.2026: das Kontextfenster im Chat ist abgeschnitten, "wenn man
  * den Context neu ausfuellen moechte".
  *
  * Nachgemessen bei 1280x800, vor der Reparatur: die Liste stand von y=686 bis

@@ -1,5 +1,5 @@
 // The purple Cloud light-switch (header, right cluster, left of Downloads —
-// David 2026-07-10, purple like the lu-labs.ai website). ON = the whole app
+// 2026-07-10, purple like the lu-labs.ai website). ON = the whole app
 // runs on LU Cloud: hosted models everywhere, local-hardware surfaces hidden.
 // Flipping ON only succeeds when the cloud axis is usable (signed in +
 // licensed + beta gate + credit budget) — otherwise the CloudGateModal walks

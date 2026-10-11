@@ -14,10 +14,12 @@ import type { LucideIcon } from 'lucide-react'
 import type { DiscoverModel, DownloadProgress, ModelBundle } from '../../api/discover'
 import { formatBytes, countLabel } from '../../lib/formatters'
 import { vramFit, vramFitLine, vramNeedTitle, type VramFit } from '../../lib/vram-fit'
+import { sharedFitWords, sharedMemoryWording } from '../../lib/shared-memory-wording'
 import { tierMarks } from '../../lib/render/model-tier'
 import { modelTileAction } from '../../lib/model-tile-action'
 import { bundleGetPlan } from '../../lib/bundle-state'
 import { ICON_SM } from '../ui/icon-size'
+import { downloadSizeGB, gbOf } from '../../lib/image-part'
 
 // ─── Hardware fit ───────────────────────────────────────────────────
 
@@ -25,6 +27,16 @@ export type Fit = VramFit
 
 // GGUF weights ≈ VRAM need; leave headroom for KV-cache/context. Never used
 // to BLOCK a download — purely an honest hint.
+/**
+ * What a chat model takes in memory and on disk, in GB: the model, plus its
+ * image part when it has one and the part comes along. The part is loaded
+ * into graphics memory next to the model, so the fit verdict has to count it,
+ * and it is downloaded with the model, so the size on the tile has to as well.
+ */
+export function modelFootprintGb(model: Pick<DiscoverModel, 'sizeGB' | 'mmprojBytes'>, withImagePart = true): number | undefined {
+  return downloadSizeGB(model.sizeGB, model.mmprojBytes, withImagePart)
+}
+
 export function computeFit(sizeGB: number | undefined, vramGb: number | null): Fit {
   if (!sizeGB || !vramGb) return 'unknown'
   if (sizeGB <= vramGb * 0.85) return 'fits'
@@ -33,7 +45,7 @@ export function computeFit(sizeGB: number | undefined, vramGb: number | null): F
 }
 
 // Color lives ONLY in the tiny status dot — labels stay neutral gray so the
-// grid doesn't turn into a traffic-light wall (David, 2026-07-17 design pass).
+// grid doesn't turn into a traffic-light wall (2026-07-17 design pass).
 //
 // `big` war bis zum Ton-Pass (Audit Welle 3) `bg-red-400/80` mit dem Label
 // "Too big for your GPU" — und beides war eine Falschaussage. Rot heisst in
@@ -64,91 +76,116 @@ export function computeFit(sizeGB: number | undefined, vramGb: number | null): F
 // fuer die ganze Leiter unter 3:1 liegt, ist ein aelterer, eigener Befund; er
 // betrifft alle vier Punkte gleich und wird hier nicht einseitig fuer einen
 // davon repariert.)
-const FIT_META: Record<Fit, { dot: string; label: string; title: string }> = {
+export const FIT_META: Record<Fit, { dot: string; label: string; title: string }> = {
   fits: { dot: 'bg-emerald-500/80', label: 'Runs on your PC', title: 'Fits fully in your GPU memory. Fast.' },
   tight: { dot: 'bg-sky-500/80', label: 'Tight fit', title: 'Barely fits. Parts may spill to RAM and slow it down.' },
   big: { dot: 'bg-orange-500/80', label: 'Runs on CPU, slower', title: 'Bigger than your GPU memory, so most of it runs on CPU and RAM. It works, just slower.' },
   unknown: { dot: 'bg-gray-400 dark:bg-gray-600', label: '', title: 'Hardware not detected yet.' },
 }
 
-export function FitHint({ fit, compact = false }: { fit: Fit; compact?: boolean }) {
+/** `sharedMemory`: a machine with one memory pool (a Mac). The dot keeps its
+ *  colour, the words stop naming a PC, a GPU and a CPU fallback that such a
+ *  machine does not have (lib/shared-memory-wording.ts). */
+export function FitHint({ fit, compact = false, sharedMemory = false }: { fit: Fit; compact?: boolean; sharedMemory?: boolean }) {
   if (fit === 'unknown') return null
   const meta = FIT_META[fit]
+  const words = sharedMemory ? sharedFitWords(fit) : meta
   return (
-    <span className="inline-flex items-center gap-1" title={meta.title}>
-      <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+    <span className="inline-flex items-center gap-1" title={words.title} data-fit={fit}>
+      <span className={`w-1.5 h-1.5 shrink-0 rounded-full ${meta.dot}`} />
       {!compact && (
-        <span className="t-micro text-gray-500 dark:text-gray-400">
-          {meta.label}
+        // One line: a verdict broken in two ("Runs on your" / "PC") made a
+        // narrow tile a row taller than its neighbour.
+        <span className="t-micro whitespace-nowrap text-gray-500 dark:text-gray-400">
+          {words.label}
         </span>
       )}
     </span>
   )
 }
 
-// ─── Drei Rollen, drei Erscheinungen ────────────────────────────────
+// ─── Three roles, three looks ───────────────────────────────────────
 //
-// D-S23: „Quant-Dropdown und statischer Groessen-Chip haben identische
-// Klassen an identischer Position, Unterschied ist nur ein 10px-Chevron."
-// Beide trugen `px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-white/[0.06]`
-// und dieselbe Schriftgroesse — ein Bedienelement, das aussah wie eine
-// Anzeige. Das Chevron war die ganze Unterscheidung, und ein Chevron ist
-// eine Fussnote, keine Formsprache.
+// D-S23 (audit): the quant dropdown and the static size chip carried the same
+// classes at the same place, `px-1.5 py-0.5 rounded-md bg-gray-100`, and the
+// only difference was a 10px chevron. A control that looked like a display.
+// The footer of a tile has known three roles since, and each looks different.
+// The redesign of 08.10.2026 kept the three roles and changed the look of two:
 //
-// Die Kachelzeile kennt jetzt drei Rollen, und jede sieht anders aus:
+//   DISPLAY   the size, "Installed", the progress line.
+//             Plain text. No container, no hover, no focus, no state. It was
+//             a flat grey chip; a chip is a shape, and a shape next to the
+//             picker is exactly what D-S23 was about.
+//   CONTROL   the variant picker, "View", "Stop", "Remove", "Clear":
+//             `.lu-control lu-control--outline`, the neutral recipe of the
+//             house with its edge showing, because on a card a control stands
+//             alone and without an edge it reads as a label. Open and pressed
+//             still come from ARIA, so the look cannot drift from the state.
+//   ACTION    exactly one per tile, "Get" or "Use": `.lu-tonal`.
 //
-//   ANZEIGE   `SizePill`, „Installed", die Fortschrittszeile.
-//             Flaeche ohne Rand, kein Hover, kein Fokus, kein Zustand.
-//   CONTROL   der Varianten-Aufklapper und „View" → `.lu-control`, also
-//             das neutrale Hausrezept aus index.css. Es liest seinen
-//             offenen Zustand aus `aria-expanded` — die Anzeige des
-//             Zustands kann damit gar nicht mehr neben der
-//             Barrierefreiheit herlaufen. Rand immer da, im Ruhezustand
-//             durchsichtig, also springt beim Oeffnen nichts.
-//   AKTION    genau ein Knopf pro Kachel: „Get" / „Install".
-//             Als einziger gefuellt UND gerandet.
+// Why the action is tinted. Until this redesign Get was neutral, filled and
+// edged, and the reasoning stood here: 53 tiles are on screen at once, 53
+// accent surfaces would be the traffic light wall `FIT_META` avoids, so the
+// rank came from fill, edge and weight instead of colour. The owner's verdict on
+// the result, 08.10.2026: "Man weiss nicht, wo man draufklicken soll." Rank
+// without colour did not carry. The answer is not `.lu-primary` 53 times, it
+// is the tint between the two (index.css, `.lu-tonal`): the accent at 12 %
+// with the accent as its word. A model that does not fit this machine keeps
+// a neutral Get, so the tint also says which cards are worth the download.
 //
-// Warum „Get" NICHT `.lu-primary` traegt, obwohl es die Hauptaktion der
-// Kachel ist: es sind 53 Kacheln gleichzeitig sichtbar. 53 Akzentflaechen
-// waeren dieselbe Ampelwand, die `FIT_META` weiter oben ausdruecklich
-// vermeidet („Color lives ONLY in the tiny status dot"). Der Rang kommt
-// hier aus Fuellung + Rand + Schriftgewicht, nicht aus Farbe.
-//
-// Geometrie aus vorhandenen Tokens: `--control-h-sm` (26px) und
-// `--radius-control` (8px) — dieselben, auf denen `.lu-control` steht.
-// Damit stehen Anzeige, Control und Aktion in derselben Zeilenhoehe.
+// Geometry from the tokens the neutral recipe stands on, `--control-h-sm`
+// (26px) and `--radius-control` (8px), so display, control and action share
+// one line height.
 
-/** AKTION — der eine gefuellte Knopf einer Kachel.
- *
- *  D-S24: hier stand `shadow-sm`, 53 Mal auf einem Bildschirm. Das ist
- *  Tailwinds Hell-Rezept `0 1px 2px rgba(0,0,0,.05)` und auf der dunklen
- *  Kachelflaeche schlicht unsichtbar — ein Effekt, den niemand je gesehen
- *  hat, aber jede Kachel bezahlt hat. Getragen wird die Erhebung vom Rand,
- *  den der Knopf ohnehin hat (Hairline-Elevation, wie es der Token-Diff des
- *  Audits fuer genau diese Stelle vorschlaegt). Echte Schatten bleiben den
- *  Flaechen, die wirklich schweben — das Aufklappmenue nimmt dafuer seit
- *  D-T06/D-T09 das Hausrezept `.lu-elevated` (Flaeche + Kante + Schatten
- *  aus einer Quelle) statt einer eigenen Kette. */
-const TILE_ACTION =
-  'flex items-center gap-1 h-[var(--control-h-sm)] px-2.5 rounded-lg '
-  + 'bg-white dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/[0.16] '
-  + 'border border-gray-200 dark:border-white/[0.08] text-gray-800 dark:text-gray-100 '
-  + 't-micro font-semibold transition-colors'
+/** ACTION: the one tinted button of a tile. One constant, so that the three
+ *  tiles cannot each grow a copy of it (D-S24). It carries no shadow: on the
+ *  dark tile a shadow is invisible, the edge of the recipe does the lifting.
+ *  Real shadows stay with what really floats, the picker's list takes
+ *  `.lu-elevated`. */
+export const TILE_ACTION = 'lu-tonal'
 
-/** ANZEIGE — ein Zustand, den man lesen und nicht druecken kann. */
-const TILE_STATE =
-  'flex items-center gap-1 h-[var(--control-h-sm)] px-2 rounded-lg '
-  + 'bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-300 t-micro font-medium'
+/** The same slot on a tile whose model does not fit this machine. Still a
+ *  button and still Get, without the tint that recommends it. */
+export const TILE_ACTION_QUIET = 'lu-control lu-control--outline'
 
-// ─── Small chips ────────────────────────────────────────────────────
+/** CONTROL: what stands alone in a tile footer and is not its action. */
+export const TILE_CONTROL = 'lu-control lu-control--outline'
 
-/** ANZEIGE. Bleibt bewusst flach und ohne Hover: sie ist die Groesse, nicht
- *  die Wahl der Groesse. Wo es etwas zu waehlen gibt, steht an derselben
- *  Stelle das Control (siehe `ModelTile`). */
-export function SizePill({ sizeGB, bytes }: { sizeGB?: number; bytes?: number }) {
+/** DISPLAY: a state to read, not to press. Green is the one state colour a
+ *  tile spends on text, and only on this word. Computed on the tile surface:
+ *  emerald-700 on #f9fafb 5.25:1, emerald-400 on #252525 7.97:1. */
+export const TILE_STATE =
+  'inline-flex items-center gap-1 h-[var(--control-h-sm)] t-micro font-medium whitespace-nowrap '
+  + 'text-emerald-700 dark:text-emerald-400'
+
+/** DISPLAY: something in flight. Read by a screen reader as it changes. */
+export const TILE_BUSY =
+  'inline-flex items-center gap-1.5 h-[var(--control-h-sm)] t-micro whitespace-nowrap '
+  + 'text-gray-500 dark:text-gray-400'
+
+/** The quiet line of facts in a tile footer: size, memory, file count. */
+export const TILE_META = 't-micro tabular-nums whitespace-nowrap text-gray-500 dark:text-gray-400'
+
+/** The name of a tile. A model that does not fit steps back one tone. */
+export const tileTitle = (fits: boolean) =>
+  `t-title truncate ${fits ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`
+
+/** The two lines under the name. */
+export const TILE_TEXT = 'mt-1 text-xs leading-snug line-clamp-2 text-gray-500 dark:text-gray-400'
+
+/** The track and fill of a download in a tile. The fill is the accent: a
+ *  running download is the one thing on the page that moves. */
+export const TILE_BAR = 'h-1 rounded-full overflow-hidden bg-gray-200 dark:bg-white/[0.08]'
+export const TILE_BAR_FILL = 'h-full rounded-full bg-lu-accent transition-[width] duration-[var(--motion-slow)]'
+
+// ─── Small pieces ───────────────────────────────────────────────────
+
+/** DISPLAY. The size as text. Where there is a choice of sizes the picker
+ *  stands at the same place (see `ModelTile`), and the picker has an edge. */
+export function TileSize({ sizeGB, bytes }: { sizeGB?: number; bytes?: number }) {
   if (!sizeGB && !bytes) return null
   return (
-    <span className="t-micro px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-300 font-medium tabular-nums">
+    <span className={TILE_META} data-tile-size>
       {bytes ? formatBytes(bytes) : `${sizeGB} GB`}
     </span>
   )
@@ -190,8 +227,13 @@ export interface Capability {
   label: string
   /** Der ganze Satz — Tooltip auf der Kachel, Titel in der Legende. */
   title: string
+  /** Word and sentence on a machine with one memory pool (a Mac), where the
+   *  PC wording would name hardware that is not there. */
+  shared?: { label: string; title: string }
   has: (m: DiscoverModel) => boolean
 }
+
+const capWords = (c: Capability, sharedMemory: boolean) => (sharedMemory && c.shared ? c.shared : c)
 
 export const CAPABILITIES: readonly Capability[] = [
   {
@@ -213,22 +255,26 @@ export const CAPABILITIES: readonly Capability[] = [
     Icon: Feather,
     label: 'No GPU',
     title: 'Runs on 8 GB RAM, CPU only. No GPU needed',
+    shared: { label: 'Light', title: 'Light enough for a Mac with 8 GB of memory' },
     has: (m) => !!m.lightweight,
   },
 ] as const
 
 const GLYPH = 'p-0.5 rounded text-gray-400 dark:text-gray-500'
 
-export function CapIcons({ model }: { model: DiscoverModel }) {
+export function CapIcons({ model, sharedMemory = false }: { model: DiscoverModel; sharedMemory?: boolean }) {
   const shown = CAPABILITIES.filter(c => c.has(model))
   if (!shown.length) return null
   return (
     <span className="inline-flex items-center gap-1">
-      {shown.map(({ key, Icon, title }) => (
-        <span key={key} title={title} aria-label={title} role="img" className={GLYPH}>
-          <Icon size={ICON_SM} />
-        </span>
-      ))}
+      {shown.map((c) => {
+        const { title } = capWords(c, sharedMemory)
+        return (
+          <span key={c.key} title={title} aria-label={title} role="img" className={GLYPH}>
+            <c.Icon size={ICON_SM} />
+          </span>
+        )
+      })}
     </span>
   )
 }
@@ -249,17 +295,22 @@ export function HotMark() {
   )
 }
 
+const CAP_LEGEND_INK = 't-micro text-gray-500 dark:text-gray-400'
+
 /** Die Legende zu `CapIcons`. Dieselbe Tabelle, dieselben Zeichen, dieselbe
  *  Groesse — steht einmal ueber dem Raster statt 53 Mal daneben. */
-export function CapLegend({ className = '' }: { className?: string }) {
+export function CapLegend({ className = '', sharedMemory = false, ink = CAP_LEGEND_INK }: { className?: string; sharedMemory?: boolean; /** Size and tone of the words. The classic face brings its own. */ ink?: string }) {
   return (
-    <div className={`flex items-center gap-3 flex-wrap text-[0.55rem] text-gray-400 dark:text-gray-500 ${className}`}>
-      {CAPABILITIES.map(({ key, Icon, label, title }) => (
-        <span key={key} className="inline-flex items-center gap-1" title={title}>
-          <Icon size={ICON_SM} aria-hidden="true" />
-          {label}
-        </span>
-      ))}
+    <div className={`flex items-center gap-3 flex-wrap ${ink} ${className}`}>
+      {CAPABILITIES.map((c) => {
+        const { label, title } = capWords(c, sharedMemory)
+        return (
+          <span key={c.key} className="inline-flex items-center gap-1" title={title}>
+            <c.Icon size={ICON_SM} aria-hidden="true" />
+            {label}
+          </span>
+        )
+      })}
     </div>
   )
 }
@@ -268,9 +319,10 @@ export function CapLegend({ className = '' }: { className?: string }) {
 
 // One calm line per card instead of the full catalog description. The full
 // text stays reachable via the ⓘ details modal — nothing is lost.
-export function shortBlurb(m: DiscoverModel): string {
-  if (m.blurb) return m.blurb
-  const d = m.description || ''
+export function shortBlurb(m: DiscoverModel, sharedMemory = false): string {
+  if (m.blurb) return sharedMemoryWording(m.blurb, sharedMemory)
+  // Rewritten before it is cut: the Mac sentence can be the longer one.
+  const d = sharedMemoryWording(m.description || '', sharedMemory)
   // Catalog descriptions are "Name · blurb" (middot separator, dash-free copy
   // rule 2026-07-18); slice off the name part.
   const afterSep = d.includes('·') ? d.slice(d.indexOf('·') + 1) : d
@@ -316,7 +368,7 @@ export function pickDefaultVariant(
   })
   if (active) return active
   if (vramGb) {
-    const fitting = variants.filter(v => v.sizeGB && v.sizeGB <= vramGb * 0.85)
+    const fitting = variants.filter(v => v.sizeGB && (modelFootprintGb(v) ?? v.sizeGB) <= vramGb * 0.85)
     if (fitting.length) return fitting.reduce((a, b) => ((a.sizeGB ?? 0) >= (b.sizeGB ?? 0) ? a : b))
   }
   return variants.reduce((a, b) => ((a.sizeGB ?? Infinity) <= (b.sizeGB ?? Infinity) ? a : b))
@@ -326,7 +378,12 @@ export function pickDefaultVariant(
 
 export interface ModelTileProps {
   variants: DiscoverModel[]
+  /** What a model is compared with: the graphics card on a PC, the share of
+   *  the memory pool a model can take on a Mac (`chatModelBudgetGb`). */
   vramGb: number | null
+  /** True on a machine with one memory pool (a Mac): the tile speaks of
+   *  memory and of this Mac, never of a card, a GPU or a PC. */
+  sharedMemory?: boolean
   isInstalled: (m: DiscoverModel) => boolean
   dlState: (m: DiscoverModel) => DownloadProgress | null
   onDownload: (m: DiscoverModel) => void
@@ -341,10 +398,18 @@ export interface ModelTileProps {
   canUse?: (m: DiscoverModel) => boolean
   /** Is a Use click for THIS row already running (S6). */
   isUsing?: (m: DiscoverModel) => boolean
+  /** Does the download of THIS row bring the image part along. Absent = yes,
+   *  which is the default everywhere; false only after the user unticked it. */
+  withImagePart?: (m: DiscoverModel) => boolean
   highlight?: boolean
 }
 
-export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, onInfo, onOpenUrl, onUse, canUse, isUsing, highlight }: ModelTileProps) {
+/** What a chat tile knows and does, without its look: which variant is
+ *  chosen, whether it fits, what its one button does, and the size picker's
+ *  open state with its two ways out. The two faces of the tile (this file for
+ *  the Mac, skin/ClassicTiles.tsx for Windows and Linux) both stand on it, so
+ *  the rules exist once. */
+export function useModelTile({ variants, vramGb, isInstalled, dlState, onUse, canUse, isUsing, withImagePart }: ModelTileProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [chosen, setChosen] = useState<string | null>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
@@ -358,7 +423,11 @@ export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, 
   const downloading = dl?.status === 'downloading' || dl?.status === 'connecting'
   const installed = isInstalled(sel) || dl?.status === 'complete'
   const externalOnly = sel.canPull === false
-  const fit = computeFit(sel.sizeGB, vramGb)
+  // Size and fit count the image part whenever it comes along.
+  const sizeOf = (m: DiscoverModel) => modelFootprintGb(m, withImagePart ? withImagePart(m) : true)
+  const selSize = sizeOf(sel)
+  const partComes = !!sel.mmprojBytes && (withImagePart ? withImagePart(sel) : true)
+  const fit = computeFit(selSize, vramGb)
   // One rule for what the button does, so no state can end up without one
   // (lib/model-tile-action.ts).
   const action = modelTileAction({
@@ -386,26 +455,41 @@ export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, 
     }
   }, [pickerOpen])
 
+  // What the Get button says it fetches. With an image part that comes along
+  // the two halves are named, so the sum on the tile is not a surprise.
+  const downloadTitle = !selSize
+    ? 'Download'
+    : partComes
+      ? `Download ${selSize} GB (model ${sel.sizeGB} GB, image input ${gbOf(sel.mmprojBytes)} GB)`
+      : `Download ${selSize} GB`
+
+  return { pickerOpen, setPickerOpen, setChosen, pickerRef, variantListRef, variantList, sel, groupTitle, dl, downloading, fit, action, sizeOf, selSize, downloadTitle }
+}
+
+export function ModelTile(props: ModelTileProps) {
+  const { variants, vramGb, sharedMemory = false, isInstalled, dlState, onDownload, onInfo, onOpenUrl, onUse, highlight } = props
+  const { pickerOpen, setPickerOpen, setChosen, pickerRef, variantListRef, variantList, sel, groupTitle, dl, downloading, fit, action, sizeOf, selSize, downloadTitle } = useModelTile(props)
+
+  // A model past what this machine can give it keeps its Get, without the
+  // tint that recommends it, and its name steps back one tone.
+  const fitsHere = fit !== 'big'
+
   return (
     <div
-      className={`relative rounded-xl border p-3 transition-colors bg-gray-50 dark:bg-white/[0.03] hover:bg-gray-100 dark:hover:bg-white/[0.05] ${
-        highlight
-          ? 'border-gray-300 dark:border-white/[0.14]'
-          : 'border-gray-200 dark:border-white/[0.06]'
-      }`}
+      className={`lu-tile relative flex h-full flex-col p-3.5 ${highlight ? 'lu-tile--lead' : ''}`}
       data-model-tile={groupTitle}
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
-            <h3 className="text-[0.78rem] font-semibold text-gray-900 dark:text-white truncate">{groupTitle}</h3>
-            <CapIcons model={sel} />
+            <h3 className={tileTitle(fitsHere)}>{groupTitle}</h3>
+            <CapIcons model={sel} sharedMemory={sharedMemory} />
           </div>
-          <p className="t-micro text-gray-500 dark:text-gray-400 leading-snug mt-0.5 line-clamp-2">{shortBlurb(sel)}</p>
+          <p className={TILE_TEXT}>{shortBlurb(sel, sharedMemory)}</p>
         </div>
         <button
           onClick={() => onInfo(sel)}
-          className="shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          className="lu-control lu-control--icon -mr-1.5 -mt-1"
           title="Details"
           aria-label={`Details for ${groupTitle}`}
         >
@@ -419,19 +503,28 @@ export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, 
         </p>
       )}
 
-      <div className="flex items-center gap-2 mt-2.5 min-h-[var(--control-h-sm)]">
+      {/* The verdict has a line of its own, as on the media tiles. It stood in
+          the footer between the picker and Get, where it was the first thing
+          a narrow tile squeezed. */}
+      {fit !== 'unknown' && (
+        <p className="mt-2 flex">
+          <FitHint fit={fit} sharedMemory={sharedMemory} />
+        </p>
+      )}
+
+      <div className="flex items-center gap-2 mt-auto pt-3 min-h-[var(--control-h-sm)]">
         {/* Variant / size selector — only when the family ships several quants */}
         {variants.length > 1 ? (
           <div className="relative" ref={pickerRef}>
             <button
               onClick={() => setPickerOpen(o => !o)}
-              className="lu-control tabular-nums"
+              className="lu-control lu-control--outline tabular-nums"
               aria-haspopup="listbox"
               aria-expanded={pickerOpen}
               aria-label={`Size and quality for ${groupTitle}`}
               title="Choose a size / quality"
             >
-              {variantLabel(sel)} · {sel.sizeGB} GB
+              {variantLabel(sel)} · {selSize} GB
               <ChevronDown size={ICON_SM} className={`transition-transform ${pickerOpen ? 'rotate-180' : ''}`} />
             </button>
             {pickerOpen && (
@@ -443,7 +536,7 @@ export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, 
                 className={`absolute z-30 left-0 w-56 rounded-lg lu-elevated p-1 overflow-y-auto scrollbar-thin ${variantList.nachOben ? 'bottom-full mb-1' : 'top-full mt-1'}`}
               >
                 {variants.map(v => {
-                  const vFit = computeFit(v.sizeGB, vramGb)
+                  const vFit = computeFit(sizeOf(v), vramGb)
                   const vInst = isInstalled(v) || dlState(v)?.status === 'complete'
                   return (
                     <button
@@ -453,10 +546,10 @@ export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, 
                       onClick={() => { setChosen(v.name); setPickerOpen(false) }}
                       className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06] ${v.name === sel.name ? 'bg-gray-100 dark:bg-white/[0.06]' : ''}`}
                     >
-                      <FitHint fit={vFit} compact />
+                      <FitHint fit={vFit} compact sharedMemory={sharedMemory} />
                       <span className="flex-1 t-micro text-gray-800 dark:text-gray-200">{variantLabel(v)}</span>
-                      <span className="t-micro text-gray-400 tabular-nums">{v.sizeGB} GB</span>
-                      {vInst && <Check size={ICON_SM} className="text-emerald-500/80" />}
+                      <span className="t-micro text-gray-400 tabular-nums">{sizeOf(v)} GB</span>
+                      {vInst && <Check size={ICON_SM} className="text-emerald-700 dark:text-emerald-400" />}
                     </button>
                   )
                 })}
@@ -464,13 +557,25 @@ export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, 
             )}
           </div>
         ) : (
-          <SizePill sizeGB={sel.sizeGB} />
+          <TileSize sizeGB={selSize} />
         )}
 
-        <FitHint fit={fit} />
-        <div className="flex items-center gap-1.5 ml-auto shrink-0">
-          {sel.hot && <HotMark />}
-          {sel.pulls && <span className="text-[0.55rem] text-gray-400 dark:text-gray-500 mr-1">{sel.pulls}</span>}
+        {/* Popularity is the one thing in this row that may go. The box takes
+            the room that is left and is one line high; when the count does
+            not fit beside its zero-width anchor it wraps to a second line,
+            and that line is cut off. So in a narrow tile the count is gone as
+            a whole, and neither the picker nor Get is squeezed or pushed out
+            (1024 px, two columns: Get stood outside the tile). */}
+        <div className="flex flex-1 min-w-0 flex-wrap justify-end gap-x-1.5 h-[var(--control-h-sm)] overflow-hidden" data-tile-popularity>
+          <span className="w-0 h-full" aria-hidden="true" />
+          {(sel.hot || sel.pulls) && (
+            <span className="flex items-center gap-1.5 h-full whitespace-nowrap">
+              {sel.hot && <HotMark />}
+              {sel.pulls && <span className={TILE_META}>{sel.pulls}</span>}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
 
           {/* Ein Zustand, ein Ausgang: die Leiter kommt aus `modelTileAction`
               (GH #118), die Optik aus den Rezepten dieser Datei. `installed`,
@@ -480,7 +585,7 @@ export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, 
             sel.url ? (
               <button
                 onClick={() => onOpenUrl(sel.url!)}
-                className="lu-control"
+                className={TILE_CONTROL}
                 title="View on HuggingFace"
                 aria-label={`View ${groupTitle} on HuggingFace`}
               >
@@ -488,31 +593,33 @@ export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, 
               </button>
             ) : null
           ) : action === 'use' ? (
+            // Installed and loadable: Use is this tile's action now, so it
+            // takes the tint Get had.
             <button
               onClick={() => onUse!(sel)}
-              className="lu-control"
+              className={TILE_ACTION}
               title="Installed. Load it in the chat and start the engine if it is not running."
               aria-label={`Use ${sel.name}`}
             >
-              <Check size={ICON_SM} className="text-emerald-500/80" /> Use
+              <Check size={ICON_SM} /> Use
             </button>
           ) : action === 'using' ? (
-            <span className="flex items-center gap-1.5 h-[var(--control-h-sm)] px-2 t-micro text-gray-500 dark:text-gray-400">
+            <span className={TILE_BUSY}>
               <Loader2 size={ICON_SM} className="animate-spin" /> Loading…
             </span>
           ) : action === 'installed' ? (
             <span className={TILE_STATE}>
-              <Check size={ICON_SM} className="text-emerald-500/80" /> Installed
+              <Check size={ICON_SM} /> Installed
             </span>
           ) : action === 'downloading' ? (
-            <span className="flex items-center gap-1.5 h-[var(--control-h-sm)] px-2 t-micro text-gray-500 dark:text-gray-400">
+            <span className={TILE_BUSY}>
               <Loader2 size={ICON_SM} className="animate-spin" /> Downloading…
             </span>
           ) : (
             <button
               onClick={() => onDownload(sel)}
-              className={TILE_ACTION}
-              title={sel.sizeGB ? `Download ${sel.sizeGB} GB` : 'Download'}
+              className={fitsHere ? TILE_ACTION : TILE_ACTION_QUIET}
+              title={downloadTitle}
             >
               <Download size={ICON_SM} /> Get
             </button>
@@ -522,11 +629,11 @@ export function ModelTile({ variants, vramGb, isInstalled, dlState, onDownload, 
 
       {/* Slim inline progress — the header badge stays the full control center */}
       {downloading && dl && dl.total > 0 && (
-        <div className="mt-2">
-          <div className="h-1 rounded-full bg-gray-200 dark:bg-white/[0.06] overflow-hidden">
-            <div className="h-full rounded-full bg-gray-500 dark:bg-white/60 transition-[width]" style={{ width: `${Math.min(100, (dl.progress / dl.total) * 100)}%` }} />
+        <div className="mt-2.5">
+          <div className={TILE_BAR}>
+            <div className={TILE_BAR_FILL} style={{ width: `${Math.min(100, (dl.progress / dl.total) * 100)}%` }} />
           </div>
-          <div className="flex justify-between mt-0.5 text-[0.55rem] text-gray-400 tabular-nums">
+          <div className={`flex justify-between mt-1 ${TILE_META}`}>
             <span>{formatBytes(dl.progress)} / {formatBytes(dl.total)}</span>
             <span>{Math.round((dl.progress / dl.total) * 100)}%</span>
           </div>
@@ -560,7 +667,10 @@ export interface BundleTileProps {
 
 const NO_FILES: ReadonlySet<string> = new Set()
 
-export function BundleTile({ bundle, lane, vramGb, sharedMemory = false, complete, filesOnDisk = NO_FILES, downloading, hasErrors, onInstall, onRetry, onClear, onOpenUrl }: BundleTileProps) {
+/** What a bundle tile says, without its look: the verdict, the line that
+ *  names the card or the model an add-on belongs to, and what Get still has to
+ *  fetch. Both faces of the tile read it from here. */
+export function bundleTileFacts({ bundle, vramGb, sharedMemory = false, filesOnDisk = NO_FILES }: Pick<BundleTileProps, 'bundle' | 'vramGb' | 'sharedMemory' | 'filesOnDisk'>) {
   // No COMING SOON overlay any more (2026-07-24). It was driven by
   // `!bundle.verified && !complete`, a hand-set boolean, and it dimmed the tile
   // behind a full-cover "COMING SOON" pill while that tile's own working
@@ -592,33 +702,40 @@ export function BundleTile({ bundle, lane, vramGb, sharedMemory = false, complet
   const plan = bundleGetPlan(bundle, filesOnDisk)
   const fetchSize = formatBytes(plan.fetchBytes)
   const alreadyHere = plan.present > 0 ? `, ${plan.present} already here` : ''
+  return { fit, addonLine, cardLine, plan, fetchSize, alreadyHere }
+}
+
+export function BundleTile(props: BundleTileProps) {
+  const { bundle, lane, complete, downloading, hasErrors, onInstall, onRetry, onClear, onOpenUrl } = props
+  const { fit, addonLine, cardLine, plan, fetchSize, alreadyHere } = bundleTileFacts(props)
+
+  const fitsHere = fit !== 'big'
 
   return (
-    <div
-      className="relative rounded-xl border border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.03] p-3 overflow-hidden transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.05]"
-      data-bundle-tile={bundle.name}
-    >
-      <div className="flex items-start gap-2.5">
+    <div className="lu-tile relative flex h-full flex-col p-3.5" data-bundle-tile={bundle.name}>
+      <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
-            <h3 className="text-[0.78rem] font-semibold text-gray-900 dark:text-white truncate">{bundle.name}</h3>
+            <h3 className={tileTitle(fitsHere)}>{bundle.name}</h3>
             {bundle.hot && !complete && <HotMark />}
             {lane && (
               <span data-bundle-lane={lane} className="shrink-0 rounded px-1.5 py-0.5 t-micro font-semibold bg-gray-200 text-gray-600 dark:bg-white/10 dark:text-gray-300">{lane}</span>
             )}
+            {/* The accent mark takes the ink in the light: the accent itself
+                stands 2.60:1 on a light tile and cannot carry a word there. */}
             {tierMarks(bundle).map((t) => (
-              <span key={t.label} className={`shrink-0 rounded px-1.5 py-0.5 t-micro font-semibold ${t.tone === 'accent' ? 'bg-lu-accent/15 text-lu-accent' : 'text-gray-500 dark:text-gray-600'}`}>{t.label}</span>
+              <span key={t.label} className={`shrink-0 rounded px-1.5 py-0.5 t-micro font-semibold ${t.tone === 'accent' ? 'bg-lu-accent-soft text-lu-accent-ink dark:text-lu-accent' : 'text-gray-500 dark:text-gray-600'}`}>{t.label}</span>
             ))}
           </div>
           {bundle.description && (
-            <p className="t-micro text-gray-500 dark:text-gray-400 leading-snug mt-0.5 line-clamp-2">{bundle.description}</p>
+            <p className={TILE_TEXT}>{bundle.description}</p>
           )}
           {addonLine && (
-            <p className="mt-1.5 t-micro text-gray-500 dark:text-gray-400" data-bundle-addon-for={bundle.addonFor}>{addonLine}</p>
+            <p className="mt-2 t-micro text-gray-500 dark:text-gray-400" data-bundle-addon-for={bundle.addonFor}>{addonLine}</p>
           )}
           {cardLine && (
             <p
-              className="flex items-center gap-1.5 mt-1.5 t-micro text-gray-500 dark:text-gray-400"
+              className="flex items-center gap-1.5 mt-2 t-micro text-gray-500 dark:text-gray-400"
               data-bundle-fit={fit}
               title={vramNeedTitle(bundle)}
             >
@@ -626,11 +743,18 @@ export function BundleTile({ bundle, lane, vramGb, sharedMemory = false, complet
               <span>{cardLine}</span>
             </p>
           )}
+          {/* The general verdict, where no card is named and the tile is no
+              add-on. Same line as the card verdict, never both. */}
+          {!cardLine && !addonLine && fit !== 'unknown' && (
+            <p className="mt-2 flex">
+              <FitHint fit={fit} />
+            </p>
+          )}
         </div>
         {bundle.url && (
           <button
             onClick={() => onOpenUrl(bundle.url!)}
-            className="shrink-0 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            className="lu-control lu-control--icon -mr-1.5 -mt-1"
             title="View on HuggingFace"
             aria-label={`View ${bundle.name} on HuggingFace`}
           >
@@ -639,18 +763,20 @@ export function BundleTile({ bundle, lane, vramGb, sharedMemory = false, complet
         )}
       </div>
 
-      <div className="flex items-center gap-2 mt-2.5 min-h-[var(--control-h-sm)]">
-        <SizePill bytes={plan.totalBytes} />
-        <span className="text-[0.55rem] text-gray-400 dark:text-gray-500">{countLabel(bundle.files.length, 'file')}</span>
-        {!cardLine && !addonLine && <FitHint fit={fit} />}
+      <div className="flex items-center gap-2 mt-auto pt-3 min-h-[var(--control-h-sm)]">
+        {/* The size of the whole bundle and its file count: what the card is.
+            Get, on the right, names what a click still has to fetch. */}
+        <div className="flex flex-1 min-w-0 items-center overflow-hidden">
+          <TileSize bytes={plan.totalBytes} /><span className={`${TILE_META} before:mx-1.5 before:content-['·']`}>{countLabel(bundle.files.length, 'file')}</span>
+        </div>
 
-        <div className="flex items-center gap-1 shrink-0 ml-auto">
+        <div className="flex items-center gap-1.5 shrink-0">
           {complete ? (
             <span className={TILE_STATE}>
-              <Check size={ICON_SM} className="text-emerald-500/80" /> Installed
+              <Check size={ICON_SM} /> Installed
             </span>
           ) : downloading ? (
-            <span className="flex items-center gap-1.5 h-[var(--control-h-sm)] px-2 t-micro text-gray-500 dark:text-gray-400">
+            <span className={TILE_BUSY}>
               <Loader2 size={ICON_SM} className="animate-spin" /> Installing…
             </span>
           ) : hasErrors ? (
@@ -668,7 +794,7 @@ export function BundleTile({ bundle, lane, vramGb, sharedMemory = false, complet
               </button>
               <button
                 onClick={onClear}
-                className="lu-control"
+                className={TILE_CONTROL}
                 title="Clear this failed download so you can start over or pick another model"
               >
                 <X size={ICON_SM} /> Clear
@@ -677,7 +803,7 @@ export function BundleTile({ bundle, lane, vramGb, sharedMemory = false, complet
           ) : (
             <button
               onClick={onInstall}
-              className={TILE_ACTION}
+              className={fitsHere ? TILE_ACTION : TILE_ACTION_QUIET}
               title={`Install ${countLabel(plan.fetchFiles, 'file')} (${fetchSize})${alreadyHere}`}
             >
               <Download size={ICON_SM} /> Get · {fetchSize}
@@ -689,17 +815,41 @@ export function BundleTile({ bundle, lane, vramGb, sharedMemory = false, complet
   )
 }
 
-// ─── Hardware chip ──────────────────────────────────────────────────
+// ─── This machine ───────────────────────────────────────────────────
+//
+// One reading, two settings. On a wide window it stands at the foot of the
+// Models rail (`HardwareFoot`), where it holds for every lane and view. Where
+// the rail is only icons it is the chip in the filter row (`HardwareChip`).
+// The rules are the same in both and stand at the chip.
 
-export function HardwareChip({ vramGb, ramGb }: { vramGb: number | null; ramGb: number | null }) {
+const CHIP =
+  'inline-flex items-center gap-1.5 h-[var(--control-h-sm)] px-2 rounded-lg border t-micro whitespace-nowrap '
+  + 'border-gray-200 dark:border-white/[0.08] text-gray-600 dark:text-gray-300'
+
+export function HardwareChip({ vramGb, ramGb, sharedMemory = false, surface = CHIP }: { vramGb: number | null; ramGb: number | null; sharedMemory?: boolean; /** The chip's own chain of classes. The classic face brings its own. */ surface?: string }) {
   if (!vramGb && !ramGb) return null
+  // A Mac has one pool for processor and graphics unit. Two numbers side by
+  // side would name a card nobody owns.
+  if (sharedMemory) {
+    const pool = ramGb ?? vramGb
+    return (
+      <span
+        className={surface}
+        title="The memory of this Mac, shared by processor and graphics. Used for the 'runs on this Mac' hints. Models are never hidden because of it."
+        data-hardware-chip="shared"
+      >
+        <HardDrive size={ICON_SM} className="text-gray-400" />
+        <span className="tabular-nums">{Math.round(pool!)} GB memory</span>
+      </span>
+    )
+  }
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gray-100 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.06] t-micro text-gray-600 dark:text-gray-300"
+      className={surface}
       title="Detected hardware. Used for the 'runs on your PC' hints. Models are never hidden because of it."
     >
       <HardDrive size={ICON_SM} className="text-gray-400" />
-      {/* A side we could not measure says so. Zhorts (GH #123) read "62 GB GPU"
+      {/* A side we could not measure says so. A user (GH #123) read "62 GB GPU"
           off this chip on a 16 GB card, because the number behind it was his
           system RAM; the source of that is fixed in api/comfyui.ts, and this is
           the other half. Leaving the half out entirely reads as "no GPU", and
@@ -714,5 +864,41 @@ export function HardwareChip({ vramGb, ramGb }: { vramGb: number | null; ramGb: 
         ? <span className="tabular-nums">{Math.round(ramGb)} GB RAM</span>
         : <span>RAM unknown</span>}
     </span>
+  )
+}
+
+/** The figure a verdict is measured against, large, with its unit beside it. */
+function Figure({ gb, unit }: { gb: number; unit: string }) {
+  return (
+    <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
+      <span className="t-display text-gray-900 dark:text-white">{Math.round(gb)}</span> GB {unit}
+    </span>
+  )
+}
+
+/** The same reading as `HardwareChip`, set as the foot of the Models rail.
+ *  The first figure is the one the verdicts compare with: the pool on a Mac,
+ *  the card on a PC. An unmeasured side says so here too. */
+export function HardwareFoot({ vramGb, ramGb, sharedMemory = false }: { vramGb: number | null; ramGb: number | null; sharedMemory?: boolean }) {
+  if (!vramGb && !ramGb) return null
+  if (sharedMemory) {
+    const pool = ramGb ?? vramGb
+    return (
+      <div title="The memory of this Mac, shared by processor and graphics. Used for the 'runs on this Mac' hints. Models are never hidden because of it.">
+        <p className="t-label text-gray-500 dark:text-gray-400">This Mac</p>
+        <p className="mt-2" data-hardware-chip="shared"><Figure gb={pool!} unit="memory" /></p>
+      </div>
+    )
+  }
+  return (
+    <div title="Detected hardware. Used for the 'runs on your PC' hints. Models are never hidden because of it.">
+      <p className="t-label text-gray-500 dark:text-gray-400">This PC</p>
+      <p className="mt-2">
+        {vramGb ? <Figure gb={vramGb} unit="GPU" /> : <span className="text-xs text-gray-500 dark:text-gray-400">GPU unknown</span>}
+      </p>
+      <p className="mt-1 text-xs tabular-nums text-gray-500 dark:text-gray-400">
+        {ramGb ? <span>{Math.round(ramGb)} GB RAM</span> : <span>RAM unknown</span>}
+      </p>
+    </div>
   )
 }

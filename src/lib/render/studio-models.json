@@ -1,7 +1,7 @@
 {
   "open-video": {
     "label": "OpenVideo",
-    "endpoint": "wavespeed-ai/open-video/image-to-video",
+    "endpoint": "base/open-video/image-to-video",
     "kind": "video",
     "adult": true,
     "tier": "standard",
@@ -22,7 +22,7 @@
   },
   "open-video-lora": {
     "label": "OpenVideo + Style LoRA",
-    "endpoint": "wavespeed-ai/open-video/image-to-video-lora",
+    "endpoint": "base/open-video/image-to-video-lora",
     "kind": "video",
     "adult": true,
     "tier": "standard",
@@ -43,7 +43,7 @@
   },
   "mmaudio-v2": {
     "label": "MMAudio v2",
-    "endpoint": "wavespeed-ai/mmaudio-v2",
+    "endpoint": "base/mmaudio-v2",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -64,7 +64,7 @@
   },
   "hunyuan-video-foley": {
     "label": "Hunyuan Video Foley",
-    "endpoint": "wavespeed-ai/hunyuan-video-foley",
+    "endpoint": "base/hunyuan-video-foley",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -83,7 +83,7 @@
   },
   "infinitetalk": {
     "label": "InfiniteTalk HQ",
-    "endpoint": "wavespeed-ai/infinitetalk",
+    "endpoint": "base/infinitetalk",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -106,7 +106,7 @@
   },
   "infinitetalk-multi": {
     "label": "InfiniteTalk Duo",
-    "endpoint": "wavespeed-ai/infinitetalk/multi",
+    "endpoint": "base/infinitetalk/multi",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -129,7 +129,7 @@
   },
   "qwen-image-angles": {
     "label": "Qwen Image \u2022 Multiple Angles",
-    "endpoint": "wavespeed-ai/qwen-image/edit-multiple-angles",
+    "endpoint": "base/qwen-image/edit-multiple-angles",
     "kind": "image",
     "adult": false,
     "tier": "standard",
@@ -148,7 +148,7 @@
   },
   "minimax-h3-edit": {
     "label": "MiniMax H3 \u2022 Image Edit",
-    "endpoint": "wavespeed-ai/minimax-h3/image-edit",
+    "endpoint": "base/minimax-h3/image-edit",
     "kind": "image",
     "adult": false,
     "tier": "standard",
@@ -169,7 +169,7 @@
   },
   "scail-2": {
     "label": "SCAIL 2 \u2022 Character Motion",
-    "endpoint": "wavespeed-ai/scail-2",
+    "endpoint": "base/scail-2",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -193,7 +193,7 @@
   },
   "wan-ditto": {
     "label": "Wan DITTO \u2022 Video Restyle",
-    "endpoint": "wavespeed-ai/wan-2.1/ditto",
+    "endpoint": "base/wan-2.1/ditto",
     "kind": "video",
     "adult": false,
     "tier": "older",
@@ -239,7 +239,7 @@
   },
   "minimax-h3": {
     "label": "MiniMax H3",
-    "endpoint": "wavespeed-ai/minimax-h3/image-to-video",
+    "endpoint": "base/minimax-h3/image-to-video",
     "kind": "video",
     "adult": false,
     "tier": "best",
@@ -312,7 +312,7 @@
   },
   "preset-chroma": {
     "label": "Chroma",
-    "endpoint": "wavespeed-ai/chroma",
+    "endpoint": "base/chroma",
     "kind": "image",
     "adult": true,
     "tier": "standard",
@@ -330,7 +330,7 @@
   },
   "preset-prefect-pony": {
     "label": "Prefect Pony",
-    "endpoint": "wavespeed-ai/prefect-pony-xl",
+    "endpoint": "base/prefect-pony-xl",
     "kind": "image",
     "adult": true,
     "tier": "standard",
@@ -348,7 +348,7 @@
   },
   "preset-neta-lumina": {
     "label": "Neta Lumina",
-    "endpoint": "wavespeed-ai/neta-lumina",
+    "endpoint": "base/neta-lumina",
     "kind": "image",
     "adult": true,
     "tier": "standard",
@@ -366,7 +366,7 @@
   },
   "preset-wan-2.2-spicy": {
     "label": "Wan 2.2 Uncensored",
-    "endpoint": "wavespeed-ai/wan-2.2-spicy/image-to-video",
+    "endpoint": "base/wan-2.2-spicy/image-to-video",
     "kind": "video",
     "adult": true,
     "tier": "older",
@@ -409,7 +409,7 @@
   },
   "preset-wan-2.2-spicy-extend": {
     "label": "Wan 2.2 Uncensored Extend",
-    "endpoint": "wavespeed-ai/wan-2.2-spicy/video-extend",
+    "endpoint": "base/wan-2.2-spicy/video-extend",
     "kind": "video",
     "adult": true,
     "tier": "older",
@@ -430,7 +430,7 @@
   },
   "preset-qwen3-tts": {
     "label": "Qwen3 TTS",
-    "endpoint": "wavespeed-ai/qwen3-tts/text-to-speech",
+    "endpoint": "base/qwen3-tts/text-to-speech",
     "kind": "audio",
     "adult": false,
     "tier": "standard",
@@ -474,7 +474,7 @@
   },
   "longcat-avatar": {
     "label": "LongCat Avatar",
-    "endpoint": "wavespeed-ai/longcat-avatar-1.5",
+    "endpoint": "base/longcat-avatar-1.5",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -496,7 +496,7 @@
   },
   "longcat-avatar-multi": {
     "label": "LongCat Avatar Duo",
-    "endpoint": "wavespeed-ai/longcat-avatar-1.5/multi",
+    "endpoint": "base/longcat-avatar-1.5/multi",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -802,7 +802,7 @@
   },
   "wan-2.2-animate-2": {
     "label": "Wan 2.2 Animate 2",
-    "endpoint": "wavespeed-ai/wan-2.2/animate-2",
+    "endpoint": "base/wan-2.2/animate-2",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -920,7 +920,7 @@
   },
   "flashvsr": {
     "label": "FlashVSR",
-    "endpoint": "wavespeed-ai/flashvsr",
+    "endpoint": "base/flashvsr",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -944,7 +944,7 @@
   },
   "video-upscaler-pro": {
     "label": "Upscaler Pro",
-    "endpoint": "wavespeed-ai/video-upscaler-pro",
+    "endpoint": "base/video-upscaler-pro",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -968,7 +968,7 @@
   },
   "ultimate-video-upscaler": {
     "label": "Ultimate Upscaler",
-    "endpoint": "wavespeed-ai/ultimate-video-upscaler",
+    "endpoint": "base/ultimate-video-upscaler",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -1033,7 +1033,7 @@
   },
   "video-upscaler": {
     "label": "Video Upscaler",
-    "endpoint": "wavespeed-ai/video-upscaler",
+    "endpoint": "base/video-upscaler",
     "kind": "video",
     "adult": false,
     "tier": "standard",
@@ -1057,7 +1057,7 @@
   },
   "z-image": {
     "label": "Z-Image Base",
-    "endpoint": "wavespeed-ai/z-image/base",
+    "endpoint": "base/z-image/base",
     "kind": "image",
     "adult": true,
     "tier": "best",
@@ -1074,7 +1074,7 @@
   },
   "nucleus-image": {
     "label": "Nucleus",
-    "endpoint": "wavespeed-ai/nucleus-image/text-to-image",
+    "endpoint": "base/nucleus-image/text-to-image",
     "kind": "image",
     "adult": true,
     "tier": "standard",
@@ -1092,7 +1092,7 @@
   },
   "jib-mix-qwen": {
     "label": "JibMix Qwen",
-    "endpoint": "wavespeed-ai/jib-mix-qwen-image/text-to-image",
+    "endpoint": "base/jib-mix-qwen-image/text-to-image",
     "kind": "image",
     "adult": true,
     "tier": "standard",
@@ -1109,7 +1109,7 @@
   },
   "wan-2.2-realism": {
     "label": "Wan 2.2 Realism",
-    "endpoint": "wavespeed-ai/wan-2.2/text-to-image-realism",
+    "endpoint": "base/wan-2.2/text-to-image-realism",
     "kind": "image",
     "adult": true,
     "tier": "older",
@@ -1126,7 +1126,7 @@
   },
   "qwen-image-2.1": {
     "label": "Qwen Image 2.1",
-    "endpoint": "wavespeed-ai/qwen-image-2.1/text-to-image",
+    "endpoint": "base/qwen-image-2.1/text-to-image",
     "kind": "image",
     "adult": false,
     "tier": "standard",
@@ -1145,7 +1145,7 @@
   },
   "qwen-image-2.1-edit": {
     "label": "Qwen Image 2.1",
-    "endpoint": "wavespeed-ai/qwen-image-2.1/edit",
+    "endpoint": "base/qwen-image-2.1/edit",
     "kind": "image",
     "adult": false,
     "tier": "best",
@@ -1167,7 +1167,7 @@
   },
   "ltx-2.5-t2v": {
     "label": "LTX 2.5",
-    "endpoint": "wavespeed-ai/ltx-2.5/text-to-video",
+    "endpoint": "base/ltx-2.5/text-to-video",
     "kind": "video",
     "adult": false,
     "tier": "best",
@@ -1187,7 +1187,7 @@
   },
   "ltx-2.5-i2v": {
     "label": "LTX 2.5",
-    "endpoint": "wavespeed-ai/ltx-2.5/image-to-video",
+    "endpoint": "base/ltx-2.5/image-to-video",
     "kind": "video",
     "adult": false,
     "tier": "best",
@@ -1210,7 +1210,7 @@
   },
   "minimax-h3-t2v": {
     "label": "MiniMax H3",
-    "endpoint": "wavespeed-ai/minimax-h3/text-to-video",
+    "endpoint": "base/minimax-h3/text-to-video",
     "kind": "video",
     "adult": false,
     "tier": "best",
@@ -1232,7 +1232,7 @@
   },
   "minimax-h3-ref": {
     "label": "MiniMax H3 \u2022 Reference",
-    "endpoint": "wavespeed-ai/minimax-h3/reference-to-video",
+    "endpoint": "base/minimax-h3/reference-to-video",
     "kind": "video",
     "adult": false,
     "tier": "best",
@@ -1257,7 +1257,7 @@
   },
   "minimax-h3-video-edit": {
     "label": "MiniMax H3 \u2022 Video Edit",
-    "endpoint": "wavespeed-ai/minimax-h3/video-edit",
+    "endpoint": "base/minimax-h3/video-edit",
     "kind": "video",
     "adult": false,
     "tier": "best",

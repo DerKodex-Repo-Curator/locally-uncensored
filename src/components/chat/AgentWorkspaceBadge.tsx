@@ -43,7 +43,7 @@ export function AgentWorkspaceBadge() {
     setLeftInto(null)
   }
 
-  // helpslowlydying, 01.09.2026: der Agent stand in einem riesigen Baum, in dem
+  // Ein Nutzer, 01.09.2026: der Agent stand in einem riesigen Baum, in dem
   // er nichts zu suchen hatte, und es gab KEINEN Weg hinaus. Die Plakette
   // konnte den Ordner wechseln, nicht ihn verlassen; clearWorkspace gab es im
   // Speicher, nur hat es niemand aufgerufen. Jetzt liegt es hier, direkt an der
@@ -76,7 +76,7 @@ export function AgentWorkspaceBadge() {
 
   if (!isActive) return null
 
-  // Discord 28.09.2026 (xambran: alles auf Auto und trotzdem kein Zugriff auf
+  // Discord 28.09.2026 (ein Nutzer: alles auf Auto und trotzdem kein Zugriff auf
   // die eigenen Dateien). Wer den Ordnerdialog wegklickte oder den Ordner mit
   // dem x verliess, arbeitete still in der Sandbox des Chats, und die Plakette
   // verschwand: nichts zeigte, wo der Agent arbeitet, und es gab keinen Klick,
@@ -95,7 +95,7 @@ export function AgentWorkspaceBadge() {
   const Icon = shown.kind === 'folder' ? Folder : Shield
   const tone =
     shown.kind === 'folder'
-      // Picked folder = neutral / no colour (David 2026-06-06). The amber read
+      // Picked folder = neutral / no colour (2026-06-06). The amber read
       // as an alert. Text + Folder icon inherit this gray. Sandbox stays green.
       ? 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10'
       : 'text-emerald-500 border-emerald-500/30'

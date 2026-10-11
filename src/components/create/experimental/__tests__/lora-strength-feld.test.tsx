@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  *
  * The number field beside the LoRA strength slider (Discord 2026-10-02,
- * throwaway050558): exact values, negative ones, and the wide range the slider
+ * A user): exact values, negative ones, and the wide range the slider
  * does not reach. Measured on the rendered control.
  *
  * Run: npx vitest run src/components/create/experimental/__tests__/lora-strength-feld.test.tsx

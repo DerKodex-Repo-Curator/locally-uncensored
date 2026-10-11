@@ -547,6 +547,8 @@ pub fn searxng_status(state: State<'_, AppState>) -> Result<serde_json::Value, S
 ///   - Removes remaining tags
 ///   - Collapses whitespace
 ///   - Caps at ~24 000 chars so we don't blow the context window
+///   - Undoes the packing a server put on the body, and never hands bytes that
+///     are no text to the model (`page_json`)
 #[tauri::command]
 pub async fn web_fetch(url: String) -> Result<serde_json::Value, String> {
     // URL hardening: http(s) only and the host must not be localhost, a
@@ -556,48 +558,79 @@ pub async fn web_fetch(url: String) -> Result<serde_json::Value, String> {
     // substring blocklist missed 172.16/12, IPv6, and decimal/hex/octal IP
     // encodings, and didn't re-check redirects.
     let trimmed = url.trim();
-    crate::commands::proxy::validate_public_url(trimmed)?;
+    // `web_reach` holds the rest: the stricter address list for an address a
+    // model supplied, one lookup per hop with the connection pinned to its
+    // answer (DNS rebinding), redirects followed by hand, and a body that is
+    // read piece by piece up to a hard limit.
+    let page = crate::commands::web_reach::fetch_page(trimmed).await?;
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(20))
-        .redirect(crate::commands::proxy::ssrf_safe_redirect_policy(6))
-        .user_agent("Mozilla/5.0 (compatible; LocallyUncensored-Agent/1.0)")
-        .build()
-        .map_err(|e| e.to_string())?;
+    Ok(page_json(&page.final_url, page.status, &page.content_type, &page.content_encoding, &page.body).await)
+}
 
-    let resp = client
-        .get(trimmed)
-        .header("Accept", "text/html,text/plain,application/xhtml+xml;q=0.9,*/*;q=0.5")
-        .header("Accept-Language", "en,de;q=0.8")
-        .send()
-        .await
-        .map_err(|e| format!("Fetch failed: {}", os_error::english(&e)))?;
-
-    let status = resp.status().as_u16();
-    let final_url = resp.url().to_string();
-    let content_type = resp
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-
-    let raw = resp
-        .text()
-        .await
-        .map_err(|e| format!("Read body failed: {}", e))?;
-
-    let (title, text) = extract_readable_text(&raw, &content_type);
+/// What `web_fetch` answers for one response: the readable text of the page,
+/// or `notText` with one sentence when the body is no text (a PDF, an image,
+/// an archive) or its packing could not be undone. `text` is empty then, so a
+/// reader that does not know `notText` sees an empty body and never bytes.
+///
+/// A server may pack its answer although the request did not ask for it
+/// (python.org does, acceptance on Android with 8 GB, B2). `web_body` undoes
+/// gzip, deflate, brotli and zstd.
+async fn page_json(
+    final_url: &str,
+    status: u16,
+    content_type: &str,
+    content_encoding: &str,
+    raw: &[u8],
+) -> serde_json::Value {
+    use crate::commands::web_body;
+    let refused = |sentence: String| {
+        serde_json::json!({
+            "url": final_url,
+            "status": status,
+            "contentType": content_type,
+            "title": "",
+            "text": "",
+            "truncated": false,
+            "notText": sentence,
+        })
+    };
+    let body = match web_body::unpack(raw, content_encoding) {
+        Ok(body) => body,
+        Err(reason) => return refused(web_body::unpack_failed_sentence(&reason)),
+    };
+    if let Some(kind) = web_body::not_text(content_type, &body) {
+        return refused(web_body::not_text_sentence(&kind));
+    }
+    let decoded = decode_charset(body, content_type).await;
+    let (title, text) = extract_readable_text(&decoded, content_type);
     let capped: String = text.chars().take(24_000).collect();
 
-    Ok(serde_json::json!({
+    serde_json::json!({
         "url": final_url,
         "status": status,
         "contentType": content_type,
         "title": title,
         "text": capped,
         "truncated": text.chars().count() > 24_000,
-    }))
+    })
+}
+
+/// Bytes to text by the charset the `Content-Type` names, UTF-8 without one.
+///
+/// The HTTP client knows every charset a page may declare. It only decodes a
+/// response it holds, so the unpacked bytes are handed back to it as one.
+async fn decode_charset(body: Vec<u8>, content_type: &str) -> String {
+    let mut builder = axum::http::Response::builder();
+    if !content_type.is_empty() {
+        builder = builder.header(reqwest::header::CONTENT_TYPE, content_type);
+    }
+    match builder.body(body.clone()) {
+        Ok(response) => match reqwest::Response::from(response).text().await {
+            Ok(text) => text,
+            Err(_) => String::from_utf8_lossy(&body).into_owned(),
+        },
+        Err(_) => String::from_utf8_lossy(&body).into_owned(),
+    }
 }
 
 /// Convert a raw HTML (or plain) body into readable text + try to grab the
@@ -868,5 +901,98 @@ mod wiki_sprache_tests {
         assert!(sprach_signal_deutsch("Gebührenordnung"));
         assert!(sprach_signal_deutsch("Straßenverkehr"));
         assert!(!sprach_signal_deutsch("transparency law"));
+    }
+}
+
+#[cfg(test)]
+mod page_tests {
+    use super::page_json;
+    use std::io::Write;
+
+    const PAGE: &str = "<!doctype html><html><head><title>Python Release</title><script>var x = 1;</script></head><body><p>Python 3.15.0 is the newest release.</p></body></html>";
+
+    fn gzip(data: &[u8]) -> Vec<u8> {
+        let mut e = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        e.write_all(data).unwrap();
+        e.finish().unwrap()
+    }
+
+    fn zlib(data: &[u8]) -> Vec<u8> {
+        let mut e = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        e.write_all(data).unwrap();
+        e.finish().unwrap()
+    }
+
+    fn br(data: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        {
+            let mut w = brotli::CompressorWriter::new(&mut out, 4096, 5, 22);
+            w.write_all(data).unwrap();
+        }
+        out
+    }
+
+    /// The case of the acceptance run (B2): python.org packs its page with
+    /// gzip although the request never asked for it. One response per coding.
+    #[tokio::test]
+    async fn a_packed_page_is_read_as_the_page_for_every_coding() {
+        let bodies: Vec<(&str, Vec<u8>)> = vec![
+            ("", PAGE.as_bytes().to_vec()),
+            ("gzip", gzip(PAGE.as_bytes())),
+            ("deflate", zlib(PAGE.as_bytes())),
+            ("br", br(PAGE.as_bytes())),
+            ("zstd", zstd::stream::encode_all(PAGE.as_bytes(), 3).unwrap()),
+        ];
+        for (coding, body) in bodies {
+            let v = page_json("https://www.python.org/downloads/release/python-3150/", 200, "text/html; charset=utf-8", coding, &body).await;
+            assert_eq!(v["title"], "Python Release", "{coding}");
+            let text = v["text"].as_str().unwrap();
+            assert!(text.ends_with("Python 3.15.0 is the newest release."), "{coding}: {text}");
+            assert!(!text.contains("var x"), "{coding}: {text}");
+            assert_eq!(v["status"], 200, "{coding}");
+            assert!(v.get("notText").is_none(), "{coding}");
+        }
+    }
+
+    #[tokio::test]
+    async fn bytes_that_are_no_text_come_back_as_one_sentence_and_never_as_text() {
+        let pdf = page_json("https://example.org/a.pdf", 200, "application/pdf", "", b"%PDF-1.7\n\x00\x01\x02").await;
+        assert_eq!(pdf["text"], "");
+        assert!(pdf["notText"].as_str().unwrap().starts_with("This address returned a PDF, not a page of text"));
+
+        // A coding this app cannot undo: a reason, not the packed bytes.
+        let odd = page_json("https://example.org/", 200, "text/html", "compress", &gzip(PAGE.as_bytes())).await;
+        assert_eq!(odd["text"], "");
+        assert!(odd["notText"].as_str().unwrap().contains("\"compress\""));
+
+        // A body that says gzip and is not: the same.
+        let broken = page_json("https://example.org/", 200, "text/html", "gzip", b"\x1f\x8b\x08 nothing useful").await;
+        assert_eq!(broken["text"], "");
+        assert!(broken["notText"].as_str().unwrap().starts_with("This page cannot be read"));
+    }
+
+    /// A zip bomb and a tower of codings both end in one sentence, with no
+    /// text and nothing of the body in the answer.
+    #[tokio::test]
+    async fn a_bomb_and_a_tower_of_codings_come_back_as_one_sentence() {
+        let bomb = gzip(&vec![0u8; crate::commands::web_body::MAX_UNPACKED + 1]);
+        assert!(bomb.len() < 64 * 1024);
+        let v = page_json("https://example.org/", 200, "text/html", "gzip", &bomb).await;
+        assert_eq!(v["text"], "");
+        assert_eq!(v["notText"], "This page cannot be read: it unpacks to more than 8 MB. Use a different address.");
+
+        let tower = page_json("https://example.org/", 200, "text/html", "gzip, gzip, br, gzip, gzip", b"x").await;
+        assert_eq!(tower["text"], "");
+        assert!(tower["notText"].as_str().unwrap().contains("packed 5 times over"));
+    }
+
+    #[tokio::test]
+    async fn the_charset_of_the_header_still_decides_after_unpacking() {
+        let latin1 = b"<html><head><title>Gr\xfc\xdfe</title></head><body><p>K\xf6ln</p></body></html>";
+        let plain = page_json("https://example.org/", 200, "text/html; charset=iso-8859-1", "", latin1).await;
+        assert_eq!(plain["title"], "Gr\u{fc}\u{df}e");
+        let packed = page_json("https://example.org/", 200, "text/html; charset=iso-8859-1", "gzip", &gzip(latin1)).await;
+        assert_eq!(packed["title"], "Gr\u{fc}\u{df}e");
+        assert!(packed["text"].as_str().unwrap().contains("K\u{f6}ln"));
     }
 }

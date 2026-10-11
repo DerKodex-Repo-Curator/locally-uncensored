@@ -2,7 +2,7 @@
  * Where a chat-model (GGUF) download from Models, Discover has to land, and
  * which backend has to load it afterwards.
  *
- * GH #118 (nayffy, 2026-08-27, fresh Windows 11 install, v2.6.6): the answer
+ * GH #118 (2026-08-27, fresh Windows 11 install, v2.6.6): the answer
  * used to be derived from the ACTIVE chat model alone. On a fresh install
  * there is no active chat model yet, so every branch missed and the code fell
  * through to the legacy "whichever backend is enabled" rule. With the shipped
@@ -50,7 +50,7 @@ function providerIdOf(activeChatModel?: string | null): string | null {
  *
  * Rule 1, unchanged: an active chat model on a LOCAL backend decides, because
  * the file has to land where the picker the user is already looking at can see
- * it (Bug Y/a, Aldrich Ironhart, v2.5.0).
+ * it (Bug Y/a, a user, v2.5.0).
  *
  * Rule 2, the #118 fix: with no active local chat model, the app's OWN engine
  * wins whenever its slot is enabled and managed. A GGUF only runs locally, and
@@ -88,7 +88,7 @@ export function resolveTextDownloadTarget(input: TextDownloadTargetInput): TextD
  * The only real blocker is Ollama being switched off. The pull used to also
  * demand an Ollama model already active in the chat picker, and a user with
  * no Ollama model yet could never get one: the picker had nothing of Ollama's
- * to pick, the download wanted one picked (applejames, Discord 2026-09-15 and
+ * to pick, the download wanted one picked (Discord 2026-09-15 and
  * 2026-09-20, "It won't let me download Ollama models unless I have Ollama
  * models installed"). The model can only ever land in Ollama, so there is no
  * wrong backend to protect against, and the picker lists it once it is there.

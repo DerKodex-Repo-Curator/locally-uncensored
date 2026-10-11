@@ -13,7 +13,7 @@
  * the SAME cloud conversation from both firing a real request at once, each
  * into its OWN fresh assistant message. That is exactly the live money bug
  * this house already paid for once with the sister hooks' guard (one prompt,
- * two Enters, `video_generate` four times, David 2026-06-16), just never
+ * two Enters, `video_generate` four times, 2026-06-16), just never
  * closed for plain chat.
  *
  * Run: npx vitest run src/hooks/__tests__/chat-doppelklick-auf-derselben-unterhaltung.test.ts

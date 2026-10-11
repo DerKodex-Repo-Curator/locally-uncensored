@@ -90,7 +90,7 @@ export async function clearAllChunks(): Promise<void> {
 /**
  * Export every chunk in IndexedDB as a `documentId → TextChunk[]` map.
  *
- * Used by the v2.4.9 backup pipeline (Bug V, kj103x 2026-05-23) so RAG
+ * Used by the v2.4.9 backup pipeline (Bug V, a user 2026-05-23) so RAG
  * embeddings survive an NSIS upgrade or WebView2 data wipe. Returns an
  * empty object — not null — when the store is empty so the snapshot file
  * is always well-formed JSON.

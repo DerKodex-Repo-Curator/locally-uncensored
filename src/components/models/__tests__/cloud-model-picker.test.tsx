@@ -2,7 +2,7 @@
 /**
  * The new model picker in Cloud mode, on the real component.
  *
- * 05.10.2026, David's decisions on the approved draft: grouped by family with
+ * 05.10.2026, the owner's decisions on the approved draft: grouped by family with
  * one-line heads, a search on top, chips that narrow the list, a footer with
  * the count, and a keyboard that works from the search field. The row shows
  * the name, the measured mark, vision, thinking and the context window the
@@ -163,7 +163,7 @@ describe('the open picker', () => {
 describe('a row', () => {
   it('carries the measured mark only where it was measured full', () => {
     open()
-    expect(row('Qwen 3.6 27B').querySelector('[data-mark="unfiltered"]')!.textContent).toBe('No refusals')
+    expect(row('Qwen 3.6 27B').querySelector('[data-mark="unfiltered"]')!.textContent).toBe('No Filter')
     expect(row('Qwen3 30B A3B').querySelector('[data-mark="unfiltered"]')).toBeNull()
     expect(row('Llama 4 Scout').querySelector('[data-mark="unfiltered"]')).toBeNull()
   })
@@ -194,6 +194,28 @@ describe('a row', () => {
     open()
     expect(row('MythoMax L2 13B').querySelector('[data-mark="chat-only"]')!.textContent).toBe('Chat only')
     expect(row('Qwen 3.6 27B').querySelector('[data-mark="chat-only"]')).toBeNull()
+  })
+
+  it('writes the quiet note behind the name of a model with little room, and on no other', () => {
+    const models = MODELS.map((m) => (m.name === ACTIVE ? { ...m, limitedCapacity: true } : m))
+    useModelStore.setState({ models, activeModel: ACTIVE, inventoryLoaded: true } as never)
+    render(<ModelSelector openUpward />)
+    fireEvent.click(trigger())
+    const notes = Array.from(menu().querySelectorAll<HTMLElement>('[data-note="limited-capacity"]'))
+    expect(notes).toHaveLength(1)
+    const note = row('Qwen 3.6 27B').querySelector<HTMLElement>('[data-note="limited-capacity"]')!
+    expect(note.textContent).toBe('Limited capacity')
+    // A note, not a mark: none of the tag classes, and it follows the name.
+    expect(note.className).toBe('lu-picker-quiet')
+    expect(note.previousElementSibling === row('Qwen 3.6 27B').querySelector('.lu-picker-name')
+      || note.parentElement!.firstElementChild === row('Qwen 3.6 27B').querySelector('.lu-picker-name')).toBe(true)
+    // The trigger at the chat input does not repeat it.
+    expect(trigger().textContent).not.toMatch(/limited/i)
+    // The style sheet gives it no frame and no fill.
+    const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
+    const rule = css.slice(css.indexOf('.lu-picker-quiet {'), css.indexOf('}', css.indexOf('.lu-picker-quiet {')))
+    expect(rule).toMatch(/color: var\(--pk-t3\)/)
+    expect(rule).not.toMatch(/border|background|accent/)
   })
 
   it('has no credit column and no "No credits" word in the row', () => {
@@ -254,7 +276,7 @@ describe('chips', () => {
     open()
     const all = Array.from(menu().querySelectorAll<HTMLElement>('[data-chip]'))
     expect(all.map((c) => c.getAttribute('data-chip'))).toEqual(['marked', 'vision', 'thinking', 'free'])
-    expect(chip('marked')!.textContent).toBe('No refusals 4')
+    expect(chip('marked')!.textContent).toBe('No Filter 4')
     expect(chip('vision')!.textContent).toBe('Vision 2')
     expect(chip('thinking')!.textContent).toBe('Thinking 7')
     expect(chip('free')!.textContent).toBe('No credits 1')

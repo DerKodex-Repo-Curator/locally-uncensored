@@ -105,7 +105,7 @@ mod delete_message_tests {
 
 /// The write target, held against the engine that has to find the file.
 ///
-/// .__nothing_, Discord help-chat 2026-09-02: FramePack F1 and Wan 2.1 both
+/// Discord help-chat 2026-09-02: FramePack F1 and Wan 2.1 both
 /// downloaded through the Get button and appeared in no picker, and moving the
 /// files into a different ComfyUI folder by hand fixed it. That sentence is
 /// this test: the download went where LU guessed, the picker reads what the
@@ -369,7 +369,7 @@ mod civitai_auth_tests {
 
     #[test]
     fn a_refused_civitai_download_names_the_field_instead_of_a_bare_number() {
-        // goonerforporn, 2026-08-28: the download died on a bare HTTP 400 and
+        // A user, 2026-08-28: the download died on a bare HTTP 400 and
         // the field it was asking for was not in the interface at all.
         for status in [400u16, 401, 403] {
             let msg = download_http_error(
@@ -584,7 +584,7 @@ pub(crate) fn not_ours_to_delete(filename: &str, base: &str, extra_dirs: &[Strin
 }
 
 /// Delete one installed model file from the ComfyUI models tree (the Model
-/// Hub's trash action — cpl.sardinas7489, Discord 2026-07-19: a 27 GB video
+/// Hub's trash action — Discord 2026-07-19: a 27 GB video
 /// model his PC couldn't run had no in-app way back out). The name is the
 /// ComfyUI enum entry; we jail-check it and look for the single file match
 /// across the known model subdirs.
@@ -679,7 +679,7 @@ pub async fn delete_comfy_model(
 /// `folders` is what the RUNNING ComfyUI says about its own model folders
 /// (see commands/comfy_folders.rs). It wins whenever it has an answer, because
 /// the picker is built from that same process: a file written anywhere else is
-/// a file no picker can ever offer (.__nothing_, 2026-09-02: FramePack F1 and
+/// a file no picker can ever offer (2026-09-02: FramePack F1 and
 /// Wan 2.1 downloaded fine and showed up nowhere until he moved them into the
 /// other ComfyUI folder by hand).
 ///
@@ -708,7 +708,7 @@ fn models_dir_in(
     Ok(dir)
 }
 
-/// A ComfyUI on another machine (GH #143, duindain: Ollama and ComfyUI as
+/// A ComfyUI on another machine (GH #143: Ollama and ComfyUI as
 /// services on a LAN box, LU on a Windows PC). Its model folders are on THAT
 /// machine and nothing here can write into them: the folder names it reports
 /// are paths over there, and a ComfyUI install found on this PC is not the one
@@ -1006,7 +1006,7 @@ fn resumed_bytes(resume_offset: u64, status: u16) -> u64 {
     if resume_offset > 0 && status == 206 { resume_offset } else { 0 }
 }
 
-// ── Download speed limit (Discord, boromirofgeo 2026-09-23) ─────────────
+// ── Download speed limit (Discord 2026-09-23) ─────────────
 //
 // "is there a way to limit download speed that this app does whenever it
 // downloads anything?" Every model file LU fetches itself runs through
@@ -1019,17 +1019,26 @@ static DOWNLOAD_LIMIT_BPS: AtomicU64 = AtomicU64::new(0);
 /// When the shared line is free again, across all running downloads.
 static DOWNLOAD_NEXT_SLOT: Mutex<Option<Instant>> = Mutex::new(None);
 
+/// How far the shared line may lie behind the clock and still count. The time
+/// a read took is paid from it, so a line running at the limit arrives at the
+/// limit and a line slower than the limit is not slowed further. It is also
+/// the most a pause can turn into a burst afterwards.
+const THROTTLE_CREDIT: Duration = Duration::from_millis(100);
+
 /// How long the download that just received `bytes` waits before it reads
-/// on, so that everything together stays at `limit_bps`. A line that has been
-/// idle starts from now, so a pause never turns into a burst afterwards.
+/// on, so that everything together stays at `limit_bps`. The line is a
+/// schedule, not a pause after every piece: time already spent reading is
+/// credited, up to `THROTTLE_CREDIT`.
 fn throttle_wait(slot: &mut Option<Instant>, limit_bps: u64, bytes: u64, now: Instant) -> Duration {
     if limit_bps == 0 {
         *slot = None;
         return Duration::ZERO;
     }
+    let floor = now.checked_sub(THROTTLE_CREDIT).unwrap_or(now);
     let start = match *slot {
-        Some(t) if t > now => t,
-        _ => now,
+        Some(t) if t > floor => t,
+        Some(_) => floor,
+        None => now,
     };
     let done = start + Duration::from_secs_f64(bytes as f64 / limit_bps as f64);
     *slot = Some(done);
@@ -1268,7 +1277,7 @@ pub(crate) fn is_huggingface_host(url: &str) -> bool {
 
 /// What the user reads when a download comes back refused.
 ///
-/// goonerforporn, Discord #bug-reports 2026-08-28: CivitAI downloads ended in a
+/// Discord #bug-reports 2026-08-28: CivitAI downloads ended in a
 /// bare `HTTP 400` with nothing to act on, because the API key field had gone
 /// missing from the interface and nobody could tell that a key was the point.
 /// A refusal from CivitAI names the field and the way to it. Everything else
@@ -1329,7 +1338,7 @@ pub(crate) fn download_http_error(url: &str, status: u16, sent_token: bool, file
 
 /// Which credential, if any, rides on this request.
 ///
-/// goonerforporn, Discord #bug-reports 2026-08-28: CivitAI downloads died in
+/// Discord #bug-reports 2026-08-28: CivitAI downloads died in
 /// 400s because they went out anonymous. The key was in the store, read by the
 /// search and by nothing on the download path.
 ///
@@ -1361,7 +1370,7 @@ fn outgoing_token(url: &str, civitai_key: Option<&str>, hf_token: Option<&str>) 
 /// come from public catalogs, and a crafted catalog or model URL must not be
 /// able to reach an internal service or 169.254.169.254 — on the first hop or
 /// on any redirect.
-fn download_client(connect_secs: u64, read_secs: u64) -> Result<reqwest::Client, String> {
+pub(crate) fn download_client(connect_secs: u64, read_secs: u64) -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent("LocallyUncensored/1.5")
         .redirect(crate::commands::proxy::ssrf_safe_redirect_policy(10))
@@ -1473,7 +1482,7 @@ async fn do_download(
     // A deadline on the whole request punishes people for having a slow line
     // rather than a broken one: the 2 hour cap this replaces killed any
     // download that legitimately took longer, and the catalog offers single
-    // files of 40 GB and sets of 155 GB. bob80817-dev, Discord 2026-07-29,
+    // files of 40 GB and sets of 155 GB. Discord 2026-07-29,
     // after giving up: "all of your downloads have a habit of timing out".
     // What we actually want to catch is a stalled transfer, so the limits are
     // per-connect and per-read. A dead socket now fails in two minutes and
@@ -1771,7 +1780,7 @@ pub fn cancel_download(id: String, state: State<'_, AppState>) -> Result<serde_j
     // If paused or errored (no active token), clean up directly. Errored
     // entries otherwise live in the map forever and resurrect the bundle
     // card's error state on every Models-tab remount after the user hit
-    // Clear (the_mr_pickles) — refresh() re-reads this map on mount.
+    // Clear — refresh() re-reads this map on mount.
     // Take the recorded destination out with the entry: guessing five
     // subfolders missed every other one (controlnet, upscale_models, clip_vision)
     // and every download_model_to_path target outside the ComfyUI tree, so those
@@ -1806,12 +1815,98 @@ pub fn cancel_download(id: String, state: State<'_, AppState>) -> Result<serde_j
     Ok(serde_json::json!({"status": "cancelled"}))
 }
 
+/// Which file goes when the download of a model is cancelled after its image
+/// part already finished: the part, and only the part.
+///
+/// A model with image input is two files and one download. The part is the
+/// small one, so it is usually complete long before the model is, and a cancel
+/// that only stopped the model left a file of several hundred megabytes behind
+/// that belongs to nothing and that no list in the app shows.
+///
+/// Three things have to hold, or nothing is deleted: the name is one this app
+/// gives an image part (`<model>.mmproj.gguf`, no path in it), the file lies
+/// directly in `dir`, and the model it belongs to is NOT there. The last one is
+/// what keeps this from ever taking the part of an installed model.
+pub(crate) fn image_part_to_remove(dir: &Path, filename: &str) -> Result<Option<PathBuf>, String> {
+    let lower = filename.to_ascii_lowercase();
+    if sanitize_filename(filename) != filename || !lower.ends_with(".mmproj.gguf") {
+        return Err("Only the image part of a model can be removed here.".to_string());
+    }
+    let part = dir.join(filename);
+    if !part.is_file() {
+        return Ok(None);
+    }
+    let stem = &filename[..filename.len() - ".mmproj.gguf".len()];
+    let model_is_there = std::fs::read_dir(dir)
+        .map_err(|e| format!("Could not read the model folder: {}", os_error::english(&e)))?
+        .flatten()
+        .filter_map(|e| e.file_name().into_string().ok())
+        .any(|name| name.eq_ignore_ascii_case(&format!("{stem}.gguf")));
+    if model_is_there {
+        return Err("The model this image part belongs to is installed, so the part stays.".to_string());
+    }
+    Ok(Some(part))
+}
+
+/// Remove the finished image part of a model whose download was cancelled.
+/// See `image_part_to_remove` for what it refuses.
+#[tauri::command]
+#[allow(non_snake_case)]
+pub fn remove_image_part(destDir: String, filename: String) -> Result<serde_json::Value, String> {
+    match image_part_to_remove(Path::new(&destDir), &filename)? {
+        Some(part) => {
+            std::fs::remove_file(&part)
+                .map_err(|e| format!("Could not delete {}: {}", part.display(), os_error::english(&e)))?;
+            Ok(serde_json::json!({ "removed": true }))
+        }
+        None => Ok(serde_json::json!({ "removed": false })),
+    }
+}
+
+#[cfg(test)]
+mod image_part_removal_tests {
+    use super::image_part_to_remove;
+
+    #[test]
+    fn the_finished_part_of_a_cancelled_model_goes_and_nothing_else_does() {
+        let dir = tempfile::tempdir().unwrap();
+        let part = dir.path().join("Qwen3.5-9B-abliterated.Q4_K_M.mmproj.gguf");
+        std::fs::write(&part, b"part").unwrap();
+        // The model was cancelled: its partial is gone, the model never landed.
+        assert_eq!(
+            image_part_to_remove(dir.path(), "Qwen3.5-9B-abliterated.Q4_K_M.mmproj.gguf").unwrap(),
+            Some(part)
+        );
+        // Nothing there is not an error, there is simply nothing to remove.
+        assert_eq!(image_part_to_remove(dir.path(), "other.mmproj.gguf").unwrap(), None);
+    }
+
+    #[test]
+    fn the_part_of_an_installed_model_is_never_taken() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("m.Q4_K_M.gguf"), b"model").unwrap();
+        std::fs::write(dir.path().join("m.Q4_K_M.mmproj.gguf"), b"part").unwrap();
+        let refused = image_part_to_remove(dir.path(), "m.Q4_K_M.mmproj.gguf").unwrap_err();
+        assert!(refused.contains("installed"), "{refused}");
+        assert!(dir.path().join("m.Q4_K_M.mmproj.gguf").is_file());
+    }
+
+    #[test]
+    fn a_model_or_a_path_is_refused_by_name() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("m.gguf"), b"model").unwrap();
+        for name in ["m.gguf", "../m.mmproj.gguf", "sub/m.mmproj.gguf", "mmproj-F16.gguf"] {
+            assert!(image_part_to_remove(dir.path(), name).is_err(), "{name}");
+        }
+    }
+}
+
 /// Take a SETTLED entry out of the progress map and leave the disk alone.
 ///
 /// The counterpart to `cancel_download`. The frontend has to clear the Rust
 /// entry before a retry, or `download_model` short-circuits on the file that is
 /// already there, never touches the map, and the next poll resurrects the error
-/// row the user just retried (the_mr_pickles). Doing that through cancel meant
+/// row the user just retried. Doing that through cancel meant
 /// paying for the bookkeeping with the partial file — several gigabytes for a
 /// map key.
 ///
@@ -2289,7 +2384,7 @@ pub fn detect_model_path(provider: String) -> Result<serde_json::Value, String> 
     //
     // The previous `~/locally-uncensored/models` fallback was unreachable
     // by any backend and produced the "downloaded but invisible" bug
-    // (Discord drdeath9669, kmmorr23, GH disc #35). We remove it: if a
+    // (Discord, GH disc #35). We remove it: if a
     // user picked a backend with no conventional dir, return an explicit
     // error so the UI can show a real message instead of silently writing
     // into a junk folder.
@@ -2375,9 +2470,15 @@ pub async fn download_model_to_path(
     filename: String,
     expectedBytes: Option<u64>,
     expectedSha256: Option<String>,
+    // The CivitAI API key, when the caller has one: a LoRA from the CivitAI
+    // search into the Mac's LoRA folder. Sent ONLY to a CivitAI host (see
+    // do_download). Absent for the text-model lane, which is every other
+    // caller.
+    authToken: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
     let dest_dir = destDir;
+    let auth_token = authToken;
     let expected_bytes = expectedBytes;
     let expected_sha256 = match expectedSha256.as_deref() {
         Some(s) => Some(normalize_sha256(s)?),
@@ -2445,10 +2546,11 @@ pub async fn download_model_to_path(
     let filename_clone = filename.clone();
 
     tokio::spawn(async move {
-        // No auth token here: download_model_to_path serves the text-model
-        // lane (HuggingFace GGUFs into the app models dir), never CivitAI.
+        // The token is there only for a CivitAI LoRA on the Mac. The
+        // text-model lane (HuggingFace GGUFs into the app models dir) sends
+        // none, and do_download hands one to a CivitAI host alone.
         match do_download(&url, &dest_file, &downloads_arc, &id_clone, token, resume_offset,
-                        CatalogClaims { expected_bytes, expected_sha256, auth_token: None }).await {
+                        CatalogClaims { expected_bytes, expected_sha256, auth_token }).await {
             Ok(_) => {
                 if let Ok(mut dl) = downloads_arc.lock() {
                     if let Some(p) = dl.get_mut(&id_clone) {
@@ -2643,14 +2745,53 @@ mod tests {
         assert_eq!(throttle_wait(&mut slot, 1_000_000, 1_000_000, now), Duration::from_secs(1));
         // A second download in the same instant queues behind the first.
         assert_eq!(throttle_wait(&mut slot, 1_000_000, 500_000, now), Duration::from_millis(1500));
-        // After an idle stretch the line starts from now, without a burst.
+        // After an idle stretch the line owes at most the credit, never the
+        // whole pause.
         let later = now + Duration::from_secs(10);
-        assert_eq!(throttle_wait(&mut slot, 1_000_000, 250_000, later), Duration::from_millis(250));
+        assert_eq!(throttle_wait(&mut slot, 1_000_000, 250_000, later), Duration::from_millis(150));
         // 0 means no limit and clears the queue.
         assert_eq!(throttle_wait(&mut slot, 0, 1_000_000, later), Duration::ZERO);
         assert_eq!(slot, None);
         assert!(set_download_limit(-1.0).is_err());
         assert!(set_download_limit(f64::NAN).is_err());
+    }
+
+    /// A read takes time. That time counts toward the limit instead of being
+    /// added on top of it, or a 1 MB/s limit delivers well under 1 MB/s.
+    #[test]
+    fn the_time_a_read_took_is_paid_from_the_limit() {
+        let limit = 1_000_000;
+        let piece = 8 * 1024u64;
+        let read = Duration::from_millis(3);
+        let begin = Instant::now();
+        let mut now = begin;
+        let mut slot = None;
+        let pieces = 2_000u64;
+        for _ in 0..pieces {
+            now += read;
+            now += throttle_wait(&mut slot, limit, piece, now);
+        }
+        let rate = (pieces * piece) as f64 / (now - begin).as_secs_f64();
+        assert!(rate > 0.98 * limit as f64 && rate <= 1.01 * limit as f64, "rate {rate}");
+    }
+
+    /// A line that is slower than the limit is never made to wait.
+    #[test]
+    fn a_line_below_the_limit_is_not_slowed_further() {
+        let limit = 1_000_000;
+        let piece = 8 * 1024u64;
+        // 8 KiB every 10 ms is about 0.8 MB/s.
+        let read = Duration::from_millis(10);
+        let mut now = Instant::now();
+        let mut slot = None;
+        let mut waited = Duration::ZERO;
+        for i in 0..2_000 {
+            now += read;
+            let w = throttle_wait(&mut slot, limit, piece, now);
+            if i > 0 { waited += w; }
+            now += w;
+        }
+        assert_eq!(waited, Duration::ZERO);
     }
 
     use super::*;

@@ -37,8 +37,10 @@ describe('the chat anchor while an approval waits', () => {
     expect(anchor()).not.toContain('Working')
   })
 
-  it('without a pending approval it still reads Working', () => {
+  it('without a pending approval it names what the run is doing instead', () => {
+    // The answer is still empty, so the run is at its start.
     render(createElement(MessageList, { isGenerating: true, isThisChatGenerating: true, pendingApprovalId: null }))
-    expect(anchor()).toContain('Working')
+    expect(anchor()).toContain('Starting')
+    expect(anchor()).not.toContain('Waiting for your approval')
   })
 })

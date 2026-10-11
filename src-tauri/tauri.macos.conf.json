@@ -16,5 +16,10 @@
         "dragDropEnabled": false
       }
     ]
+  },
+  "bundle": {
+    "macOS": {
+      "minimumSystemVersion": "14.0"
+    }
   }
 }

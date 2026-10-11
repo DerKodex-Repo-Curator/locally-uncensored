@@ -1,6 +1,6 @@
 //! The user's own model folder, handed to ComfyUI.
 //!
-//! GH #122 (zrmdsxa) plus the Discord thread "Read me first" (ever.noob):
+//! GH #122 plus the Discord thread "Read me first":
 //! the folder under Settings → Model Storage was a download target and nothing
 //! more. Chat GGUFs in it are read by `engine::scan_gguf_roots` now, but a
 //! `.safetensors` is a different problem: LU never scans image or video models

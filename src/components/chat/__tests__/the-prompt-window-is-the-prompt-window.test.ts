@@ -4,7 +4,7 @@
  *   "Im Promptfenster darf nichts von Plaenen zu sehen sein.
  *    Das Promptfenster ist das Promptfenster."
  *
- * David has asked for this five times. Every previous round fixed ONE surface
+ * The owner has asked for this five times. Every previous round fixed ONE surface
  * and the plan reappeared on the next one: G8-1 took the plan bar and the plan
  * progress out of the Agent transcript, 2.6.6 C2 moved the plan out of the Code
  * composer into the right-hand panel, and the Chat and Agent composer, plus the
@@ -14,7 +14,7 @@
  * surface may import or render anything that shows a plan, checked over the
  * whole component tree the composer is built from, not just the top level. A
  * colleague who puts a plan back at the prompt box in six weeks gets this test
- * red with David's sentence in the failure message.
+ * red with the owner's sentence in the failure message.
  *
  * Three surfaces, two files: ChatView is both Chat and Agent (Agent is a toggle
  * inside the LU tab, not a view of its own), CodexView is Code. ChatInput is
@@ -37,7 +37,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const COMPONENTS = resolve(here, '../..')
 const CHAT = resolve(here, '..')
 
-const DAVIDS_RULE =
+const THE_RULE =
   'Im Promptfenster darf nichts von Plaenen zu sehen sein. Das Promptfenster ist das Promptfenster.'
 
 const WHERE_IT_BELONGS =
@@ -165,7 +165,7 @@ describe('no composer on any surface shows a plan', () => {
       // Sanity: the extraction has to have found something, or this test would
       // pass by reading nothing at all. `composerModel` is the anchor now, not
       // `composerAbove`: on 21.09.2026 the prompt box was emptied out for real
-      // (David: „NICHTS im prompt fenster!"). The Code surface hands it
+      // (the owner: „NICHTS im prompt fenster!"). The Code surface hands it
       // nothing at all any more, and Chat hands it one money line. The picker
       // is what every surface still puts INTO the box, so it is the thing
       // whose absence would make this claim vacuous.
@@ -175,7 +175,7 @@ describe('no composer on any surface shows a plan', () => {
       const failures = scanTree(roots)
       expect(
         failures,
-        `${failures.join('; ')}. ${DAVIDS_RULE} ${WHERE_IT_BELONGS}`,
+        `${failures.join('; ')}. ${THE_RULE} ${WHERE_IT_BELONGS}`,
       ).toEqual([])
     })
   }
@@ -184,7 +184,7 @@ describe('no composer on any surface shows a plan', () => {
     const failures = scanTree([
       { label: 'ChatInput.tsx', src: readFileSync(resolve(CHAT, 'ChatInput.tsx'), 'utf8') },
     ])
-    expect(failures, `${failures.join('; ')}. ${DAVIDS_RULE} ${WHERE_IT_BELONGS}`).toEqual([])
+    expect(failures, `${failures.join('; ')}. ${THE_RULE} ${WHERE_IT_BELONGS}`).toEqual([])
   })
 })
 
@@ -216,7 +216,7 @@ describe('and nothing sits immediately at the prompt box either', () => {
 })
 
 describe('the Code panel keeps the plan at the bottom', () => {
-  // David, 2026-08-22: the plan sitting at the TOP of the column made no sense
+  // 2026-08-22: the plan sitting at the TOP of the column made no sense
   // to him. Files first, plan as the footer of the column.
   const src = readFileSync(resolve(CHAT, 'ExplorerPanel.tsx'), 'utf8')
   const tree = src.indexOf('{rows.map((row) => {')

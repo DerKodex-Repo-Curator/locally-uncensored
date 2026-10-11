@@ -25,7 +25,7 @@ const SUPABASE_URL: &str = "https://gewbdlmziumhseftxgrr.supabase.co";
 /// Public-safe anon ("publishable") key.
 /// Source: Supabase Dashboard → Project Settings → API → Project API keys →
 /// `anon` `public` (same value as `NEXT_PUBLIC_SUPABASE_ANON_KEY` in
-/// `apps/web/.env.local`). Safe to embed — RLS is insert-only.
+/// the web app). Safe to embed — RLS is insert-only.
 ///
 /// This is the anon key (JWT `role:anon`) — NOT the service-role key. It can
 /// only INSERT into `waitlist` under the insert-only RLS policy, never read.

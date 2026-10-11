@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 3.0.5, applejames on Discord: the clip takes any file, not only images.
+ * 3.0.5, a user on Discord: the clip takes any file, not only images.
  *
  * What the composer owes the user: the file shows up as a chip like the image
  * previews do (name, the type read from its bytes, its size), it can be taken

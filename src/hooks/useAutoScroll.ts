@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 /**
  * Keep a chat list pinned to its bottom edge while the user is following.
  *
- * G33 (David 2026-08-07): on send the list jumped down "but never all the
+ * G33 (2026-08-07): on send the list jumped down "but never all the
  * way". Two mechanisms, both height that appears BELOW the fold without the
  * `dependency` string changing: the Working anchor mounts on a prop flip
  * (isGenerating), and a reasoning model streams into a thinking BLOCK while

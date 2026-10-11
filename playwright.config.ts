@@ -38,6 +38,10 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // WebKit is the engine of the macOS app (WKWebView). Only the voice
+    // session runs on it: its audio path is the part of the app where the two
+    // engines really differ. `npx playwright test --project=webkit`.
+    { name: 'webkit', testMatch: /voice-(session|cold-start|thinking)-live\.spec\.ts/, use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
     command: ownPort ? `npx vite --port ${port} --strictPort` : 'npm run dev',

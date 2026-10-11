@@ -152,7 +152,7 @@ export function missingImagesNote(missing: number | undefined): string {
   return ` ${missing} image${missing === 1 ? ' was' : 's were'} no longer on this computer and could not be included.`
 }
 
-// ── Bulk backup (konata 2026-06-28: the web build has no store_backup.json,
+// ── Bulk backup (a user 2026-06-28: the web build has no store_backup.json,
 // so a tunnel/origin change loses chats). Export ALL conversations to one JSON
 // file the user can re-import into any LU (web or desktop). ─────────────────
 

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * 3.0.5, applejames on Discord: attach any file in the chat. A model cannot
+ * 3.0.5, a user on Discord: attach any file in the chat. A model cannot
  * read bytes, so what has to arrive in the request is the description of the
  * file, and what has to be kept in the chat is that description and nothing
  * of the file itself.

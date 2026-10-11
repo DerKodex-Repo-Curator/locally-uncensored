@@ -4,6 +4,7 @@
 // budget, so cloud models appear in the chat picker without any manual
 // provider setup.
 
+import { clearCreateChatRelease, noteCreateChatRelease } from '../lib/create/chat-release'
 import { useCallback, useEffect, useRef } from 'react'
 import { supabaseCloud } from '../api/cloud/supabase'
 import { CloudJobError } from '../api/cloud/client'
@@ -47,11 +48,15 @@ async function probeAccount(): Promise<void> {
     const me = await withTimeout(getMe())
     if (stale()) return
     if (!me.user) {
+      clearCreateChatRelease()
       store.setSignedOut()
       syncChatProvider()
       syncAppMode()
       return
     }
+    // The same answer says whether Create in chat is released for this
+    // account: one probe, two facts (lib/create/chat-release.ts).
+    noteCreateChatRelease(me)
     const licenseActive = me.license?.status === 'active'
     // Server-driven access gate (beta is fully open — servers send true for
     // every licensed account): absent on older servers = allowed.
@@ -86,6 +91,7 @@ async function probeAccount(): Promise<void> {
     // UI never hangs in 'probing'.
     const authFailure = err instanceof CloudJobError && (err.status === 401 || err.status === 403)
     if (authFailure || useCloudAuthStore.getState().status === 'probing') {
+      clearCreateChatRelease()
       store.setSignedOut()
       syncChatProvider()
       syncAppMode()
@@ -167,6 +173,7 @@ export async function signOutAccount(): Promise<void> {
   // Nutzer soll den Zustand "abgemeldet, nichts laeuft mehr" nie fuer einen
   // Moment vorgespielt bekommen, waehrend im Hintergrund noch gerechnet wird.
   stopAllBackgroundWork()
+  clearCreateChatRelease()
   useCloudAuthStore.getState().setSignedOut()
   syncChatProvider()
   syncAppMode()

@@ -49,7 +49,7 @@ use super::git::{windows_git_install_hint, windows_git_probe, WindowsGitState};
 #[cfg(target_os = "windows")]
 use super::CREATE_NO_WINDOW;
 
-/// GH #98 (joelnewswanger, 2026-08-14): ComfyUI installed once, then died at
+/// GH #98 (2026-08-14): ComfyUI installed once, then died at
 /// import time on every start. His torch lived in the SHARED system Python's
 /// site-packages, where anything the user ever pip-installed can break us,
 /// and clicking install again changed nothing because pip saw every package

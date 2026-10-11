@@ -93,7 +93,7 @@ export interface WakeDecision {
  *    zurueck, und das ist ein voller Agentenzug in die Wolke, eine Sekunde
  *    nach Stop, ohne dass jemand etwas geschrieben haette. Gemessen in der
  *    Gegenprobe: ein Modellaufruf bis zum Stop, zweihundert danach. Genau der
- *    Fehler, den helpslowlydying am 03.09.2026 gemeldet hat.
+ *    Fehler, den ein Nutzer am 03.09.2026 gemeldet hat.
  *
  *    Der Merker in `lib/run-stop.ts` ist absichtlich klebrig bis zur naechsten
  *    echten Anweisung. Genau das wird hier gebraucht: nach Stop schweigt das

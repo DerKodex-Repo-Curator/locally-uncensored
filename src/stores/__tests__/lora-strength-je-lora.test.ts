@@ -1,6 +1,6 @@
 /**
  * The stack keeps one strength per LoRA, from -10 to 10, and remembers it
- * while the LoRA is off (Discord 2026-10-02, throwaway050558).
+ * while the LoRA is off (Discord 2026-10-02).
  *
  * Run: npx vitest run src/stores/__tests__/lora-strength-je-lora.test.ts
  */

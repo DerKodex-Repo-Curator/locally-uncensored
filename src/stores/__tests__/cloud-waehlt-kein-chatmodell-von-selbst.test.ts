@@ -1,5 +1,5 @@
 /**
- * In Cloud mode the app never picks a chat model by itself (David, 2026-10-05).
+ * In Cloud mode the app never picks a chat model by itself (2026-10-05).
  *
  * Measured that day (lu-305/mail/TEST-VERWEIGERUNG-2026-10-05.md): a new
  * account got the head of the hosted catalogue, Llama 3.1 8B Turbo, without

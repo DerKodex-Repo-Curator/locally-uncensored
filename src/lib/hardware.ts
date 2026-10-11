@@ -21,11 +21,17 @@ interface DetectedGpu {
   source: string;
   /** `gcnArchName` from the HIP SDK ("gfx1201"), when a tool named it. */
   arch?: string | null;
+  /**
+   * The whole installed memory of a Mac in MiB, on its Apple entry only. A
+   * Mac has one pool that processor and graphics share; `memory_mib` stays
+   * null there on purpose, because it is read as a card. Null on PC cards.
+   */
+  shared_memory_mib?: number | null;
 }
 
 /**
  * Pure threshold for "is image generation worth surfacing on this machine?".
- * David 2026-06-06: show the image-tool noti only when there is ≥12 GB VRAM
+ * 2026-06-06: show the image-tool noti only when there is ≥12 GB VRAM
  * OR ≥16 GB system RAM — otherwise no noti.
  */
 export function meetsImageGenThreshold(maxVramGb: number, totalRamGb: number): boolean {
@@ -54,6 +60,28 @@ export async function getTotalRamGb(): Promise<number> {
   }
 }
 
+/**
+ * The one memory pool of a Mac in GB (0 if unknown).
+ *
+ * First source is the Apple entry of `detect_gpus` (`shared_memory_mib`, the
+ * hardware probe's own word for it). `system_info` is the fallback: on a Mac
+ * its total RAM is the same pool, and it also answers on a build whose probe
+ * does not carry the field yet. Only meaningful on a Mac; a PC has no Apple
+ * entry and would get its RAM back, which is not what its card can hold.
+ */
+export async function getSharedMemoryGb(): Promise<number> {
+  try {
+    const gpus = await backendCall<DetectedGpu[]>("detect_gpus");
+    const mib = (Array.isArray(gpus) ? gpus : [])
+      .map((g) => (typeof g.shared_memory_mib === "number" ? g.shared_memory_mib : 0))
+      .reduce((max, m) => Math.max(max, m), 0);
+    if (mib > 0) return mib / 1024;
+  } catch {
+    /* fall through to system_info */
+  }
+  return getTotalRamGb();
+}
+
 /** True when the machine clears the image-gen hardware bar (VRAM≥12 OR RAM≥16). */
 export async function isImageGenCapable(): Promise<boolean> {
   const [vram, ram] = await Promise.all([getMaxVramGb(), getTotalRamGb()]);
@@ -71,7 +99,7 @@ let cachedAmdArch: string | null | undefined = undefined;
  * Read, never derived: the mapping from a marketing name ("RX 9070 XT") to a
  * gfx target is AMD's to publish, and a table of it in here would be wrong the
  * day a new card ships. Used to make the hipErrorInvalidValue message name the
- * architecture the user has to match (A12, artoriuskurokami, RDNA4).
+ * architecture the user has to match (A12, a user, RDNA4).
  *
  * Cached because it cannot change while the app runs, and fail-soft because a
  * message that says a little less is better than an error path that throws.

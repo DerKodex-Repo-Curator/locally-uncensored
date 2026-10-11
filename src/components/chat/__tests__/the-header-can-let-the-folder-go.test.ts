@@ -50,7 +50,7 @@ const { useChatStore } = await import('../../../stores/chatStore')
 const { useUIStore } = await import('../../../stores/uiStore')
 const { DEFAULT_SETTINGS } = await import('../../../lib/constants')
 
-const WINDOWS_PATH = 'C:\\Users\\dielitakira\\Documents\\huge-tree'
+const WINDOWS_PATH = 'C:\\Users\\alice\\Documents\\huge-tree'
 
 // The git probe on mount resolves after the first paint, so every render is
 // awaited: without it React logs an act() warning for a state update this file
@@ -109,12 +109,12 @@ describe('the header shows the folder, so it also gives it back', () => {
   it('and names the workspace that really wins, not a sandbox it will never use', async () => {
     // review S4, the header half.
     useSettingsStore.setState({
-      settings: { ...DEFAULT_SETTINGS, defaultWorkspace: { kind: 'folder', path: '/home/dave/default' } },
+      settings: { ...DEFAULT_SETTINGS, defaultWorkspace: { kind: 'folder', path: '/home/alex/default' } },
     })
     act(() => useCodexStore.getState().setWorkingDirectory(WINDOWS_PATH))
     const { container } = await show()
     fireEvent.click(removeButton()!)
-    expect(container.textContent).toContain('/home/dave/default')
+    expect(container.textContent).toContain('/home/alex/default')
     expect(container.textContent).not.toContain('~/agent-workspace')
   })
 

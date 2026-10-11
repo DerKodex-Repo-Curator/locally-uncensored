@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { usePopoverPlatz } from '../../hooks/usePopoverPlatz'
 import { useDismissOnEscape } from '../../hooks/useDismissOnEscape'
-import { Plug, ChevronDown, Bone, User, Users, Wrench } from 'lucide-react'
+import { Plug, ChevronDown, Bone, User, Users, Wrench, Sparkles } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useModelStore } from '../../stores/modelStore'
@@ -10,6 +10,12 @@ import { GROUP_CHAT_MAX, isGroupChat, groupChatCandidates } from '../../lib/grou
 import type { CavemanMode } from '../../types/settings'
 import { displayModelName } from '../../api/providers/registry'
 import { HINWEIS_TEXT } from '../../lib/hinweis'
+import { BetaMark } from '../ui/BetaMark'
+import { createChatLive, createInChatOf, createSupport, servedWindowOf } from '../../lib/create/chat-switch'
+import { useCreateChatReleased } from '../../lib/create/chat-release'
+
+/** The line next to the greyed Create switch in a group chat. */
+export const CREATE_GROUP_REASON = 'Not available in a group chat.'
 
 const CAVEMAN_MODES: { value: CavemanMode; label: string; desc: string }[] = [
   { value: 'off', label: 'Off', desc: 'Normal responses' },
@@ -21,7 +27,7 @@ const CAVEMAN_MODES: { value: CavemanMode; label: string; desc: string }[] = [
 // `openUpward` opens the panel above the trigger — used when Plugins sits in
 // the composer action bar (bottom of the screen) instead of the top toolbar.
 //
-// `iconOnly` is the Code header form (David, 2026-08-22: "das promptfenster ist
+// `iconOnly` is the Code header form (2026-08-22: "das promptfenster ist
 // ueberfuellt"). Same dropdown, same behaviour, but the trigger is a bare icon
 // with the name in the tooltip, so it costs one constant-width slot in the
 // toolbar and nothing in the composer. The active-plugin signal moves from the
@@ -53,6 +59,21 @@ export function PluginsDropdown({
   // switch says, so show it off and disabled rather than on and broken.
   const { canUseTools, reason } = useToolSupport()
   const chatToolsEnabled = chatToolsEnabledSetting && canUseTools
+  // Create in chat: its own switch, global, remembered, off by default. Only
+  // in Cloud mode, and only for an account the server has released; without
+  // both this menu is the one that shipped before. A model the server does
+  // not release for it, or whose window does not carry the tools, shows the
+  // switch off and greyed, with the reason.
+  const cloudMode = useSettingsStore((s) => s.settings.appMode === 'cloud')
+  const createReleased = useCreateChatReleased()
+  const createSetting = useSettingsStore((s) => s.settings.createEnabled === true)
+  const activeChatModel = useModelStore((s) => s.activeModel)
+  const servedWindow = useModelStore((s) => servedWindowOf(s.activeModel, s.models))
+  const modelReleased = useModelStore((s) => createInChatOf(s.activeModel, s.models))
+  const modelRows = useModelStore((s) => s.models)
+  // The Code header carries this menu too (`iconOnly`); the coding agent has
+  // no orders, so the switch is not offered there.
+  const createBase = createSupport(activeChatModel, createChatLive(cloudMode, createReleased) && !iconOnly, servedWindow, modelReleased, modelRows)
 
   // Per-chat persona enable/disable (mirrors mobile). Defaults to true
   // for legacy chats where the flag is absent. The toggle in the
@@ -67,10 +88,10 @@ export function PluginsDropdown({
   // Default OFF: persona only counts as "active on this chat" when the
   // user has explicitly flipped it on via the toggle below. Undefined or
   // missing flag → OFF. Fixes the "Devil's Advocate hijacks every new
-  // chat" bug David flagged.
+  // chat" bug the owner flagged.
   const personaEnabledOnChat = activeConv?.personaEnabled === true
 
-  // Group chat v1 (Nurse KillJoy): the selection lives on the conversation,
+  // Group chat v1 (a user): the selection lives on the conversation,
   // exactly like the persona flag, so every chat keeps its own line-up.
   const setGroupModels = useChatStore((s) => s.setGroupModels)
   const setGroupPersona = useChatStore((s) => s.setGroupPersona)
@@ -78,12 +99,18 @@ export function PluginsDropdown({
   const models = useModelStore((s) => s.models)
   const groupModels = activeConv?.groupModels ?? []
   const isGroupActive = isGroupChat(activeConv?.groupModels)
+  // A group round is a conversation between models and never carries the
+  // Create tools (hooks/useChat.ts).
+  const create = createBase.shown && isGroupActive
+    ? { shown: true, available: false, reason: CREATE_GROUP_REASON }
+    : createBase
+  const createOn = create.available && createSetting
 
   const isCavemanActive = cavemanMode && cavemanMode !== 'off'
   const isPersonaActive = activePersona && activePersona.id !== 'unrestricted' && personaEnabledOnChat
   const currentCaveman = CAVEMAN_MODES.find((m) => m.value === (cavemanMode || 'off'))
 
-  const anyPluginActive = !!(isCavemanActive || isPersonaActive || chatToolsEnabled || isGroupActive)
+  const anyPluginActive = !!(isCavemanActive || isPersonaActive || chatToolsEnabled || isGroupActive || createOn)
 
   return (
     <div className="relative">
@@ -118,6 +145,7 @@ export function PluginsDropdown({
           {anyPluginActive && (
             <div className="flex gap-0.5">
               {chatToolsEnabled && <div className="w-1 h-1 rounded-full bg-blue-400" />}
+              {createOn && <div data-testid="plugins-dot-create" className="w-1 h-1 rounded-full bg-lu-accent" />}
               {/* Rosa, nicht mehr Bernstein: die vier Punkte sind Kategorien,
                   keine Zustaende, und Gelb hat hier nie eine Warnung gemeint.
                   Blau, Gruen und Violett waren schon vergeben, Rot gehoert
@@ -167,6 +195,45 @@ export function PluginsDropdown({
                 <div className={`pb-1.5 text-[0.5rem] leading-snug ${HINWEIS_TEXT.ruhig}`}>
                   {reason}
                 </div>
+              )}
+
+              {/* ── Create toggle ───────────────────────────── */}
+              {create.shown && (
+                <>
+                  <div className="w-full flex items-center justify-between py-1.5 gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Sparkles size={10} className={`shrink-0 ${createOn ? 'text-lu-accent' : 'text-gray-400'}`} />
+                      <span className="shrink-0 t-micro font-medium text-gray-600 dark:text-gray-300">Create</span>
+                      <BetaMark feature="create-in-chat" />
+                      <span className="t-micro text-gray-400 truncate">image · video · music · voice</span>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); if (create.available) updateSettings({ createEnabled: !createSetting }) }}
+                      disabled={!create.available}
+                      aria-pressed={createOn}
+                      aria-label="Create"
+                      data-testid="plugins-create-switch"
+                      title={!create.available ? create.reason : createOn ? 'Turn off Create in chat' : 'Images, video, music and voice in chat'}
+                      className={
+                        'shrink-0 flex items-center w-7 h-3.5 rounded-full transition-colors ' +
+                        (!create.available
+                          ? 'bg-gray-300/20 dark:bg-white/5 cursor-default justify-start'
+                          : createOn
+                            ? 'bg-lu-accent/45 hover:bg-lu-accent/60 justify-end'
+                            : 'bg-gray-300/30 dark:bg-white/10 hover:bg-gray-300/45 dark:hover:bg-white/15 justify-start')
+                      }
+                    >
+                      <span className={`w-3 h-3 rounded-full shadow-sm mx-px ${create.available ? 'bg-white' : 'bg-white/40'}`} />
+                    </button>
+                  </div>
+                  {!create.available && (
+                    // A reason, not an error: the calm grey of lib/hinweis.ts,
+                    // like the line under Chat Tools.
+                    <div data-testid="plugins-create-reason" className={`pb-1.5 t-micro leading-snug ${HINWEIS_TEXT.ruhig}`}>
+                      {create.reason}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -236,7 +303,7 @@ export function PluginsDropdown({
                 </button>
                 {/* On/off toggle for THIS chat — Remote already had this
                     via `personaEnabled`; now Chat / Code / Agent match.
-                    Always shown when a chat is open (David: "personas hat im
+                    Always shown when a chat is open (the owner: "personas hat im
                     chat noch kein an/aus toggle" — it was hidden for the
                     default Unrestricted persona). */}
                 {activeConvId && (

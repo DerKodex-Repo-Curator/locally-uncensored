@@ -192,6 +192,30 @@ test('an older server (no quote_required): Extend and Motion behave exactly as b
   expect(studioQuoteCalls, studioQuoteCalls.join(', ')).toHaveLength(0)
 })
 
+// 08.10.2026: the cloud lists the open media models under its own neutral
+// word and sends the app's name next to it (`native_label`). The app shows
+// its own name; a server that sends no such field is shown as it comes.
+test('media names: the app shows the name the server sends for it, not the server\'s own', async ({ page }) => {
+  await bootIntoCloudCreate(page, { license: 'active', access: true, mediaLive: true })
+
+  await page.getByRole('radio', { name: 'Extend Video' }).click()
+  await expect(page.getByRole('button', { name: /Wan 2\.2 Uncensored Extend/ })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/Wan 2\.2 Unfiltered Extend/)).toHaveCount(0)
+  // The stored copy of the catalog carries the app's name too, so the next
+  // start without a network reads the same.
+  const stored = await page.evaluate(() => localStorage.getItem('lu-cloud-catalog') ?? '')
+  expect(stored).toContain('Wan 2.2 Uncensored Extend')
+  expect(stored).not.toContain('Unfiltered')
+  expect(stored).not.toContain('native_label')
+})
+
+test('media names: a server without the extra field is shown under the name it sends', async ({ page }) => {
+  await bootIntoCloudCreate(page, { license: 'active', access: true, mediaLive: true, catalogWithoutNativeLabel: true })
+
+  await page.getByRole('radio', { name: 'Extend Video' }).click()
+  await expect(page.getByRole('button', { name: /Wan 2\.2 Unfiltered Extend/ })).toBeVisible({ timeout: 15_000 })
+})
+
 // Review B2 (review-studio-B.md): the Preset window used to abandon its
 // paid-for step state whenever Escape/X closed it (Modal's default
 // AnimatePresence unmount). `keepMounted` (Modal.tsx) fixes it by never

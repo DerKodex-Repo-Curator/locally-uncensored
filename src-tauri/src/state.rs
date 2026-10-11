@@ -75,6 +75,15 @@ pub struct BundledEngine {
     /// answers it once, and a user who reads the window a minute later must
     /// still be able to learn why the engine is not on the card.
     pub sanity_note: Option<&'static str>,
+    /// Why THIS process runs without the model's image part although one lies
+    /// next to the model: the card had no room for it, or the engine refused
+    /// it (`engine.rs`, IMAGE_PART_NO_ROOM_NOTE / IMAGE_PART_REFUSED_NOTE).
+    /// `None` on every start that loaded the part and on a model without one.
+    ///
+    /// Part of the idempotence key: an engine that was started without the
+    /// part IS the answer to a request for this model, and must not be torn
+    /// down because the part is still on disk.
+    pub image_part_note: Option<&'static str>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -204,7 +213,7 @@ pub(crate) fn load_ollama_base() -> String {
 
 pub struct AppState {
     pub comfy_process: Mutex<Option<Child>>,
-    /// Child handle for an Ollama daemon LU spawned itself (kj103x bug, Discord
+    /// Child handle for an Ollama daemon LU spawned itself (a user bug, Discord
     /// 2026-05-23 #help-chat). The Drop impl below kills the tree on shutdown
     /// so `ollama.exe` doesn't linger eating ~200 MB after the tray quit.
     /// IMPORTANT: only populated when `start_ollama` / `auto_start_ollama` /
@@ -222,13 +231,20 @@ pub struct AppState {
     /// managed lifecycle (start/stop/swap) lives in `commands::engine`; this
     /// is just the handle so shutdown can reap it.
     pub bundled_engine: Mutex<Option<BundledEngine>>,
+    /// Somebody asked for the built-in engine to be stopped (the frontend's
+    /// stop, the switch into Cloud, the end of the app). A start that is still
+    /// waiting for its model reads this to tell "my child was taken away on
+    /// purpose" from "my child died", because only a death earns a second
+    /// attempt. Set by `commands::engine::stop_engine_on_request` and by the
+    /// shutdown below, cleared by the next start once it holds the start gate.
+    pub engine_stop_requested: AtomicBool,
     /// Built-in EMBEDDINGS server (P5) — a second bundled `llama-server` run in
     /// `--embeddings` mode on its own port, serving OpenAI `/v1/embeddings` for
     /// Document-Chat / RAG so embeddings no longer require Ollama. `None` until
     /// started via `start_bundled_embed`; reaped in `shutdown_subprocesses`.
     pub bundled_embed: Mutex<Option<BundledEngine>>,
     /// Arc so the ComfyUI install worker thread can persist a custom install
-    /// target as the active path on completion (andy_38747).
+    /// target as the active path on completion.
     pub comfy_path: Arc<Mutex<Option<String>>>,
     pub comfy_port: Mutex<u16>,
     /// Configurable ComfyUI host. Default "localhost". Setting this to a
@@ -249,13 +265,19 @@ pub struct AppState {
     /// first time a LAN endpoint is used after launch (Bug A / GH #49).
     pub openai_hosts: Mutex<HashSet<String>>,
     pub whisper: Arc<Mutex<WhisperServer>>,
+    /// The Astra voice loop: its setup job and its sidecar process
+    /// (`commands::voice_loop`). Cloneable handles, like `whisper`.
+    pub voice_loop: crate::commands::voice_loop::VoiceLoopHandle,
+    /// Astra computer use: the engine that guards every action and the
+    /// state of its stop shortcut (`commands::computer`).
+    pub computer: crate::commands::computer::ComputerHandle,
     pub downloads: Arc<Mutex<HashMap<String, DownloadProgress>>>,
     pub download_tokens: Arc<Mutex<HashMap<String, CancellationToken>>>,
     pub pull_tokens: Arc<Mutex<HashMap<String, CancellationToken>>>,
     /// Per-stream cancellation registry for `proxy_localhost_stream_chunked`.
     /// When the user hits Stop or deletes/closes a chat, the JS side calls
     /// `cancel_proxy_stream(stream_id)` → the token fires → the upstream reqwest
-    /// stream is dropped → Ollama actually stops generating (David 2026-06-15:
+    /// stream is dropped → Ollama actually stops generating (2026-06-15:
     /// "Aktivität komplett stoppen"; aborting only stopped the JS loop before).
     /// `CancelRegistry` (not a bare token map) also survives a cancel that
     /// arrives before the matching stream registers (review 2026-09-18, R3
@@ -271,8 +293,12 @@ pub struct AppState {
     /// full generation on the GPU (review 2026-09-18, "Loch 3": the local
     /// engine ignores Stop).
     pub call_tokens: crate::cancel_registry::CancelRegistry,
+    /// One token per running download of a file of the signed-in account
+    /// (`save_cloud_file_dialog`), fired by `cancel_cloud_file`. Its own
+    /// instance for the same reason as the two above.
+    pub cloud_file_tokens: crate::cancel_registry::CancelRegistry,
     pub install_status: Arc<Mutex<InstallState>>,
-    /// Cancel flag for the ComfyUI installer (Bug #1, techx69 v2.4.3).
+    /// Cancel flag for the ComfyUI installer (Bug #1 v2.4.3).
     /// `install_comfyui` polls this between steps; setting it from
     /// `cancel_comfyui_install` aborts the next git/pip subprocess and
     /// flips the install_status to "cancelled".
@@ -327,13 +353,13 @@ pub struct AppState {
     /// a folder during Remote dispatch (#29 follow-up); cleared on
     /// undispatch / chat delete.
     pub chat_workspace_overrides: Arc<Mutex<HashMap<String, std::path::PathBuf>>>,
-    /// Bug BB v2.5.0 — BobbyT Discord 2026-05-26. User-pinned GPU vendor +
+    /// Bug BB v2.5.0 — Discord 2026-05-26. User-pinned GPU vendor +
     /// indices, forwarded as CUDA_VISIBLE_DEVICES / HIP_VISIBLE_DEVICES /
     /// ONEAPI_DEVICE_SELECTOR on next start_ollama / start_comfyui spawn.
     /// Default "auto" + empty indices = no env-var, runtime picks default
     /// (pre-v2.5.0 behaviour).
     pub gpu_selection: Mutex<GpuSelection>,
-    /// flash-attn probe results, keyed by python path (David 2026-06-11:
+    /// flash-attn probe results, keyed by python path (2026-06-11:
     /// measured 4-5x faster WAN video sampling vs pytorch SDPA on a 3060).
     /// The probe imports torch (~5-10 s), so only the first ComfyUI start /
     /// Create-tab check per python pays it.
@@ -348,7 +374,7 @@ pub struct AppState {
     /// (settings.comfyGpuMode): "auto" (probe), "cpu" (force --cpu), "gpu"
     /// (never --cpu). Pushed via set_comfy_gpu_mode on boot + change.
     pub comfy_gpu_mode: Mutex<String>,
-    /// Whether the LAST ComfyUI start actually passed `--cpu` (shd_scorpion,
+    /// Whether the LAST ComfyUI start actually passed `--cpu` (a user,
     /// RX 7900 XTX: gen "timed out after 20 minutes" with zero hint that it
     /// ran on the CPU). None = LU hasn't started ComfyUI this session.
     /// Surfaced to the Create tab via `get_comfy_gpu_status`.
@@ -365,7 +391,7 @@ pub struct AppState {
     /// measured 2026-08-14). `comfy_starting_state` dates the wait against it.
     pub comfy_start_at: Mutex<Option<std::time::Instant>>,
     // ── In-process MLX media engine (macOS Apple-Silicon local image/video) ──
-    // Ported from uselu/apps/bridge's `commands::mlx` / `commands::video`. The
+    // Ported from the bridge daemon's `commands::mlx` / `commands::video`. The
     // app spawns its OWN Python MLX sidecar (server.py on 127.0.0.1:47712) —
     // no separate daemon. Hard rule: Mac local image/video is MLX only, never
     // ComfyUI.
@@ -420,6 +446,7 @@ impl AppState {
             comfy_process: Mutex::new(None),
             ollama_process: Arc::new(Mutex::new(None)),
             bundled_engine: Mutex::new(None),
+            engine_stop_requested: AtomicBool::new(false),
             bundled_embed: Mutex::new(None),
             comfy_path: Arc::new(Mutex::new(None)),
             comfy_port: Mutex::new(initial_port),
@@ -427,11 +454,14 @@ impl AppState {
             ollama_base: Mutex::new(initial_ollama_base),
             openai_hosts: Mutex::new(HashSet::new()),
             whisper: Arc::new(Mutex::new(WhisperServer::new())),
+            voice_loop: crate::commands::voice_loop::VoiceLoopHandle::default(),
+            computer: crate::commands::computer::ComputerHandle::default(),
             downloads: Arc::new(Mutex::new(HashMap::new())),
             download_tokens: Arc::new(Mutex::new(HashMap::new())),
             pull_tokens: Arc::new(Mutex::new(HashMap::new())),
             stream_tokens: crate::cancel_registry::CancelRegistry::new(),
             call_tokens: crate::cancel_registry::CancelRegistry::new(),
+            cloud_file_tokens: crate::cancel_registry::CancelRegistry::new(),
             install_status: Arc::new(Mutex::new(InstallState::default())),
             comfyui_install_cancel: Arc::new(AtomicBool::new(false)),
             ollama_install: Arc::new(Mutex::new(InstallState::default())),
@@ -515,6 +545,20 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 use std::os::windows::process::CommandExt;
 
 impl AppState {
+    /// Stop every MLX install that is running, image and video, engine and
+    /// model. Returns how many there were.
+    pub fn cancel_mlx_installs(&self) -> usize {
+        [
+            &self.install_mlx_diffusion,
+            &self.install_mlx_image_model,
+            &self.install_mlx_video,
+            &self.install_video_model,
+        ]
+        .into_iter()
+        .filter(|slot| slot.cancel())
+        .count()
+    }
+
     /// Kill every subprocess we spawned (the Cloudflare tunnel, ComfyUI,
     /// Ollama, Claude Code, Whisper).
     ///
@@ -524,7 +568,7 @@ impl AppState {
     /// in `auto_start_*` survived every "graceful" quit path (tray → Quit,
     /// auto-updater's `exit_app`, etc.). The `Drop` impl below is still
     /// correct, but we can't rely on it firing. Call this method explicitly
-    /// from every quit path instead so kj103x's Ollama-orphan stays fixed even
+    /// from every quit path instead so a user's Ollama-orphan stays fixed even
     /// when Tauri's destructor chain skips us.
     pub fn shutdown_subprocesses(&self) {
         // The Cloudflare quick tunnel — FIRST, and the position is an
@@ -580,6 +624,10 @@ impl AppState {
         // Built-in engine (bundled llama-server, P1). Plain kill on all
         // platforms — it's a single loopback process with no child tree, so
         // the taskkill /T dance the daemons need isn't required here.
+        // Said before the kill: a start that is still loading this model must
+        // read the empty slot as a stop and not start the model again while
+        // the app is on its way out.
+        self.engine_stop_requested.store(true, std::sync::atomic::Ordering::SeqCst);
         if let Ok(mut engine) = self.bundled_engine.lock() {
             if let Some(ref mut e) = *engine {
                 let _ = e.child.kill();
@@ -640,10 +688,24 @@ impl AppState {
         // mechanism as the Stop button" — there was no Stop button, and the
         // `mlx_stop` that described one had no bridge and no caller (KF-19,
         // removed 01.09.2026).
+        //
+        // The server this session started is ended through its handle first,
+        // so it is waited on. The port sweep stays for the one this session
+        // only found: a sidecar left behind by a run that ended hard.
+        crate::commands::mlx::stop_sidecar();
+        crate::commands::mlx::stop_mflux();
         #[cfg(target_os = "macos")]
         {
             crate::process_util::kill_listeners_on_port(crate::commands::mlx::MLX_PORT);
             println!("[MLX] image sidecar stopped (explicit shutdown)");
+        }
+
+        // MLX installs: pip and the hub downloads. Each one registers the
+        // process it waits on with its slot, and until 08.10.2026 nothing on
+        // the quit path asked the slots, so a 3 GB pip run went on with no app
+        // left to show or stop it.
+        if self.cancel_mlx_installs() > 0 {
+            println!("[MLX] running install stopped (explicit shutdown)");
         }
 
         // Character-LoRA training. The PID sits in AppState like every other
@@ -672,6 +734,15 @@ impl AppState {
         if let Ok(mut whisper) = self.whisper.lock() {
             whisper.stop();
         }
+
+        // The voice loop sidecar. It would leave by itself once its stdin
+        // closes with this process; stopping it here means quit does not
+        // return while it still holds its port and the model files, which is
+        // what an update that replaces the installation trips over on Windows.
+        self.voice_loop.shutdown();
+
+        // A computer use action that is still running stops with the app.
+        self.computer.shutdown();
     }
 }
 

@@ -8,13 +8,16 @@
 # reads the secrets from its environment, never prints a value, and writes
 # four answers to $GITHUB_OUTPUT:
 #
-#   macos=true|false          the notarized macOS lane (job build-macos) runs
-#   macos_notary=api|appleid  which notarization credentials it uses
+#   macos=true|false          a notarized macOS build could be made
+#   macos_notary=api|appleid  with which notarization credentials
 #   windows=true|false        the Windows lane signs with Azure Artifact Signing
 #   signpath=true|false       the Windows lane signs with SignPath
 #
-# Called with `macos` or `windows` it answers for that lane alone, which is
-# how the two jobs of release.yml use it: each hands over only its own secrets.
+# Called with `macos` or `windows` it answers for that lane alone. release.yml
+# asks only for `windows`: the Mac build is not switched by detected secrets
+# but by the repository variable LU_MAC_RELEASE (job build-tauri-macos, which
+# requires its six secrets itself and uses the API key, never an Apple ID).
+# The `macos` answer stays here, tested, for whoever wants to ask.
 #
 # Windows has two signing routes and a release can take only one of them:
 # Azure signs inside `tauri build`, SignPath signs uploaded artifacts after

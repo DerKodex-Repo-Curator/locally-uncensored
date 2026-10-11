@@ -1,5 +1,5 @@
 /**
- * R5-10/R5-11 (3.0.1-Liste), David's Entscheid vom 18.09.2026: sampling per
+ * R5-10/R5-11 (3.0.1-Liste), Entscheid vom 18.09.2026: sampling per
  * conversation, stored additively on `Conversation.sampling` (types/chat.ts).
  *
  * No store `version` bump: the field is optional and additive, so a chat

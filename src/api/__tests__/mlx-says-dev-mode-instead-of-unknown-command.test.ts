@@ -1,5 +1,5 @@
 /**
- * GH #135 (eloieloie, 2026-09-15): "Install engine" under `npm run dev`
+ * GH #135 (2026-09-15): "Install engine" under `npm run dev`
  * answered "Unknown backend command: install_mlx_diffusion".
  *
  * Run: npx vitest run src/api/__tests__/mlx-says-dev-mode-instead-of-unknown-command.test.ts

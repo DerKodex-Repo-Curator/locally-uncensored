@@ -58,6 +58,8 @@ vi.mock('../compact-run', async (importOriginal) => {
 })
 
 import { maybeAutoCompact, runCompactForConversation } from '../run-compact-command'
+import { useRunActivityStore } from '../../stores/runActivityStore'
+import { deriveRunStatus } from '../../components/status/run-status'
 import { runCompactSummary } from '../compact-run'
 import { resolveAgentNumCtxWithConfidence } from '../agent-num-ctx'
 import { usableThreshold, MIN_MESSAGES_TO_COMPACT, MIN_MESSAGES_SINCE_COMPACT } from '../compact-trigger'
@@ -308,6 +310,37 @@ describe('Auto-Kompaktierung, die schiefgeht, sagt es', () => {
     expect(w[0].content).toContain('Auto-compaction did not go through')
     // Der Grund steht mit drin, nicht nur die Tatsache.
     expect(w[0].content).toContain('did not produce a usable summary')
+  })
+
+  it('the run status says Compacting for as long as the summary is written, and not a moment longer', async () => {
+    setzeSchwelle(0.5)
+    const id = vollesGespraech()
+    const during: unknown[] = []
+    zusammenfassen.mockImplementation((async () => {
+      during.push(useRunActivityStore.getState().activity[id])
+      return { ok: false, reason: 'unusable' }
+    }) as never)
+
+    expect(useRunActivityStore.getState().activity[id]).toBeUndefined()
+    await maybeAutoCompact({ conversationId: id, activeModel: MODELL })
+    expect(during).toEqual([{ label: 'Compacting', kind: 'compacting' }])
+    expect(deriveRunStatus({ activity: during[0] as never })).toEqual({ kind: 'compacting', word: 'Compacting', detail: undefined })
+    expect(useRunActivityStore.getState().activity[id]).toBeUndefined()
+
+    // A summary that throws takes the line back as well.
+    zusammenfassen.mockRejectedValue(new Error('boom'))
+    await maybeAutoCompact({ conversationId: id, activeModel: MODELL }).catch(() => undefined)
+    expect(useRunActivityStore.getState().activity[id]).toBeUndefined()
+  })
+
+  it('a chat below the threshold never shows Compacting', async () => {
+    setzeSchwelle(0.5)
+    const id = seedGespraech(MIN_MESSAGES_TO_COMPACT + 4)
+    const seen: unknown[] = []
+    const off = useRunActivityStore.subscribe((state) => { seen.push(state.activity[id]) })
+    await maybeAutoCompact({ conversationId: id, activeModel: MODELL })
+    off()
+    expect(seen.filter(Boolean)).toEqual([])
   })
 
   it('wiederholt dieselbe Warnung nicht bei jedem Senden', async () => {

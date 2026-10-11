@@ -120,7 +120,7 @@ const handleFocus = (
               <span
                 style={{ left: place?.arrowLeft ?? 0 }}
                 className={cn(
-                  'absolute -translate-x-1/2 w-2 h-2 rotate-45 bg-lu-overlay border-white/[0.08]',
+                  'absolute -translate-x-1/2 w-2 h-2 rotate-45 bg-white dark:bg-lu-sheet border-white/[0.1]',
                   (place?.side ?? side) === 'top' ? 'top-full -mt-1 border-b border-r' : 'bottom-full -mb-1 border-t border-l',
                 )}
               />

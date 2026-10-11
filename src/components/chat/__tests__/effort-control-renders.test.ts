@@ -9,7 +9,7 @@
  * mounts the composer, swaps the active model underneath it, and clicks.
  *
  * Four claims, one per model shape the catalogue really produces
- * (ops/wissen/deepinfra-modellmatrix-2026-09-02.md):
+ * ():
  *
  *   think 'always' with a ladder  (GLM 5.3 Flash) -> control visible
  *   think 'never'  without one    (Llama 3.1 8B)  -> nothing at all

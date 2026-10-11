@@ -32,7 +32,12 @@ describe('chat catalog minimum', () => {
   it('covers every explicitly tagged sub-7B entry in both text catalogs', () => {
     const models = [...getUncensoredTextModels(), ...getMainstreamTextModels()]
     const small = models.filter(isBelowChatMinimum)
-    expect(small.length).toBe(12)
+    // 12 -> 31 on 2026-10-08, catalog refresh: three old small entries left
+    // (Qwen3 4B, Granite 4.0 Micro, Gemma 3 4B Abliterated), 22 came in, the
+    // quants of nine current small models for 8 GB machines.
+    // 31 -> 32 the same day: Gemma 4 E4B HauhauCS Q8_K_P (4.5B), reachable
+    // once the download took the named file instead of resolving by quant.
+    expect(small.length).toBe(32)
     const picks = chatRecommendationGroups(models.map(model => [model]))
     expect(picks.flat().some(isBelowChatMinimum)).toBe(false)
     expect(picks.length).toBe(models.length - small.length)

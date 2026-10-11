@@ -52,10 +52,20 @@ describe('the local model picker', () => {
     expect(closed.querySelector('[title]')?.getAttribute('title')).toBe(NOCT)
   })
 
-  it('keeps the file name for a file the catalogue does not know', () => {
+  it('keeps the file name for a file the catalogue does not know, the whole of it as tooltip', () => {
+    // Persona walk, Fund 17: where a name is cut off, its tooltip says it whole.
     const row = rowOf('my own merge v3')
     expect(row).toBeTruthy()
-    expect(row!.getAttribute('title')).toBeNull()
+    expect(row!.getAttribute('title')).toBe(OWN)
+  })
+
+  it('may take the room the name needs: up to 360 px, on every platform', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { resolve } = await import('node:path')
+    const source = readFileSync(resolve(__dirname, '../ModelChip.tsx'), 'utf-8')
+    const local = source.slice(source.indexOf('function LocalModelChip'))
+    expect(local).toContain('className="min-w-[150px] max-w-[360px]"')
+    expect(local).not.toContain('max-w-[230px]')
   })
 
   it('still finds a catalogue model by its file name in the search', () => {

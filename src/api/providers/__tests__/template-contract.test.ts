@@ -88,7 +88,7 @@ const AGENT_AFTER_A_TOOL: ChatMessage[] = [
     content: "Okay, let's start!",
     tool_calls: [{ id: 'call_1', function: { name: 'file_write', arguments: { path: 'notes.txt', content: 'hello' } } }],
   },
-  { role: 'tool', content: 'File saved: C:\\Users\\ddrob\\agent-workspace\\notes.txt', tool_call_id: 'call_1' },
+  { role: 'tool', content: 'File saved: C:\\Users\\alice\\agent-workspace\\notes.txt', tool_call_id: 'call_1' },
 ]
 
 // ── 1. The contract itself ─────────────────────────────────────
@@ -190,7 +190,7 @@ describe('the template contract', () => {
 
   it('NEGATIVE CONTROL: on the tolerant contract the native tool channel is untouched', () => {
     // A cloud endpoint implements the protocol itself and needs the ids. This
-    // is what must NOT be rewritten, or DeepInfra answers 422 on every turn.
+    // is what must NOT be rewritten, or the upstream answers 422 on every turn.
     const out = applyTemplateContract(AGENT_AFTER_A_TOOL, TOLERANT)
     expect(out).toBe(AGENT_AFTER_A_TOOL)
     expect(out[3].role).toBe('tool')
@@ -306,7 +306,7 @@ describe('the body that leaves for each kind of endpoint', () => {
   })
 
   it('NEGATIVE CONTROL: a cloud endpoint is never rewritten', async () => {
-    // DeepInfra (LU Cloud) validates the OpenAI tool shape strictly: the
+    // LU Cloud validates the OpenAI tool shape strictly: the
     // assistant tool_calls and the matching tool_call_id must both survive.
     const sent = await sendVia(
       { baseUrl: 'https://api.example-cloud.com/v1', isLocal: false }, [], false,
@@ -322,8 +322,10 @@ describe('the body that leaves for each kind of endpoint', () => {
     // captured body keeps its real type instead of collapsing to `never`.
     const captures: OllamaChatRequest[] = []
     vi.doMock('../../backend', () =>
-      backendMock((_url, init) => {
-        captures.push(captured<OllamaChatRequest>(init))
+      backendMock((url, init) => {
+        // The provider asks /api/show for the window first; only the chat
+        // request is looked at here.
+        if (url.endsWith('/chat')) captures.push(captured<OllamaChatRequest>(init))
         return new Response('{"message":{"content":"ok"},"done":true}\n')
       }),
     )
@@ -343,8 +345,10 @@ describe('the body that leaves for each kind of endpoint', () => {
     vi.resetModules()
     const captures: OllamaChatRequest[] = []
     vi.doMock('../../backend', () =>
-      backendMock((_url, init) => {
-        captures.push(captured<OllamaChatRequest>(init))
+      backendMock((url, init) => {
+        // The provider asks /api/show for the window first; only the chat
+        // request is looked at here.
+        if (url.endsWith('/chat')) captures.push(captured<OllamaChatRequest>(init))
         return okJson({ message: { content: 'ok' } })
       }),
     )

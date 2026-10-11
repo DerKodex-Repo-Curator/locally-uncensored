@@ -5,7 +5,7 @@ import type { DownloadProgress } from '../types/downloads'
  * The download half of the Create tab's "Download & install" cards, pulled out
  * of CreateContext so every branch is unit-testable without a live ComfyUI.
  *
- * David 2026-07-25, on the Motion Control card: he clicked Download & install,
+ * 2026-07-25, on the Motion Control card: he clicked Download & install,
  * got a spinner, and had no way to tell whether anything was still downloading.
  * Three separate defects sat behind that:
  *
@@ -213,7 +213,7 @@ export async function downloadBundleFiles(files: BundleFile[], deps: DownloadDep
  * Wait until the running ComfyUI actually LISTS the files that were just
  * downloaded, and report what is still missing when it does not.
  *
- * Voxyl AI and Aldrich Ironhart, Discord 2026-08-13, both on Extend Video and
+ * Two users, Discord 2026-08-13, both on Extend Video and
  * Animate Image: the download runs to the end and the card then sits on
  * "Refreshing the model list…" for good. Nothing was hanging. The install
  * refreshed once, called itself done, and left the card on its last status

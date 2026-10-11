@@ -62,7 +62,7 @@ describe('Schalter Transparent background', () => {
     expect(screen.queryByText('Transparent background')).toBeNull()
   })
 
-  it('fehlt in der Cloud, bei Video und auf dem Mac', () => {
+  it('fehlt in der Cloud und bei Video', () => {
     setup(QWEN, 'qwenimage', { backend: 'cloud' })
     const { unmount } = render(<ParamGroups />)
     expect(screen.queryByText('Transparent background')).toBeNull()
@@ -72,8 +72,17 @@ describe('Schalter Transparent background', () => {
     const v = render(<ParamGroups />)
     expect(screen.queryByText('Transparent background')).toBeNull()
     v.unmount()
-    setup(QWEN, 'qwenimage')
+  })
+
+  it('steht auch auf dem Mac, bei Qwen-Image 2.1 und bei keinem anderen Modell', () => {
+    // 08.10.2026: die zweite Bild-Engine des Mac behaelt den Alphakanal, der
+    // Schalter ist derselbe Prompt-Rahmen wie unter Windows.
     host.mlx = true
+    setup('MLX Qwen-Image 2.1 8-bit', 'qwenimage')
+    const q = render(<ParamGroups />)
+    expect(screen.getByRole('switch', { name: /transparent background/i })).toBeTruthy()
+    q.unmount()
+    setup('MLX SD Turbo', 'sd15')
     render(<ParamGroups />)
     expect(screen.queryByText('Transparent background')).toBeNull()
   })

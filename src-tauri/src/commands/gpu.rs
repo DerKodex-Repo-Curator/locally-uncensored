@@ -1,4 +1,4 @@
-// Bug BB v2.5.0 — BobbyT Discord 2026-05-26. BobbyT has AMD RX 6800XT 16GB +
+// Bug BB v2.5.0 — Discord 2026-05-26. has AMD RX 6800XT 16GB +
 // Intel Arc Pro B60 24GB and wants to pin the Arc Pro for inference. LU
 // previously had no GPU picker — Ollama and ComfyUI just used whatever the
 // driver picked first, which on multi-vendor / multi-GPU systems is often
@@ -44,7 +44,7 @@ pub struct DetectedGpu {
     pub source: String,
     /// Set when the card was found but its compute stack was not, so the
     /// settings can say that instead of showing a card as if it were ready.
-    /// numbrain (forum help-image-gen) had a correctly configured RX 9070 XT
+    /// A user (forum help-image-gen) had a correctly configured RX 9070 XT
     /// the picker did not list at all, and spent days breaking his install
     /// trying to fix what looked like a driver problem.
     pub note: Option<String>,
@@ -71,6 +71,16 @@ pub struct DetectedGpu {
     /// whereas the UUID names one physical card independent of enumeration
     /// order.
     pub uuid: Option<String>,
+    /// The one memory pool of an Apple Silicon Mac in MiB: processor and
+    /// graphics unit share it, so this is the whole installed memory and the
+    /// basis for "which model fits this Mac". `None` on every PC card.
+    ///
+    /// A field of its own and not `memory_mib`, on purpose: `memory_mib` is
+    /// read as graphics memory by `engine_vram_reading` (which documents
+    /// `None` on Apple as the answer it relies on) and by `getMaxVramGb` in
+    /// the frontend. Filling it on a Mac would make the engine plan its layer
+    /// split against the whole pool as if it were a free card.
+    pub shared_memory_mib: Option<u64>,
 }
 
 fn run_cmd(program: &str, args: &[&str]) -> Option<String> {
@@ -115,6 +125,7 @@ fn detect_nvidia() -> Vec<DetectedGpu> {
                 note_severity: None,
                 arch: None,
                 uuid: None,
+                shared_memory_mib: None,
             })
         })
         .collect();
@@ -320,6 +331,7 @@ fn parse_rocm_smi_csv(raw: &str) -> Vec<DetectedGpu> {
                 note_severity: None,
                 arch,
                 uuid: None,
+                shared_memory_mib: None,
             });
         }
     }
@@ -417,7 +429,7 @@ fn detect_other_via_lspci_from(
         // nvidia-smi ships with the driver, so its entry is always the better
         // one. rocm-smi does NOT: it comes with the ROCm dev packages, which a
         // customer running a ROCm Ollama or a ZLUDA ComfyUI has no reason to
-        // install. Skipping AMD unconditionally is why numbrain's RX 9070 XT
+        // install. Skipping AMD unconditionally is why a user's RX 9070 XT
         // was invisible in the picker while his system reported it correctly.
         if vendor == "nvidia" { continue }
         if vendor == "amd" && have_rocm { continue }
@@ -448,6 +460,7 @@ fn detect_other_via_lspci_from(
             note_severity: note_for(vendor).map(|_| "warn".to_string()),
             arch: None,
             uuid: None,
+            shared_memory_mib: None,
         });
         *index += 1;
     }
@@ -739,7 +752,19 @@ fn detect_macos() -> Vec<DetectedGpu> {
     let name = run_cmd("sysctl", &["-n", "machdep.cpu.brand_string"])
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|| "Apple GPU".into());
-    vec![DetectedGpu {
+    vec![apple_entry(name, crate::commands::system::total_memory_bytes())]
+}
+
+/// The single entry a Mac reports, from its chip name and installed memory.
+///
+/// Split from `detect_macos` so the shape is tested on every platform: the
+/// onboarding reads `shared_memory_mib` to recommend a model, and a Mac that
+/// reported nothing there got the smallest default no matter how much memory
+/// it had. A reading of zero means "not measured" and stays `None`.
+#[cfg(any(target_os = "macos", test))]
+fn apple_entry(name: String, total_memory_bytes: u64) -> DetectedGpu {
+    let mib = total_memory_bytes / MIB;
+    DetectedGpu {
         index: 0,
         vendor: "apple".into(),
         name,
@@ -749,7 +774,8 @@ fn detect_macos() -> Vec<DetectedGpu> {
         note_severity: None,
         arch: None,
         uuid: None,
-    }]
+        shared_memory_mib: (mib > 0).then_some(mib),
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -843,6 +869,7 @@ fn detect_other_via_registry_from(
             note_severity: note_for(vendor).map(|_| "warn".to_string()),
             arch: None,
             uuid: None,
+            shared_memory_mib: None,
         });
         *index += 1;
     }
@@ -924,7 +951,7 @@ fn detect_other_via_wmic_from(
     // and ONEAPI_DEVICE_SELECTOR are vendor-scoped, so a box with an Intel
     // iGPU listed first and an AMD card second must not hand the AMD card the
     // number 1: it is the only HIP device there is, and HIP device 1 does not
-    // exist. That is lapbo's machine (Win11 plus ZLUDA, no rocm-smi), which is
+    // exist. That is a user's machine (Win11 plus ZLUDA, no rocm-smi), which is
     // the whole reason this branch lists AMD at all.
     let mut next: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
     // wmic `/format:csv` emits a LEADING blank line before the header row
@@ -942,7 +969,7 @@ fn detect_other_via_wmic_from(
         let vendor = vendor_from_adapter_name(&name);
         // See the lspci path: rocm-smi is not part of the AMD driver, so an
         // AMD card must survive its absence. ROCm on Windows is rare and ZLUDA
-        // users have no rocm-smi at all (lapbo, Win11 + ZLUDA).
+        // users have no rocm-smi at all (Win11 + ZLUDA).
         if vendor == "nvidia" { continue }
         if vendor == "amd" && have_rocm { continue }
         let from_registry = registry_vram
@@ -970,6 +997,7 @@ fn detect_other_via_wmic_from(
             note_severity: note_for(vendor).map(|_| "warn".to_string()),
             arch: None,
             uuid: None,
+            shared_memory_mib: None,
         });
         *index += 1;
     }
@@ -1077,12 +1105,12 @@ fn parse_reg_hex(value: &str) -> Option<u64> {
 // no longer a side probe that patches wmic's broken uint32 AdapterRAM, it IS
 // the adapter list, so `detect_other_via_registry_from` reads both values off
 // the same subkey directly. WMI's `AdapterRAM` cannot express more than 4 GiB
-// (bobbyt5667's 24 GB Arc Pro B60 came out of it as 2 GB), which is why the
+// (a user's 24 GB Arc Pro B60 came out of it as 2 GB), which is why the
 // qword is still the number we believe.
 
 // ── ROCm on Windows: the HIP SDK, not rocm-smi ────────────────────────
 //
-// Zhorts, GitHub #123 (2026-09-01, Windows 11, RX 9070 XT, HIP SDK 7.1.1):
+// GitHub #123 (2026-09-01, Windows 11, RX 9070 XT, HIP SDK 7.1.1):
 // the SDK was installed correctly, `hipinfo.exe` reported gfx1201, and LU still
 // told him "Found without ROCm tools". `detect_amd()` above is the only thing
 // that ever set that verdict and it runs one command, `rocm-smi`, which the
@@ -1090,7 +1118,7 @@ fn parse_reg_hex(value: &str) -> Option<u64> {
 // `hipinfo.exe` under its own tree and exports HIP_PATH, so that is what has to
 // be asked. Linux keeps rocm-smi, macOS has neither and is untouched.
 //
-// Nothing here writes down a version. Zhorts' own suspicion was a renamed DLL
+// Nothing here writes down a version. a user's own suspicion was a renamed DLL
 // (`amdhip64.dll` became `amdhip64_7.dll` in 7.1.1), which is exactly what a
 // hardcoded name does to a detector a year later, so the install root comes out
 // of the environment or out of a directory listing, and the version is read off
@@ -1405,6 +1433,7 @@ fn apply_rocm_facts(gpus: &mut Vec<DetectedGpu>, facts: Option<&RocmFacts>) {
             note_severity: Some("info".to_string()),
             arch,
             uuid: None,
+            shared_memory_mib: None,
         });
     }
 }
@@ -1685,6 +1714,34 @@ impl Default for GpuSelection {
 mod tests {
     use super::*;
 
+    /// Fund 3: a Mac reported no memory at all, so the onboarding could not
+    /// tell a 64 GB machine from an 8 GB one.
+    #[test]
+    fn a_mac_reports_its_shared_memory_and_no_card_memory() {
+        let mac = apple_entry("Apple M2 Pro".into(), 32 * 1024 * 1024 * 1024);
+        assert_eq!(mac.shared_memory_mib, Some(32 * 1024));
+        assert_eq!(mac.vendor, "apple");
+        // The engine start reads `memory_mib` as a card it may fill.
+        assert_eq!(mac.memory_mib, None);
+        let json = serde_json::to_value(&mac).expect("serializes");
+        assert_eq!(json["shared_memory_mib"], 32 * 1024);
+        assert!(json["memory_mib"].is_null());
+    }
+
+    #[test]
+    fn an_unmeasured_mac_reports_no_shared_memory() {
+        assert_eq!(apple_entry("Apple GPU".into(), 0).shared_memory_mib, None);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn this_mac_is_detected_with_its_memory() {
+        let found = detect_macos();
+        assert_eq!(found.len(), 1);
+        assert!(found[0].shared_memory_mib.is_some_and(|m| m >= 4096), "{found:?}");
+        assert!(engine_vram_reading().is_none(), "the engine must still see no card on a Mac");
+    }
+
     #[test]
     fn the_engine_reads_free_memory_off_the_biggest_card() {
         // Two cards, the second one larger and busier. The plan has to be
@@ -1707,7 +1764,7 @@ mod tests {
     }
 
     /// Real `reg query … /s /v DriverDesc` shape from a two-GPU box: an Arc Pro
-    /// alongside a Radeon (bobbyt5667's machine, Discord 2026-07-28).
+    /// alongside a Radeon (a user's machine, Discord 2026-07-28).
     const DRIVER_DESC_OUT: &str = r"
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000
     DriverDesc    REG_SZ    Intel(R) Arc(TM) Pro B60 Graphics
@@ -2004,6 +2061,7 @@ End of search: 3 match(es) found.
             note_severity: None,
             arch: None,
             uuid: uuid.map(|u| u.to_string()),
+            shared_memory_mib: None,
         }
     }
 
@@ -2088,7 +2146,7 @@ End of search: 3 match(es) found.
     }
 
 
-    // ── AMD Instinct auf echter Hardware (MI325X, DigitalOcean tor1,
+    // ── AMD Instinct auf echter Hardware (MI325X,
     // 2026-09-03) ────────────────────────────────────────────────────────
     //
     // Alles hier ist abgeschrieben, nicht ausgedacht: `lspci -nn`, die
@@ -2148,7 +2206,7 @@ card0,AMD Instinct Mi325X VF,0x74b9,0x00,0x74a5,43855,274542362624,299687936,AMD
         assert_eq!(gpus[0].memory_mib, Some(261824));
         assert_eq!(gpus[0].source, "rocm-smi");
         // rocm-smi druckt das gfx-Ziel selbst. Es zu ignorieren und danach zu
-        // sagen, man kenne es nicht, ist genau der Satz, den Zhorts las.
+        // sagen, man kenne es nicht, ist genau der Satz, den ein Nutzer las.
         assert_eq!(gpus[0].arch.as_deref(), Some("gfx942"));
     }
 
@@ -2181,16 +2239,16 @@ GPU[0] : Memory: 16368 MiB
         assert!(parse_rocm_smi_csv("").is_empty());
     }
 
-    // ── AMD without ROCm tools (numbrain forum help-image-gen, lapbo Win11 +
-    // ZLUDA, nosferatue412 asking before buying a 9060 XT) ────────────────
+    // ── AMD without ROCm tools (a user forum help-image-gen, a user Win11 +
+    // ZLUDA, a user asking before buying a 9060 XT) ────────────────
     //
-    // numbrain's RX 9070 XT was reported correctly by his system and did not
+    // a user's RX 9070 XT was reported correctly by his system and did not
     // appear in LU's picker at all, so he spent days rebuilding his install
     // chasing a driver problem that was not there. rocm-smi is not part of the
     // AMD driver; it ships with the ROCm dev packages, which nobody running a
     // prebuilt ROCm Ollama or a ZLUDA ComfyUI has a reason to install.
 
-    /// numbrain's card, in the exact shape `lspci -nn` prints it.
+    /// a user's card, in the exact shape `lspci -nn` prints it.
     const LSPCI_AMD: &str = "03:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Navi 48 [Radeon RX 9070 XT] [1002:7550] (rev c0)";
     const LSPCI_INTEL: &str = "00:02.0 VGA compatible controller [0300]: Intel Corporation AlderLake-S GT1 [Intel UHD Graphics 770] [8086:4680]";
     const LSPCI_NVIDIA: &str = "01:00.0 VGA compatible controller [0300]: NVIDIA Corporation GA104 [GeForce RTX 3060] [10de:2487] (rev a1)";
@@ -2266,7 +2324,7 @@ GPU[0] : Memory: 16368 MiB
     /// does. HIP_VISIBLE_DEVICES is vendor-scoped, so on a box that lists an
     /// Intel iGPU first and an AMD card second, a shared counter hands the AMD
     /// card the number 1 while it is the only HIP device there is. That is
-    /// lapbo's machine (Win11 plus ZLUDA, no rocm-smi), which is the entire
+    /// a user's machine (Win11 plus ZLUDA, no rocm-smi), which is the entire
     /// reason this branch reports AMD at all.
     #[test]
     fn wmic_counts_per_vendor_not_across_them() {
@@ -2318,7 +2376,7 @@ GPU[0] : Memory: 16368 MiB
     // Windows an AMD card fell out of detection entirely: no entry in the
     // picker, and every decision downstream taken as if the box had no GPU.
 
-    /// `reg query … /v DriverDesc` on lapbo's kind of box: one AMD card, no
+    /// `reg query … /v DriverDesc` on a user's kind of box: one AMD card, no
     /// vendor CLI anywhere.
     const DRIVER_DESC_AMD_ONLY: &str = r"
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000
@@ -2410,9 +2468,9 @@ End of search: 1 match(es) found.
     }
 
 
-    // ── A5: the Windows HIP SDK, GitHub #123 (Zhorts, RX 9070 XT, 7.1.1) ──
+    // ── A5: the Windows HIP SDK, GitHub #123 (RX 9070 XT, 7.1.1) ──
     //
-    // Zhorts had a correct HIP SDK 7.1.1 install and LU said "Found without
+    // A user had a correct HIP SDK 7.1.1 install and LU said "Found without
     // ROCm tools" anyway, because the only ROCm probe in this file ran
     // `rocm-smi`, which the Windows SDK does not ship. The output below is the
     // shape hipinfo really prints: labels padded to 34 columns, `device#`
@@ -2553,7 +2611,7 @@ non-peers:                        device#0
         assert_eq!(hip_version_from_root("/opt/rocm"), None);
     }
 
-    /// The bug as Zhorts hit it, end to end through the pure halves: a Windows
+    /// The bug as a user hit it, end to end through the pure halves: a Windows
     /// box whose registry reports the card and its true 16 GB, and a HIP SDK
     /// that rocm-smi knows nothing about.
     #[test]
@@ -2562,7 +2620,7 @@ non-peers:                        device#0
         let sizes = vec![("0000".to_string(), "0x400000000".to_string())];
         let mut gpus = windows_fallback_from(&names, &sizes, None, false);
 
-        // NEGATIVE CONTROL: this is the message Zhorts saw, and the state the
+        // NEGATIVE CONTROL: this is the message a user saw, and the state the
         // fix has to leave behind.
         assert_eq!(gpus.len(), 1);
         assert!(gpus[0].note.as_deref().unwrap().contains("Found without ROCm tools"));

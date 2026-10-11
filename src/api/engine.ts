@@ -48,8 +48,14 @@ export interface BundledModel {
    * vision projector sits next to the GGUF, which is the same file Rust turns
    * into `--mmproj` at start (engine.rs model_can_see_images). Absent when the
    * installed backend predates the field, and the callers then fall back to
-   * the model-name heuristic exactly as before. */
+   * the model-name heuristic exactly as before. For the model that is loaded
+   * this is a fact about the running process: false when it was started
+   * without its image part (no room on the card), even with the part on disk. */
   vision?: boolean
+  /** The image part lies next to the GGUF. False for a model that has none
+   * installed, which is what the offer to add it is decided on. Absent on an
+   * older backend. */
+  imagePart?: boolean
 }
 
 /** What a start / swap answers. `port` is the port the engine ACTUALLY came
@@ -94,6 +100,9 @@ export interface EngineStatus {
    * as the sentence the user is shown (engine_sanity.rs). Null on every
    * ordinary start. Outlives the start call on purpose, see lib/engine-offload. */
   sanityNote?: string | null
+  /** Why the loaded model came up without its image part, as the sentence the
+   * user is shown (engine.rs). Null when it has its part or has none. */
+  imageNote?: string | null
 }
 
 /** Loopback base URL of the managed embeddings server (P5). Mirrors the Rust
@@ -409,6 +418,9 @@ export function bundledToAIModels(models: BundledModel[]): CloudModel[] {
     // Deliberately left absent (not false) when the backend did not report it,
     // so an older sidecar keeps the old heuristic instead of losing vision.
     ...(typeof m.vision === 'boolean' ? { supportsVision: m.vision } : {}),
+    // Whether the image part is on disk, which is not the same question: a
+    // model loaded without its part has it installed and cannot see.
+    ...(typeof m.imagePart === 'boolean' ? { imagePartInstalled: m.imagePart } : {}),
   }))
 }
 

@@ -5,10 +5,11 @@ import { usePopoverPlatz } from '../../hooks/usePopoverPlatz'
 import { displayModelName } from '../../api/providers'
 import { formatContextWindow } from '../../lib/formatters'
 import { FLASH_MARK_LABEL, flashMarkTitle, useFlashEntitlement } from '../../lib/flash-entitlement'
-import { UNFILTERED_MARK_LABEL } from '../../lib/unfiltered-mark'
+import { STATEMENT_MARK_LABEL, UNFILTERED_MARK_LABEL } from '../../lib/unfiltered-mark'
+import { BetaMark } from '../ui/BetaMark'
 import { log } from '../../lib/logger'
 import {
-  PICKER_FILTERS, filterCounts, filterRows, formatCreditRate, highlightParts, moveCursor, pickerGroups, pickerRows,
+  LIMITED_CAPACITY_LABEL, LIMITED_CAPACITY_TITLE, PICKER_FILTERS, filterCounts, filterRows, formatCreditRate, highlightParts, moveCursor, pickerGroups, pickerRows,
   searchTokens,
   type PickerFilter, type PickerGroup, type PickerRow,
 } from '../../lib/model-picker'
@@ -19,7 +20,7 @@ import { ModelRowMarks } from './ModelRowMarks'
 /**
  * The chat model picker in Cloud mode, for Chat, Agent and Code.
  *
- * David, 05.10.2026: grouped by model family under one-line sticky heads, a
+ * 05.10.2026: grouped by model family under one-line sticky heads, a
  * search on top, filter chips, a footer with the count and the keys. A row
  * reads name, the measured mark, vision, thinking and the context window the
  * server stated. There is no credit column: a small question mark per row
@@ -101,7 +102,7 @@ function safeRows(models: AIModel[], paidPlan: boolean | null): PickerRow[] {
     log.error('[CloudModelPicker] building the rows threw, showing bare names', { err: e, modelCount: models.length })
     return models.filter((m) => m.type === 'text').map((model) => ({
       name: model.name, model, label: displayModelName(model.name), family: 'Other',
-      unfiltered: false, vision: false, thinking: null, free: null, context: null, rates: null, chatOnly: false,
+      mark: null, vision: false, thinking: null, free: null, context: null, rates: null, chatOnly: false, limitedCapacity: false,
     }))
   }
 }
@@ -402,6 +403,8 @@ export function CloudModelPicker({
             {group.family && (
               <div className="lu-picker-head" role="presentation" data-family={group.family}>
                 <b>{group.family}</b>
+                {/* One mark for the whole group, none on its rows. */}
+                {group.family === STATEMENT_MARK_LABEL && <BetaMark feature="direct-models" />}
                 <span className="n">{group.rows.length}</span>
               </div>
             )}
@@ -411,6 +414,29 @@ export function CloudModelPicker({
               const at = index
               const isActive = row.name === activeModel
               const ctx = row.context
+              const lead = (
+                <>
+                  <span className="lu-picker-name">
+                    {highlightParts(row.label, tokens).map((part, i) =>
+                      part.hit ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>)}
+                  </span>
+                  {/* The mark from the catalogue, out of the one component
+                      that draws it everywhere. */}
+                  <ModelRowMarks
+                    model={{ unfiltered: row.mark === 'measured' ? 'full' : undefined, unrestricted: row.mark === 'statement' }}
+                    row
+                  />
+                  {row.chatOnly && (
+                    <span
+                      className="t-micro lu-picker-tag"
+                      title="This model does not support tool calling, so Agent and Code mode cannot use it"
+                      data-mark="chat-only"
+                    >
+                      Chat only
+                    </span>
+                  )}
+                </>
+              )
               return (
                 /* The part that picks the model is a <button>; the rate
                    control is a button of its own NEXT to it, because no
@@ -435,22 +461,18 @@ export function CloudModelPicker({
                     aria-current={isActive ? 'true' : undefined}
                     onClick={() => onPick(row.model)}
                   >
-                    <span className="lu-picker-name">
-                      {highlightParts(row.label, tokens).map((part, i) =>
-                        part.hit ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>)}
-                    </span>
-                    {/* The mark from the catalogue, out of the one component
-                        that draws it everywhere. */}
-                    <ModelRowMarks model={{ unfiltered: row.unfiltered ? 'full' : undefined }} row />
-                    {row.chatOnly && (
-                      <span
-                        className="t-micro lu-picker-tag"
-                        title="This model does not support tool calling, so Agent and Code mode cannot use it"
-                        data-mark="chat-only"
-                      >
-                        Chat only
+                    {row.limitedCapacity ? (
+                      /* The note about the model's room: plain muted text,
+                         on purpose no tag, because it is no mark. It stands
+                         after the name where the row has the room and under
+                         it where it has not, so neither is cut. */
+                      <span className="lu-picker-lead">
+                        {lead}
+                        <span className="lu-picker-quiet" title={LIMITED_CAPACITY_TITLE} data-note="limited-capacity">
+                          {LIMITED_CAPACITY_LABEL}
+                        </span>
                       </span>
-                    )}
+                    ) : lead}
                     <span className="lu-picker-fill" />
                     <span className="lu-picker-icons">
                       <span title={row.vision ? 'Reads images' : undefined} data-icon={row.vision ? 'vision' : undefined}>

@@ -18,8 +18,8 @@ import { CloudJobError } from '../../../../api/cloud/client'
 import { QuoteChangedError } from '../../../../api/cloud/jobs'
 import { StudioQuoteChangedError } from '../../../../api/cloud/studio'
 
-// Portiert aus uselu apps/web/components/create/experimental/__tests__/
-// preset-workshop.test.tsx (Quelle: cloud-create-presets-20260919). Desktop-
+// Portiert aus the web app
+// (Quelle: cloud-create-presets-20260919). Desktop-
 // Anpassungen (P6):
 //  - kein Handy-Zweig: `ShelfMitZustand` haelt weiterhin nur den Auf-Zu-
 //    Zustand der Schiene fuer den Aufrufer, jetzt ohne die MobileCreateTools-

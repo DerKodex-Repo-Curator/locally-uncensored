@@ -152,7 +152,7 @@ export function matchesLmStudioInstalled(
  * Same question for every local GGUF store the app can write into: LM Studio
  * AND the built-in engine.
  *
- * GH #118 (nayffy, 2026-08-27): the Discover badge only ever consulted the LM
+ * GH #118 (2026-08-27): the Discover badge only ever consulted the LM
  * Studio half, so a chat model downloaded for the BUILT-IN engine lost its
  * INSTALLED badge on the next app start (the in-session download store is the
  * only other evidence and it does not survive a restart). The tile then

@@ -10,7 +10,7 @@ import type { CreditRates } from '../api/providers/types'
 import type { FlashPolicy } from './flash-ui'
 import { displayModelName } from '../api/providers/model-name'
 import { resolveToolSupport } from './tool-support'
-import { traegtDieMarke } from './unfiltered-mark'
+import { modelMark, STATEMENT_MARK_LABEL, type ModelMark } from './unfiltered-mark'
 import { assignFamilies, groupByFamily } from './model-family'
 
 export type PickerFilter = 'marked' | 'vision' | 'thinking' | 'free'
@@ -26,8 +26,9 @@ export interface PickerRow {
   /** What the row reads: the catalogue's short name, or the id. */
   label: string
   family: string
-  /** Carries the measured "No refusals" mark. */
-  unfiltered: boolean
+  /** The one mark of the row (lib/unfiltered-mark): the statement of the
+   *  models released to answer without refusing, the measured mark, or none. */
+  mark: ModelMark
   vision: boolean
   /** 'always' = reasons on every turn, 'toggle' = on request, null = never or
    *  not stated. */
@@ -42,7 +43,15 @@ export interface PickerRow {
   rates: CreditRates | null
   /** Cannot call tools, so Agent and Code cannot use it. */
   chatOnly: boolean
+  /** Little room for all customers together (the server's
+   *  `limited_capacity`): the row carries the quiet note. */
+  limitedCapacity: boolean
 }
+
+/** The quiet note of a row whose model has little room for all customers
+ *  together, and what it says on hover. The same words as on the web. */
+export const LIMITED_CAPACITY_LABEL = 'Limited capacity'
+export const LIMITED_CAPACITY_TITLE = 'All customers share a small number of requests a minute on this model. At busy times it asks you to wait a few seconds.'
 
 function declared<K extends string>(model: AIModel, key: K): unknown {
   return key in model ? (model as unknown as Record<K, unknown>)[key] : undefined
@@ -65,12 +74,19 @@ export function pickerRows(models: readonly AIModel[], paidPlan: boolean | null)
     const flash = declared(model, 'flash') as FlashPolicy | undefined
     const label = declared(model, 'displayName')
     const tools = declared(model, 'supportsTools')
+    const mark = modelMark({
+      unfiltered: declared(model, 'unfiltered') as 'full' | 'partial' | undefined,
+      unrestricted: declared(model, 'unrestricted') === true,
+    })
     return {
       name: model.name,
       model,
       label: typeof label === 'string' && label ? label : displayModelName(model.name),
-      family: families.get(model.name)!,
-      unfiltered: traegtDieMarke(declared(model, 'unfiltered') as 'full' | 'partial' | undefined),
+      // The statement models stand together under their own word, whatever
+      // lineage their names carry: the head is what tells them apart from the
+      // open-weight catalogue at a glance.
+      family: mark === 'statement' ? STATEMENT_MARK_LABEL : families.get(model.name)!,
+      mark,
       vision: declared(model, 'supportsVision') === true,
       thinking: thinkingOf(model),
       free: flash && paidPlan === true ? flash : null,
@@ -80,12 +96,13 @@ export function pickerRows(models: readonly AIModel[], paidPlan: boolean | null)
         name: model.name,
         supportsTools: typeof tools === 'boolean' ? tools : undefined,
       }) === 'none',
+      limitedCapacity: declared(model, 'limitedCapacity') === true,
     }
   })
 }
 
 const FILTER_TEST: Record<PickerFilter, (row: PickerRow) => boolean> = {
-  marked: (row) => row.unfiltered,
+  marked: (row) => row.mark !== null,
   vision: (row) => row.vision,
   thinking: (row) => row.thinking !== null,
   free: (row) => row.free !== null,
@@ -131,7 +148,12 @@ export interface PickerGroup {
  *  both cases the rows stand in family order, so the flat list and the grouped
  *  one do not shuffle against each other. */
 export function pickerGroups(rows: readonly PickerRow[], searching: boolean): PickerGroup[] {
-  const groups = groupByFamily(rows)
+  // The statement group leads the list, in front of every lineage.
+  const byFamily = groupByFamily(rows)
+  const groups = [
+    ...byFamily.filter((g) => g.family === STATEMENT_MARK_LABEL),
+    ...byFamily.filter((g) => g.family !== STATEMENT_MARK_LABEL),
+  ]
   if (groups.length === 0) return []
   if (searching || groups.length === 1) return [{ family: null, rows: groups.flatMap((g) => g.rows) }]
   return groups

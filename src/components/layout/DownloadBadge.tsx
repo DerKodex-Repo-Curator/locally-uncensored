@@ -6,7 +6,7 @@ import { ArrowDownToLine, Pause, Play, X, CheckCircle, RotateCcw } from 'lucide-
 import { useModels } from '../../hooks/useModels'
 import { useDownloadStore } from '../../stores/downloadStore'
 import { isPermanentDownloadError } from '../../api/discover'
-import { useMlxInstallStore } from '../../stores/mlxInstallStore'
+import { useMlxInstallStore, mlxInstallLane } from '../../stores/mlxInstallStore'
 import { isMlxImageHost } from '../../api/mlx-image'
 import { formatBytes } from '../../lib/formatters'
 import { HINWEIS_TEXT, PUNKT_FARBE } from '../../lib/hinweis'
@@ -97,7 +97,7 @@ export function DownloadBadge() {
   // endpoint, and polling was only ever kicked off from the Discover page. So a
   // download watched from anywhere else — or after the idle auto-stop fired —
   // showed a frozen progress bar until the user opened the Models page, which
-  // restarted polling (konata, web build, 2026-06-22). The global badge is
+  // restarted polling (web build, 2026-06-22). The global badge is
   // always mounted, so let it keep polling alive whenever a comfy download is
   // active. Strictly additive: it only starts polling, never stops it.
   const polling = useDownloadStore(s => s.polling)
@@ -118,6 +118,7 @@ export function DownloadBadge() {
             : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5'
         }`}
         title="Downloads"
+        data-downloads-active={totalActive}
       >
         <ArrowDownToLine size={14} />
         {totalActive > 0 && (
@@ -139,7 +140,7 @@ export function DownloadBadge() {
           <motion.div
             ref={panelRef}
             style={panel.style}
-            className={`absolute right-0 w-72 rounded-lg overflow-x-hidden overflow-y-auto scrollbar-thin z-50 bg-white dark:bg-[#363636] border border-gray-200 dark:border-white/[0.08] shadow-2xl shadow-black/50 ${panel.nachOben ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
+            className={`absolute right-0 w-72 rounded-lg overflow-x-hidden overflow-y-auto scrollbar-thin z-50 lu-elevated ${panel.nachOben ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
             initial={{ opacity: 0, y: panel.nachOben ? 6 : -6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: panel.nachOben ? 6 : -6, scale: 0.98 }}
@@ -232,7 +233,7 @@ export function DownloadBadge() {
                 // Der Grund, aus dem ein Download stehen blieb, in Worten. Eine
                 // abgelehnte Uebertragung zeigte frueher nur einen Retry-Knopf,
                 // also sah die CivitAI-Absage, der bloss ein API-Key fehlte, wie
-                // ein toter Link aus (goonerforporn, Discord #bug-reports,
+                // ein toter Link aus (Discord #bug-reports,
                 // 28.08.2026). Deshalb bekommt JEDE Absage mit Begruendung ihre
                 // Zeile, nicht nur die endgueltige. Gleiche Begruendungen in
                 // einem Bundle werden zu einer Zeile zusammengelegt.
@@ -384,10 +385,22 @@ export function DownloadBadge() {
               {mlxEntries.map((e) => {
                 const prog = e.total > 0 ? (e.progress / e.total) * 100 : 0
                 return (
-                  <div key={e.kind} className="px-3 py-2 border-t border-gray-100 dark:border-white/[0.04] first:border-t-0">
+                  <div key={e.kind} data-mlx-install={e.kind} className="px-3 py-2 border-t border-gray-100 dark:border-white/[0.04] first:border-t-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <p className="text-[0.7rem] text-gray-700 dark:text-gray-300 truncate">{e.label}</p>
-                      {e.status !== 'installing' && (
+                      {e.status === 'installing' ? (
+                        // The same Stop as on the tile and on the engine card,
+                        // through the same store call: the row is gone with
+                        // the click, and a stopped install is not an error.
+                        // If Rust refuses, the store puts the row back.
+                        <button
+                          onClick={() => { void useMlxInstallStore.getState().stop(mlxInstallLane(e.kind)).catch(() => {}) }}
+                          className="p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors shrink-0"
+                          title="Stop"
+                          aria-label={`Stop installing ${e.label}`}
+                          data-mlx-stop={e.kind}
+                        ><X size={11} /></button>
+                      ) : (
                         <button onClick={() => useMlxInstallStore.getState().dismiss(e.kind)} className="p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors shrink-0" title="Dismiss"><X size={11} /></button>
                       )}
                     </div>

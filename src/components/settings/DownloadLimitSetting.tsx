@@ -1,4 +1,4 @@
-// Discord, boromirofgeo 2026-09-23: "is there a way to limit download speed
+// Discord 2026-09-23: "is there a way to limit download speed
 // that this app does whenever it downloads anything?" One number, under the
 // folder the downloads go to. App.tsx hands it to the downloader.
 import { useState } from 'react'

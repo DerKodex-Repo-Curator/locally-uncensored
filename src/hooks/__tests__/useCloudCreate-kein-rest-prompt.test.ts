@@ -1,6 +1,6 @@
 /**
- * Fund M4 (05.10.2026, Vorlage: apps/web/hooks/__tests__/
- * useCloudCreate-kein-rest-prompt.test.ts): eine Ansicht ohne Promptfeld schickt
+ * Fund M4 (05.10.2026, Vorlage: the web app):
+ * eine Ansicht ohne Promptfeld schickt
  * keinen Prompt. Der Speicher haelt einen einzigen Prompt fuer alle
  * Unterkategorien. Talking Character und Motion Control zeigten kein Feld und
  * schickten trotzdem den Text mit, der noch aus dem Bild-Tab dort stand.

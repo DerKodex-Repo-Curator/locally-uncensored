@@ -4,8 +4,9 @@ import {
   getDownloadProgress, pauseDownload, cancelDownload, clearDownloadEntry, resumeDownload,
   startModelDownload, startModelDownloadToPath, lookupFileMeta, modelsNotVisibleInComfy,
   isPermanentDownloadError, findOrphanDownloads, deleteOrphanDownload, orphanFilename,
-  catalogFilenames, ENUM_SUBFOLDERS, comfyModelTarget, type DownloadProgress, type OrphanDownload,
+  catalogFilenames, ENUM_SUBFOLDERS, comfyModelTarget, removeImagePart, type DownloadProgress, type OrphanDownload,
 } from '../api/discover'
+import { imagePartFileName, isImagePartFile } from '../lib/image-part'
 import { isTauri } from '../api/backend'
 import { coalescedJSONStorage } from '../lib/coalescedStorage'
 import { waitForModelsVisible } from '../lib/bundle-install'
@@ -22,7 +23,7 @@ const awaitingVisibility = new Set<string>()
  *  The Model Manager half of C8. A finished download is not a finished
  *  install: ComfyUI serves what its own directory scan has picked up, and on
  *  the big files that scan is still running when the last byte lands. Create
- *  learned to wait for that on 2026-08-13 (Voxyl AI, Aldrich Ironhart). This
+ *  learned to wait for that on 2026-08-13 (a user AI, a user). This
  *  path never did. It fired one event, useModels ran one fetch against a
  *  stale /object_info, and the model was simply absent from the Installed tab
  *  and every picker until the user reloaded by hand. Same slow scan, same too
@@ -71,12 +72,12 @@ async function announceUntilVisible(filename: string, subfolder: string | undefi
  * does not list it.
  *
  * The old text named one cause, a model folder LU and ComfyUI do not share
- * (pnwpdr4519). For a .gguf that is almost never the cause. UNETLoader does not
+ *. For a .gguf that is almost never the cause. UNETLoader does not
  * enumerate .gguf at all: the file is read by ComfyUI-GGUF's own loader, so a
  * pack that is missing, or that failed to import because its gguf dependency
  * landed in a different Python environment, leaves ComfyUI with no loader that
  * can see the file even though the folder is exactly right. Every Unfiltered
- * video bundle we ship is a GGUF, which is what lapbo and Blahx were looking at.
+ * video bundle we ship is a GGUF, which is what a user and Blahx were looking at.
  *
  * English on purpose, like every error text in the product.
  */
@@ -236,6 +237,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
  *  trimmed rather than grown forever inside a 5 MB origin quota. */
 const META_LIMIT = 400
 
+/** Rows whose cancel is on its way, so that one click cannot cancel a file twice. */
+const cancelling = new Set<string>()
+
 export const useDownloadStore = create<DownloadStoreState>()(persist((set, get) => ({
   downloads: {},
   ownRows: {},
@@ -367,25 +371,70 @@ export const useDownloadStore = create<DownloadStoreState>()(persist((set, get) 
     // A finished file has nothing to cancel. "Cancel all" on a bundle used to
     // drop its row too, and the next poll brought it straight back.
     if (get().downloads[id]?.status === 'complete') return
-    await cancelDownload(id)
+    // "Cancel all" calls this once per row, in one go. A model takes its image
+    // part along (below), so the part's own call would cancel it a second
+    // time. Whoever is already being cancelled is left to the call that has it.
+    if (cancelling.has(id)) return
+    // A model and its image part are one download, so cancelling the model
+    // takes the part along: a part that is still running is cancelled like
+    // the model, and one that already finished is removed from disk, because
+    // without its model it belongs to nothing and no list shows it. The other
+    // direction does not hold: cancelling only the part leaves the model.
+    const candidate = /\.gguf$/i.test(id) && !isImagePartFile(id) ? imagePartFileName(id) : null
+    const part = candidate && !cancelling.has(candidate) ? candidate : null
+    const partRow = part ? get().downloads[part] : undefined
+    const partMeta = part ? get().downloadMeta[part] : undefined
+    const mine = part && partRow ? [id, part] : [id]
+    for (const f of mine) cancelling.add(f)
+    const gone = [id]
+    try {
+      await cancelDownload(id)
+      if (part && partRow && partRow.status !== 'complete') {
+        await cancelDownload(part)
+        gone.push(part)
+      } else if (part && partRow && partMeta?.destDir) {
+        await removeImagePart(partMeta.destDir, part)
+        gone.push(part)
+      }
+    } finally {
+      for (const f of mine) cancelling.delete(f)
+    }
     set(s => {
       const updated = { ...s.downloads }
-      delete updated[id]
-      // An adopted orphan must go from BOTH places or the next poll re-adopts
-      // the row the user just cancelled.
+      let ownRows = s.ownRows
+      let orphans = s.orphans
+      for (const f of gone) {
+        delete updated[f]
+        // An adopted orphan must go from BOTH places or the next poll
+        // re-adopts the row the user just cancelled.
+        ownRows = without(ownRows, f)
+        orphans = withoutFilename(orphans, f)
+      }
       return {
         downloads: updated,
-        ownRows: without(s.ownRows, id),
-        orphans: withoutFilename(s.orphans, id),
-        cancelled: s.cancelled.includes(id) ? s.cancelled : [...s.cancelled, id],
+        ownRows,
+        orphans,
+        cancelled: [...s.cancelled, ...gone.filter((f) => !s.cancelled.includes(f))],
       }
     })
+    // A finished part has a row on the Rust side too, and the next poll would
+    // bring it straight back.
+    for (const f of gone.slice(1)) await clearDownloadEntry(f).catch(() => {})
   },
 
   resume: async (id: string) => {
     const meta = ensureMeta(get, id)
     if (!meta) return
-    await resumeDownload(id, meta.url, meta.subfolder, meta.expectedBytes, meta.sha256)
+    // A file that was fetched to a folder of its own (a chat model, its image
+    // part) is continued there. The resume by subfolder knows only the ComfyUI
+    // tree: it found no half file in it, began at zero and wrote the 0.9 GB of
+    // an image part into ComfyUI's models folder, where no engine looks for it
+    // (box, 09.10.2026). The start by path picks up the half file by itself.
+    if (meta.destDir) {
+      await startModelDownloadToPath(meta.url, meta.destDir, id, meta.expectedBytes, meta.sha256)
+    } else {
+      await resumeDownload(id, meta.url, meta.subfolder, meta.expectedBytes, meta.sha256)
+    }
     set(s => ({ orphans: withoutFilename(s.orphans, id) }))
     get().startPolling()
   },
@@ -403,7 +452,7 @@ export const useDownloadStore = create<DownloadStoreState>()(persist((set, get) 
    *
    * The Rust row still has to be cleared, or `download_model` short-circuits on
    * the file already on disk without touching the map and the next poll
-   * resurrects the error card (the_mr_pickles). `clearDownloadEntry` is that
+   * resurrects the error card. `clearDownloadEntry` is that
    * bookkeeping without the collateral damage.
    */
   retry: async (id: string) => {
@@ -440,7 +489,7 @@ export const useDownloadStore = create<DownloadStoreState>()(persist((set, get) 
   dismiss: (id: string) => {
     // Errored entries also live in the Rust download map; drop them there
     // too or the next refresh() (Models-tab remount) resurrects the error
-    // card the user just cleared (the_mr_pickles). Only for 'error' —
+    // card the user just cleared. Only for 'error' —
     // cancelling an active transfer or a completed entry is not dismiss's
     // job (the badge dismisses completed entries FE-only by design).
     //

@@ -144,8 +144,8 @@ describe('createStore', () => {
 
     // Regression: CreateTopControls (header dropdown) reads these fields
     // directly. If they're undefined, `activeList.length` / `.map()` crash
-    // the whole app. Reported on Discord by @diimmortalis (v2.3.9) and
-    // @phantomderp (v2.4.0). Defensive `?? []` lives in CreateTopControls,
+    // the whole app. Reported on Discord by a user (v2.3.9) and
+    // A user (v2.4.0). Defensive `?? []` lives in CreateTopControls,
     // but the store itself must also hand out safe defaults.
     it('initializes imageModelList, videoModelList, comfyRunning', () => {
       // Force a clean construction so we bypass the INITIAL_STATE merge that
@@ -183,7 +183,7 @@ describe('createStore', () => {
       expect(useCreateStore.getState().comfyRunning).toBe(false)
     })
 
-    // Pathological-state regression: reproduce @phantomderp's crash from
+    // Pathological-state regression: reproduce a user's crash from
     // multiple angles. The defensive `Array.isArray` guard in
     // CreateTopControls is the real fix, but the store APIs must keep
     // returning *something* when setState is called with garbage. These
@@ -637,7 +637,7 @@ describe('createStore', () => {
 
   // ── removeFromPromptHistory / clearPromptHistory (A10) ─────
   //
-  // Bug A10 (pardy22, Discord #general + #help-18): the prompt history could
+  // Bug A10 (Discord #general + #help-18): the prompt history could
   // not be deleted. The store had no action for it at all, so no button could
   // have worked. These four claims pin the two new actions plus the persisted
   // copy, which is what made the entries come back after a restart.
@@ -861,7 +861,7 @@ describe('createStore', () => {
     })
   })
 
-  // David 2026-07-10: edit/animate/upscale/eraser are cloud-only — flipping
+  // 2026-07-10: edit/animate/upscale/eraser are cloud-only — flipping
   // the backend to local must clear every cloud-only intent (the IntentBar no
   // longer shows them) so the surface never strands on a hidden op.
   describe('setBackend local-flip clears cloud-only intents', () => {
@@ -913,6 +913,18 @@ describe('createStore', () => {
       const after = useCreateStore.getState()
       expect(after.intent()).toBe('removebg')
       expect(after.source).not.toBeNull()
+    })
+
+    it('keeps music on a ComfyUI host: the Mac rule for these lanes does not reach it', () => {
+      // der-mac-strandet-nicht-auf-einem-werkzeug.test.ts holds the Mac side,
+      // where the same flip lets Music go because it is a locked teaser there.
+      const s = useCreateStore.getState()
+      s.setBackend('cloud')
+      s.setIntent('music')
+      useCreateStore.getState().setBackend('local')
+      const after = useCreateStore.getState()
+      expect(after.cloudOp).toBe('music')
+      expect(after.intent()).toBe('music')
     })
 
     it('keeps character since 2.6.0 ships the local musubi trainer lane', () => {

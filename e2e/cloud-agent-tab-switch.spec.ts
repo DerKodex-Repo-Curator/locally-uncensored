@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_MODEL_NAME, DEFAULT_ASSISTANT_REPLY } from './su
 import { seedOnboardingDone, routeCloud, signInViaGate, cloudSwitch } from './support/cloud-mock'
 
 /**
- * Customer case 30.09.2026 (swift_maple90), second mail, the customer's own
+ * Customer case 30.09.2026, second mail, the customer's own
  * setup: LU Cloud model, desktop app, a run in progress, a trip to Settings.
  * "task is stopped and start from begining again". Same checks as the
  * built-in engine spec in coding-agent.spec.ts, over the cloud transport.

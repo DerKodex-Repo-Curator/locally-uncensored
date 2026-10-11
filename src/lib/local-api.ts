@@ -168,7 +168,7 @@ export function corsText(origins: string[]): string {
     : `Open to ${origins.length} origins: ${origins.join(', ')}.`
 }
 
-// ── Was ueber die API gelaufen ist (GH Discussion #4, kreake 2026-09-22) ──
+// ── Was ueber die API gelaufen ist (GH Discussion #4 2026-09-22) ──
 
 /** Die Zahlen, die `local_api_usage` seit dem letzten Start liefert. */
 export interface LocalApiNutzung {

@@ -1,4 +1,4 @@
-//! One anonymous counter for the Cloud switch (David, 06.09.2026): how many
+//! One anonymous counter for the Cloud switch (06.09.2026): how many
 //! presses open the gate, arm the switch, enter Cloud or go back to Local,
 //! per day, platform and app version. Nothing else leaves the machine: no
 //! identifier, no prompt, no IP kept (the table holds daily counts). The

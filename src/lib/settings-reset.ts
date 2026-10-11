@@ -4,7 +4,7 @@ import type { Settings } from '../types/settings'
  *  scope can be unit-tested without pulling the whole SettingsPage in. */
 export type SettingsTab = 'general' | 'backends' | 'agent' | 'voice-remote'
 
-// GitHub #59 (hussam) — which settings keys each tab's reset restores.
+// GitHub #59 — which settings keys each tab's reset restores.
 // Only PREFERENCES are listed: user CONTENT (custom personas, memories,
 // conversations, agent workflows, MCP server entries) is never touched by a
 // settings reset — those have their own delete/clear flows with their own

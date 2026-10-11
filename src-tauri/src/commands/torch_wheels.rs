@@ -4,8 +4,8 @@
 //! ComfyUI environment (`install/`) and the character trainer (`trainer.rs`).
 //! Both used to ask `nvidia-smi` and nothing else, so an AMD card was
 //! indistinguishable from a machine with no card at all and got the wheels a
-//! card-less box gets. On the ComfyUI side that is exactly what numbrain,
-//! lapbo, petermanmancusso and sancora reported: ComfyUI installs, starts,
+//! card-less box gets. On the ComfyUI side that is exactly what a user,
+//! A user reported: ComfyUI installs, starts,
 //! and renders on the processor, and forcing the GPU produces
 //! "Torch not compiled with CUDA enabled" because the wheels really are
 //! CUDA-only.
@@ -14,7 +14,7 @@
 //! test can drive every branch on a machine that has none of the hardware.
 //!
 //! The LINUX ROCm side is MEASURED as of 2026-09-03, on a rented AMD Instinct
-//! MI325X (gfx942, DigitalOcean tor1): the first channel below installs,
+//! MI325X (gfx942): the first channel below installs,
 //! `torch.cuda.is_available()` answers True, and ComfyUI rendered an image, a
 //! video, a song, a 4x upscale and a cutout on the card. Details in
 //! ~/Desktop/LU/amd-beweise/00-BEFUND.md. The WINDOWS side is still researched

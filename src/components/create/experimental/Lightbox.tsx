@@ -48,7 +48,7 @@ export function Lightbox({ item, onClose, onSaveCharacter }: {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 z-[80] bg-black/85 flex items-center justify-center p-8"
+          className="fixed inset-0 z-[80] bg-black/85 flex flex-col items-center justify-center gap-3 p-8"
         >
           <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-lg bg-white/10 text-gray-200 hover:bg-white/20">
             <X size={18} />
@@ -99,35 +99,40 @@ export function Lightbox({ item, onClose, onSaveCharacter }: {
               onClick={(e) => e.stopPropagation()}
               className="w-[480px] max-w-[90vw] flex flex-col items-center gap-4 p-8 rounded-lg bg-white/[0.04] border border-white/[0.08]"
             >
-              {item.prompt && <p className="t-body text-gray-300 text-center">{item.prompt}</p>}
               <audio src={mediaUrl} controls autoPlay onError={onMediaError} className="w-full" />
             </motion.div>
-          ) : item.type === 'video' ? (
-            <motion.video
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              src={mediaUrl}
-              controls
-              autoPlay
-              loop
-              onError={onMediaError}
-              onClick={(e) => e.stopPropagation()}
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
           ) : (
-            <motion.img
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              src={mediaUrl}
-              alt={item.prompt}
-              onError={onMediaError}
-              onClick={(e) => e.stopPropagation()}
-              className={cn('max-w-full max-h-full object-contain rounded-lg', itemHasAlpha(item) && 'lu-checker')}
-            />
+            // The media takes the room the prompt leaves: the box below never
+            // lies on the picture.
+            <div className="min-h-0 flex-1 w-full flex items-center justify-center">
+              {item.type === 'video' ? (
+                <motion.video
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.95 }}
+                  src={mediaUrl}
+                  controls
+                  autoPlay
+                  loop
+                  onError={onMediaError}
+                  onClick={(e) => e.stopPropagation()}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              ) : (
+                <motion.img
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.95 }}
+                  src={mediaUrl}
+                  alt={item.prompt}
+                  onError={onMediaError}
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn('max-w-full max-h-full object-contain rounded-lg', itemHasAlpha(item) && 'lu-checker')}
+                />
+              )}
+            </div>
           )}
-          <PromptDetails item={item} className="absolute bottom-4 left-1/2 max-h-[40vh] -translate-x-1/2 overflow-y-auto bg-black/70" />
+          <PromptDetails item={item} open className="shrink-0 max-h-[40vh] overflow-y-auto scrollbar-thin bg-black/70" />
         </motion.div>
       )}
     </AnimatePresence>

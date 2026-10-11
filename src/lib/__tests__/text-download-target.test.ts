@@ -1,5 +1,5 @@
 /**
- * GH #118 (nayffy, 2026-08-27, Windows 11, v2.6.6): "Unable to load built in
+ * GH #118 (2026-08-27, Windows 11, v2.6.6): "Unable to load built in
  * engine or models". A fresh install downloaded a chat model, the tile said
  * Installed, the Chat tab never saw it, a restart flipped the tile back to
  * Get, and the Built-in Engine test in Settings answered

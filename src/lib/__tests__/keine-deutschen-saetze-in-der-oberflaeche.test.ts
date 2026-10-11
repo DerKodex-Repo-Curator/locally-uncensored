@@ -63,6 +63,8 @@ const DEUTSCH_MIT_GRUND: Record<string, string> = {
   'lib/turn-summary.ts': 'Absichtlich zweisprachig, deutscher und englischer Satz in einer Zeile.',
   'lib/release-notes.ts': 'Ein englischer Blattsatz, der eine getippte deutsche Wendung zitiert.',
   'lib/plan-gate.ts': 'Deutsche Planbitten, gegen die getippte Saetze gelesen werden.',
+  'lib/create/media-wish.ts': 'Deutsche Medienwuensche, gegen die getippte Saetze gelesen werden (aus dem Web gespiegelt).',
+  'lib/create/chat-control.ts': 'Muster, gegen die der Schlusstext eines Modells gelesen wird, auch der deutsche (aus dem Web gespiegelt). Nichts davon wird angezeigt.',
 }
 
 /** Jede .ts und .tsx unter den Ordnern, ohne die Testbaeume. */
@@ -128,7 +130,7 @@ describe('kein deutscher Satz in einem Zeichenkettenliteral', () => {
     expect(offen, offen.join('\n')).toEqual([])
   })
 
-  it('und jede der fuenf Ausnahmen traegt noch das Deutsch, fuer das sie dasteht', () => {
+  it('und jede der sechs Ausnahmen traegt noch das Deutsch, fuer das sie dasteht', () => {
     // Sonst waechst die Liste der Ausnahmen, waehrend der Grund laengst weg ist.
     const mitTreffer = new Set(treffer().map((t) => t.datei))
     for (const datei of Object.keys(DEUTSCH_MIT_GRUND)) {

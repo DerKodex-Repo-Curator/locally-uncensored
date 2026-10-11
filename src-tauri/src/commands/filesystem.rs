@@ -466,7 +466,7 @@ fn may_be_a_picked_root(norm: &Path) -> Result<(), String> {
 ///   2. the allowlist: an app work dir, or a folder the user picked in the
 ///      native dialog (this run or an earlier one; see `PICKED_ROOTS`).
 ///
-/// WHY THAT ORDER (bug D, aldrich_ironhart, Discord 2026-09-08). With the
+/// WHY THAT ORDER (bug D, Discord 2026-09-08). With the
 /// allowlist first, `$HOME`, `C:\Users` and everything under `AppData` were
 /// refused with "pick it again to allow it", an instruction that cannot work,
 /// because the dialog silently refuses to record exactly those folders. The
@@ -539,6 +539,208 @@ pub fn validate_workspace_folder(path: String) -> Result<(), String> {
     check_workspace_root(Path::new(&path))
 }
 
+/// WHOLE COMPUTER: the runs the user let out of the workspace jail.
+///
+/// A voice session whose "Where it may work" is set to "Whole computer" reads
+/// and writes files by absolute path anywhere, the way a command already can.
+/// Three things keep that from being a hole in the jail above:
+///
+///   1. The consent is a NATIVE dialog (`fs_whole_computer`), for the same
+///      reason the allowlist is fed by one: a compromised renderer can call
+///      this command, it cannot click "Allow" in a window of the system. The
+///      consent lives in memory only, so every start of the app asks again
+///      before the first such run.
+///   2. It is granted to ONE run, by its chat id. The chat, the Code tab and
+///      every other session keep their jail, because their chat id is not in
+///      this set. The session takes its id out again when it ends.
+///   3. The system and credential directories that may never be a workspace
+///      (`forbidden_root_prefixes`) stay closed here too.
+static WHOLE_COMPUTER_CONSENT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static WHOLE_COMPUTER_RUNS: Lazy<Mutex<std::collections::HashSet<String>>> =
+    Lazy::new(|| Mutex::new(std::collections::HashSet::new()));
+
+fn whole_computer_key(chat_id: &str) -> String {
+    crate::commands::agent::sanitize_chat_slug(chat_id)
+}
+
+fn has_whole_computer(chat_id: Option<&str>) -> bool {
+    let Some(id) = chat_id.map(str::trim).filter(|id| !id.is_empty()) else { return false };
+    WHOLE_COMPUTER_RUNS
+        .lock()
+        .map(|runs| runs.contains(&whole_computer_key(id)))
+        .unwrap_or(false)
+}
+
+/// Let one run out of the jail, or take it back in. `consented` is the answer
+/// of the native dialog (or an earlier one in this run of the app).
+fn set_whole_computer(chat_id: &str, on: bool, consented: bool) -> bool {
+    let id = chat_id.trim();
+    // "default" is the bucket every call without a chat id lands in.
+    if id.is_empty() || whole_computer_key(id) == "default" {
+        return false;
+    }
+    let Ok(mut runs) = WHOLE_COMPUTER_RUNS.lock() else { return false };
+    if on && consented {
+        runs.insert(whole_computer_key(id));
+        true
+    } else {
+        runs.remove(&whole_computer_key(id));
+        false
+    }
+}
+
+/// What stays closed for a run that may leave the workspace: everything that
+/// may never be a workspace, and on top of it the places a path jail has no
+/// reason to think of, because inside a workspace they do not occur.
+///
+///   * Credentials that are one file in the home folder, not a folder.
+///   * The stores of browsers, mail programs and keyrings, and on macOS the
+///     application data as a whole, as `AppData` already is on Windows.
+///   * The folder macOS starts programs from at login.
+///   * LU's own folders. They hold the settings of the app and the private
+///     Python the voice engine runs: a file written there is code the app
+///     executes, without the shell tool and its question.
+fn whole_computer_closed() -> Vec<PathBuf> {
+    let mut out = forbidden_root_prefixes();
+    if let Some(home) = dirs::home_dir() {
+        for rel in [
+            ".netrc", "_netrc", ".git-credentials", ".npmrc", ".pypirc", ".pgpass", ".my.cnf", ".password-store", ".azure", ".oci",
+            ".terraform.d", ".mozilla", ".thunderbird", ".local/share/keyrings", ".local/share/kwalletd",
+            "Library/Application Support", "Library/Cookies", "Library/WebKit", "Library/Safari", "Library/Mail",
+            "Library/Messages", "Library/Containers", "Library/Group Containers", "Library/LaunchAgents",
+        ] {
+            out.push(rel.split('/').fold(home.clone(), |path, part| path.join(part)));
+        }
+    }
+    out.extend([
+        crate::os_paths::data_dir(),
+        crate::os_paths::cache_dir(),
+        crate::os_paths::config_root(),
+        crate::os_paths::app_config_dir(),
+    ]);
+    out
+}
+
+/// An absolute path outside the workspace, for a run that may leave it.
+fn whole_computer_path(candidate: &Path) -> Result<PathBuf, String> {
+    let norm = lexical_normalize(candidate);
+    let real = resolve_existing_prefix(&norm);
+    for bad in whole_computer_closed() {
+        let bad = lexical_normalize(&bad);
+        if is_within(&bad, &norm) || is_within(&resolve_existing_prefix(&bad), &real) {
+            return Err(format!(
+                "Not available, even with the whole computer allowed (system or credential directory): {}",
+                candidate.display()
+            ));
+        }
+    }
+    Ok(norm)
+}
+
+/// What a run that may leave the workspace can read and not change: the
+/// files the system runs by itself when a terminal or a session starts, and
+/// the settings of git, which name programs git runs. A line written there
+/// is a command that runs later, without the shell tool and its question.
+/// Relative to the home folder; a folder stands for everything in it.
+const WHOLE_COMPUTER_READ_ONLY: &[&str] = &[
+    ".zshrc", ".zshenv", ".zprofile", ".zlogin", ".zlogout", ".oh-my-zsh", ".bashrc", ".bash_profile", ".bash_login",
+    ".bash_logout", ".bash_aliases", ".bashrc.d", ".profile", ".kshrc", ".cshrc", ".tcshrc", ".login", ".logout",
+    ".xinitrc", ".xprofile", ".xsession", ".xsessionrc", ".pam_environment", ".gitconfig",
+    "Documents/PowerShell", "Documents/WindowsPowerShell",
+];
+
+/// Lower case, with forward slashes: the file systems of Windows and macOS
+/// do not tell `.ZSHRC` from `.zshrc`, so neither does this comparison.
+fn folded(path: &Path) -> String {
+    path.to_string_lossy().to_lowercase().replace('\\', "/")
+}
+
+/// Refuse a write that lands on one of `WHOLE_COMPUTER_READ_ONLY`. Only a
+/// run that left the workspace gets there, so a path inside `root` is not
+/// looked at: what is in the workspace is the workspace's business.
+fn refuse_start_file_write(root: &Path, target: &Path) -> Result<(), String> {
+    if contain_within(root, target).is_ok() {
+        return Ok(());
+    }
+    let norm = lexical_normalize(target);
+    let real = resolve_existing_prefix(&norm);
+    let mut homes: Vec<PathBuf> = dirs::home_dir().into_iter().collect();
+    // Where the system keeps the documents somewhere else (a synced folder),
+    // the PowerShell profile lives there.
+    let documents = dirs::document_dir();
+    let mut closed: Vec<String> = Vec::new();
+    for home in homes.clone() {
+        homes.push(resolve_existing_prefix(&lexical_normalize(&home)));
+    }
+    for home in &homes {
+        closed.extend(WHOLE_COMPUTER_READ_ONLY.iter().map(|rel| format!("{}/{}", folded(home).trim_end_matches('/'), rel.to_lowercase())));
+    }
+    if let Some(documents) = documents {
+        for shell in ["powershell", "windowspowershell"] {
+            closed.push(format!("{}/{shell}", folded(&documents).trim_end_matches('/')));
+            closed.push(format!("{}/{shell}", folded(&resolve_existing_prefix(&lexical_normalize(&documents))).trim_end_matches('/')));
+        }
+    }
+    let hit = [folded(&norm), folded(&real)].iter().any(|path| {
+        closed.iter().any(|bad| path == bad || path.strip_prefix(bad.as_str()).is_some_and(|rest| rest.starts_with('/')))
+    });
+    if hit {
+        return Err(format!(
+            "Not available for writing, even with the whole computer allowed (a file the system runs by itself when a terminal or a session starts): {}",
+            target.display()
+        ));
+    }
+    Ok(())
+}
+
+/// Ask the user, in a window of the system, whether a voice session may work
+/// with files anywhere on this computer. Asked once per start of the app.
+async fn ask_whole_computer_consent() -> bool {
+    if WHOLE_COMPUTER_CONSENT.load(std::sync::atomic::Ordering::SeqCst) {
+        return true;
+    }
+    let answer = rfd::AsyncMessageDialog::new()
+        .set_level(rfd::MessageLevel::Warning)
+        .set_title("Let Voice work on the whole computer?")
+        .set_description(
+            "The voice session will be able to read and change files in any folder you can open, \
+             not only in its workspace folder. System folders and the folders that hold keys and \
+             passwords stay closed. This holds until you quit LU or switch back to \"Workspace only\".",
+        )
+        .set_buttons(rfd::MessageButtons::OkCancelCustom("Allow".to_string(), "Cancel".to_string()))
+        .show()
+        .await;
+    let allowed = matches!(&answer, rfd::MessageDialogResult::Ok)
+        || matches!(&answer, rfd::MessageDialogResult::Custom(label) if label == "Allow");
+    if allowed {
+        WHOLE_COMPUTER_CONSENT.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+    allowed
+}
+
+/// Switch "Whole computer" on or off for one run. On asks the user first when
+/// this start of the app has not asked yet. Returns whether the run is out of
+/// the workspace jail now.
+#[tauri::command]
+#[allow(non_snake_case)]
+pub async fn fs_whole_computer(chatId: String, on: bool) -> Result<bool, String> {
+    if !on {
+        return Ok(set_whole_computer(&chatId, false, false));
+    }
+    let consented = ask_whole_computer_consent().await;
+    Ok(set_whole_computer(&chatId, true, consented))
+}
+
+/// The user went back to "Workspace only": no run is out of the jail any
+/// more, and the next "Whole computer" asks again.
+#[tauri::command]
+pub fn fs_whole_computer_forget() {
+    WHOLE_COMPUTER_CONSENT.store(false, std::sync::atomic::Ordering::SeqCst);
+    if let Ok(mut runs) = WHOLE_COMPUTER_RUNS.lock() {
+        runs.clear();
+    }
+}
+
 /// Resolve + CONTAIN a tool-call path. A relative path resolves against the
 /// workspace root (folder workspace #62, else the per-chat sandbox); an
 /// absolute path is accepted only when it falls inside that root.
@@ -555,7 +757,17 @@ fn resolve_path(path: &str, chat_id: Option<&str>, working_dir: Option<&str>) ->
     }
     let p = Path::new(&cleaned);
     let candidate = if p.is_absolute() { p.to_path_buf() } else { root.join(&cleaned) };
-    contain_within(&root, &candidate)
+    match contain_within(&root, &candidate) {
+        // A run the user let out of the workspace (see WHOLE COMPUTER above)
+        // may name a file anywhere by its absolute path. A relative path
+        // still means the workspace, so `../..` is no way out. A path that
+        // starts at the root of a drive without naming the drive
+        // (`\Users\me\note.txt` on Windows) is not relative to the
+        // workspace either: it means that place on the drive of the
+        // workspace, which is what `candidate` already is.
+        Err(_) if (p.is_absolute() || p.has_root()) && has_whole_computer(chat_id) => whole_computer_path(&candidate),
+        other => other,
+    }
 }
 
 /// True when `dir`, already resolved, IS the workspace root of this chat.
@@ -773,13 +985,12 @@ pub(crate) fn write_atomic(target: &Path, bytes: &[u8]) -> Result<(), String> {
 #[allow(non_snake_case)]
 pub fn fs_write(path: String, content: String, chatId: Option<String>, workingDirectory: Option<String>) -> Result<serde_json::Value, String> {
     let full = resolve_path(&path, chatId.as_deref(), workingDirectory.as_deref())?;
+    let root = workspace_root(chatId.as_deref(), workingDirectory.as_deref());
     // KF-15. Before any directory is created and before write_atomic drops its
     // temp file into the target's parent — which for a root-as-target is one
     // level ABOVE the workspace.
-    reject_root_as_write_target(
-        &workspace_root(chatId.as_deref(), workingDirectory.as_deref()),
-        &full,
-    )?;
+    reject_root_as_write_target(&root, &full)?;
+    refuse_start_file_write(&root, &full)?;
     if let Some(parent) = full.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Create dir: {}", os_error::english(&e)))?;
     }
@@ -827,7 +1038,7 @@ fn upload_part_path(target: &Path) -> Result<PathBuf, String> {
 /// jail as every other fs command (`resolve_path` -> `contain_within`).
 ///
 /// This is how a file attached in the chat reaches the agent's working folder
-/// (3.0.5, applejames on Discord: a ROM file for the model to look at).
+/// (3.0.5, a user on Discord: a ROM file for the model to look at).
 /// `fs_write` cannot carry it: it takes text and rewrites line endings.
 ///
 /// CHUNKED, because the alternative is one IPC message with the whole file in
@@ -873,10 +1084,9 @@ pub(crate) fn fs_write_bytes_sync(
     use std::io::Write;
 
     let full = resolve_path(&path, chatId.as_deref(), workingDirectory.as_deref())?;
-    reject_root_as_write_target(
-        &workspace_root(chatId.as_deref(), workingDirectory.as_deref()),
-        &full,
-    )?;
+    let root = workspace_root(chatId.as_deref(), workingDirectory.as_deref());
+    reject_root_as_write_target(&root, &full)?;
+    refuse_start_file_write(&root, &full)?;
     if full.exists() {
         return Err(format!("File already exists: {}", full.display()));
     }
@@ -1443,7 +1653,7 @@ mod jail_adversarial_tests {
     /// against the real function rather than reasoned about.
     #[test]
     fn traversal_out_of_the_workspace_is_refused() {
-        let root = Path::new("/Users/dave/project");
+        let root = Path::new("/Users/alex/project");
         for evil in [
             "../secrets.txt",
             "../../.ssh/id_rsa",
@@ -1451,10 +1661,10 @@ mod jail_adversarial_tests {
             "sub/../../outside.txt",
             "./../../outside.txt",
             "/etc/passwd",
-            "/Users/dave/.ssh/id_rsa",
+            "/Users/alex/.ssh/id_rsa",
             // sibling directory whose name merely STARTS with the root's name
-            "/Users/dave/project-evil/x.txt",
-            "/Users/dave/projectevil",
+            "/Users/alex/project-evil/x.txt",
+            "/Users/alex/projectevil",
         ] {
             let cand = if Path::new(evil).is_absolute() {
                 PathBuf::from(evil)
@@ -1472,7 +1682,7 @@ mod jail_adversarial_tests {
     /// into a relative one. That must still not compare as "inside".
     #[test]
     fn popping_past_the_filesystem_root_does_not_land_inside() {
-        let root = Path::new("/Users/dave/project");
+        let root = Path::new("/Users/alex/project");
         let cand = root.join("../../../../../../../../etc/passwd");
         let out = contain_within(root, &cand);
         assert!(out.is_err(), "escaped to {:?}", out);
@@ -1481,7 +1691,7 @@ mod jail_adversarial_tests {
     /// The legitimate cases must keep working, or the coding agent breaks.
     #[test]
     fn ordinary_paths_inside_the_workspace_still_resolve() {
-        let root = Path::new("/Users/dave/project");
+        let root = Path::new("/Users/alex/project");
         for good in ["src/main.rs", "./src/main.rs", "a/b/../c.txt", "."] {
             assert!(
                 contain_within(root, &root.join(good)).is_ok(),
@@ -1489,7 +1699,7 @@ mod jail_adversarial_tests {
             );
         }
         // An absolute path inside the workspace is allowed on purpose (#62).
-        assert!(contain_within(root, Path::new("/Users/dave/project/src/x.rs")).is_ok());
+        assert!(contain_within(root, Path::new("/Users/alex/project/src/x.rs")).is_ok());
         // The root itself.
         assert!(contain_within(root, root).is_ok());
     }
@@ -1785,7 +1995,7 @@ mod workspace_allowlist_tests {
     }
 }
 
-/// Bug D, symptom 3. Discord ticket, aldrich_ironhart, 2026-09-08, Windows 11,
+/// Bug D, symptom 3. Discord ticket, 2026-09-08, Windows 11,
 /// LU 2.6.8, provider Ollama:
 ///
 ///   "Error: Not an allowed workspace folder (only a folder you chose in LU's
@@ -2098,15 +2308,18 @@ mod binary_read_tests {
         big[0] = 0xff;
         fs::write(dir.join("big.bin"), &big).unwrap();
 
-        let started = std::time::Instant::now();
         let v = fs_read("big.bin".into(), None, Some(dir.to_string_lossy().to_string()))
             .await
             .expect("read");
-        let took = started.elapsed();
 
         assert_eq!(v["bytes"], 8 * 1024 * 1024_u64);
         assert!(v.get("content").is_none());
-        assert!(took < std::time::Duration::from_millis(200), "took {took:?}");
+        // What is handed back is the measure, not a stopwatch: the answer for
+        // 8 MiB is a few dozen bytes. A 200 ms limit stood here before and a
+        // loaded machine missed it with nothing wrong in the read (Linux,
+        // 08.10.2026, a full run that took 27 s instead of 8).
+        let answer = v.to_string();
+        assert!(answer.len() < 200, "the answer grew with the file: {} bytes", answer.len());
     }
 }
 
@@ -2690,3 +2903,283 @@ mod write_needs_a_target_tests {
 
 
 
+
+
+/// "Whole computer" for a voice session: one run leaves the workspace jail,
+/// with the user's consent, and nothing else does.
+#[cfg(test)]
+mod whole_computer_tests {
+    use super::*;
+
+    /// The grants are one set for the whole process, and one of the tests
+    /// below empties it. They run one at a time.
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+
+    fn alone() -> std::sync::MutexGuard<'static, ()> {
+        ONE_AT_A_TIME.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    fn outside_file(tag: &str) -> (crate::os_paths::TestDir, PathBuf) {
+        let dir = crate::os_paths::test_dir(tag);
+        let file = dir.join("note.txt");
+        fs::write(&file, "outside").unwrap();
+        (dir, file)
+    }
+
+    #[test]
+    fn a_path_outside_the_workspace_is_refused_without_the_grant() {
+        let _alone = alone();
+        let (_dir, file) = outside_file("wc-refused");
+        let err = resolve_path(&file.to_string_lossy(), Some("wc-refused-run"), None).unwrap_err();
+        assert!(err.contains("Path escapes the allowed workspace"), "got: {err}");
+    }
+
+    #[test]
+    fn the_grant_lets_one_run_read_an_absolute_path_and_no_other_run() {
+        let _alone = alone();
+        let (_dir, file) = outside_file("wc-one-run");
+        assert!(set_whole_computer("wc-one-run", true, true));
+        let path = file.to_string_lossy().to_string();
+        assert_eq!(resolve_path(&path, Some("wc-one-run"), None).unwrap(), lexical_normalize(&file));
+        // The chat next door keeps its jail.
+        assert!(resolve_path(&path, Some("wc-other-run"), None).is_err());
+        assert!(resolve_path(&path, None, None).is_err());
+        // And the grant ends with the session.
+        assert!(!set_whole_computer("wc-one-run", false, false));
+        assert!(resolve_path(&path, Some("wc-one-run"), None).is_err());
+    }
+
+    #[test]
+    fn without_the_users_consent_nothing_is_granted() {
+        let _alone = alone();
+        let (_dir, file) = outside_file("wc-no-consent");
+        assert!(!set_whole_computer("wc-no-consent", true, false));
+        assert!(resolve_path(&file.to_string_lossy(), Some("wc-no-consent"), None).is_err());
+    }
+
+    /// Windows run A22: `\Windows\win.ini` was answered with "Path escapes
+    /// the allowed workspace" although the whole computer was allowed. It is
+    /// a place on the drive, and the rule for such places decides.
+    #[cfg(windows)]
+    #[test]
+    fn a_path_from_the_root_of_the_drive_without_its_letter_counts_as_a_place_on_the_drive() {
+        let _alone = alone();
+        let (_dir, file) = outside_file("wc-rooted");
+        assert!(set_whole_computer("wc-rooted", true, true));
+        let full = file.to_string_lossy().to_string();
+        // "C:\Users\me\x\note.txt" without "C:".
+        let rooted = full.split_once(':').expect("a drive letter").1.to_string();
+        assert!(rooted.starts_with('\\'), "got: {rooted}");
+        let resolved = resolve_path(&rooted, Some("wc-rooted"), None);
+        // The workspace is on the same drive in a test run; where it is not, the path names another file and may be refused as missing, never as escaping.
+        if let Err(err) = &resolved {
+            assert!(!err.contains("Path escapes the allowed workspace"), "got: {err}");
+        }
+        // A system folder stays closed, and says so in the words of that rule.
+        // It is named with the system drive: a path without a letter lands on
+        // the drive the process runs from, and on a build machine that is not
+        // the drive Windows is installed on.
+        let system_drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".to_string());
+        let err = resolve_path(&format!("{system_drive}\\Windows\\win.ini"), Some("wc-rooted"), None).unwrap_err();
+        assert!(err.contains("system or credential directory"), "got: {err}");
+        // Without the letter it is the same folder only where both drives are
+        // one. There it is closed by the same rule; elsewhere it names a
+        // folder on another drive and must not come back as the system one.
+        match resolve_path("\\Windows\\win.ini", Some("wc-rooted"), None) {
+            Err(err) => assert!(err.contains("system or credential directory"), "got: {err}"),
+            Ok(path) => assert!(
+                !path.to_string_lossy().to_lowercase().starts_with(&system_drive.to_lowercase()),
+                "a path on the system drive was let through: {}",
+                path.display()
+            ),
+        }
+        set_whole_computer("wc-rooted", false, false);
+    }
+
+    #[test]
+    fn a_relative_path_cannot_climb_out_even_with_the_grant() {
+        let _alone = alone();
+        assert!(set_whole_computer("wc-relative", true, true));
+        let err = resolve_path("../../../etc/hosts", Some("wc-relative"), None).unwrap_err();
+        assert!(err.contains("Path escapes the allowed workspace"), "got: {err}");
+        set_whole_computer("wc-relative", false, false);
+    }
+
+    #[test]
+    fn credential_and_system_directories_stay_closed_with_the_grant() {
+        let _alone = alone();
+        assert!(set_whole_computer("wc-closed", true, true));
+        let home = dirs::home_dir().expect("home");
+        for closed in [home.join(".ssh").join("id_rsa"), home.join(".aws").join("credentials")] {
+            let err = resolve_path(&closed.to_string_lossy(), Some("wc-closed"), None).unwrap_err();
+            assert!(err.contains("Not available, even with the whole computer allowed"), "got: {err}");
+        }
+        #[cfg(not(windows))]
+        assert!(resolve_path("/etc/hosts", Some("wc-closed"), None).is_err());
+        // Reading is closed there too, not only writing: the rule is about
+        // the place. The Windows checklist A21 (4.11) expected win.ini to be
+        // readable; the checklist was wrong, not this.
+        #[cfg(windows)]
+        {
+            let err = resolve_path("C:\\Windows\\win.ini", Some("wc-closed"), None).unwrap_err();
+            assert!(err.contains("Not available, even with the whole computer allowed"), "got: {err}");
+        }
+        set_whole_computer("wc-closed", false, false);
+    }
+
+    /// "The folders that hold keys and passwords stay closed" named six
+    /// folders. A token in a file of its own, the profile of a browser and
+    /// LU's own data (settings, the private Python the voice engine runs)
+    /// were readable and writable by absolute path.
+    #[test]
+    fn single_credential_files_app_data_and_lus_own_folders_stay_closed_with_the_grant() {
+        let _alone = alone();
+        assert!(set_whole_computer("wc-more", true, true));
+        let home = dirs::home_dir().expect("home");
+        let mut closed = vec![
+            home.join(".netrc"),
+            home.join(".git-credentials"),
+            home.join(".npmrc"),
+            home.join(".pypirc"),
+            home.join(".password-store").join("bank.gpg"),
+            home.join(".mozilla").join("firefox").join("x.default").join("logins.json"),
+            home.join(".local").join("share").join("keyrings").join("login.keyring"),
+            crate::os_paths::data_dir().join("voice").join("venv").join("sitecustomize.py"),
+            crate::os_paths::config_root().join("settings.json"),
+        ];
+        if cfg!(target_os = "macos") {
+            closed.push(home.join("Library").join("Application Support").join("Firefox").join("Profiles").join("x").join("cookies.sqlite"));
+            closed.push(home.join("Library").join("LaunchAgents").join("com.example.plist"));
+            closed.push(home.join("Library").join("Cookies").join("Cookies.binarycookies"));
+        }
+        for path in closed {
+            let err = resolve_path(&path.to_string_lossy(), Some("wc-more"), None).expect_err(&path.to_string_lossy());
+            assert!(err.contains("Not available, even with the whole computer allowed"), "{}: {err}", path.display());
+        }
+        // An ordinary file next to them stays open.
+        let (_dir, file) = outside_file("wc-more-open");
+        assert!(resolve_path(&file.to_string_lossy(), Some("wc-more"), None).is_ok());
+        set_whole_computer("wc-more", false, false);
+    }
+
+    #[test]
+    fn a_symlink_into_a_closed_directory_is_closed_too() {
+        let _alone = alone();
+        #[cfg(unix)]
+        {
+            let (dir, _file) = outside_file("wc-symlink");
+            let link = dir.join("keys");
+            let target = dirs::home_dir().expect("home").join(".ssh");
+            if target.exists() && std::os::unix::fs::symlink(&target, &link).is_ok() {
+                assert!(set_whole_computer("wc-symlink", true, true));
+                assert!(resolve_path(&link.join("id_rsa").to_string_lossy(), Some("wc-symlink"), None).is_err());
+                set_whole_computer("wc-symlink", false, false);
+            }
+        }
+    }
+
+    #[test]
+    fn the_shared_default_bucket_can_never_hold_the_grant() {
+        let _alone = alone();
+        assert!(!set_whole_computer("default", true, true));
+        assert!(!set_whole_computer("", true, true));
+        assert!(!set_whole_computer("   ", true, true));
+        assert!(!has_whole_computer(None));
+    }
+
+    #[test]
+    fn going_back_to_workspace_only_ends_every_grant_and_the_consent() {
+        let _alone = alone();
+        assert!(set_whole_computer("wc-forget", true, true));
+        WHOLE_COMPUTER_CONSENT.store(true, std::sync::atomic::Ordering::SeqCst);
+        fs_whole_computer_forget();
+        assert!(!has_whole_computer(Some("wc-forget")));
+        assert!(!WHOLE_COMPUTER_CONSENT.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    /// A line in `.zshrc` runs with the next terminal, and a line in
+    /// `.gitconfig` with the next git command: a write there is a command
+    /// that nobody was asked about as a command. Asked of the rule itself,
+    /// so no test ever writes to a real start file.
+    #[test]
+    fn start_files_of_the_shell_are_closed_for_writing() {
+        let home = dirs::home_dir().expect("home");
+        let root = workspace_root(Some("wc-start-rule"), None);
+        for path in [
+            home.join(".zshrc"),
+            home.join(".ZSHRC"),
+            home.join(".zshenv"),
+            home.join(".zprofile"),
+            home.join(".bashrc"),
+            home.join(".bash_profile"),
+            home.join(".profile"),
+            home.join(".gitconfig"),
+            home.join(".oh-my-zsh").join("custom").join("extra.zsh"),
+            home.join("Documents").join("PowerShell").join("Microsoft.PowerShell_profile.ps1"),
+            home.join("Documents").join("WindowsPowerShell").join("profile.ps1"),
+        ] {
+            let err = refuse_start_file_write(&root, &path).expect_err(&path.to_string_lossy());
+            assert!(err.contains("Not available for writing, even with the whole computer allowed"), "{err}");
+        }
+        // A file that only looks alike, and a file of that name somewhere else, stay writable.
+        let (dir, _file) = outside_file("wc-start-rule");
+        for path in [home.join(".zshrc.bak"), home.join("zshrc"), home.join("notes").join(".zshrc"), dir.join(".zshrc"), dir.join(".gitconfig")] {
+            assert!(refuse_start_file_write(&root, &path).is_ok(), "{}", path.display());
+        }
+    }
+
+    /// The two commands that write ask the rule, and reading stays open.
+    /// The name is a made-up one in a closed folder, so a run of this test
+    /// without the rule would leave a stray file and never touch a real one.
+    #[test]
+    fn a_write_to_a_start_file_is_refused_with_the_grant_and_a_read_is_not() {
+        let _alone = alone();
+        assert!(set_whole_computer("wc-start", true, true));
+        let path = dirs::home_dir().expect("home").join(".bashrc.d").join("lu-test-never-written.sh");
+        let text = path.to_string_lossy().to_string();
+        let chat = || Some("wc-start".to_string());
+        assert!(resolve_path(&text, Some("wc-start"), None).is_ok(), "the path itself is open, for reading");
+        let err = fs_write(text.clone(), "echo owned".into(), chat(), None).expect_err("fs_write");
+        assert!(err.contains("Not available for writing, even with the whole computer allowed"), "{err}");
+        let err = fs_write_bytes_sync(text.clone(), "eA==".into(), 0, true, chat(), None).expect_err("fs_write_bytes");
+        assert!(err.contains("Not available for writing"), "{err}");
+        assert!(!path.exists());
+        set_whole_computer("wc-start", false, false);
+    }
+
+    /// A link in an open folder that leads to a start file is that file.
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_that_leads_to_a_start_file_is_closed_for_writing_too() {
+        let (dir, _file) = outside_file("wc-start-link");
+        let home = dirs::home_dir().expect("home");
+        std::os::unix::fs::symlink(&home, dir.join("folder")).unwrap();
+        let root = workspace_root(Some("wc-start-link"), None);
+        assert!(refuse_start_file_write(&root, &dir.join("folder").join(".zshrc")).is_err());
+        assert!(refuse_start_file_write(&root, &dir.join("folder").join(".gitconfig")).is_err());
+        assert!(refuse_start_file_write(&root, &dir.join("folder").join("notes.txt")).is_ok());
+    }
+
+    /// Inside the workspace a file of that name is a file of the project.
+    #[test]
+    fn a_start_file_inside_the_workspace_is_an_ordinary_file() {
+        let _alone = alone();
+        let root = workspace_root(Some("wc-start-inside"), None);
+        assert!(refuse_start_file_write(&root, &root.join(".zshrc")).is_ok());
+        assert!(refuse_start_file_write(&root, &root.join(".gitconfig")).is_ok());
+        let home = dirs::home_dir().expect("home");
+        assert!(refuse_start_file_write(&root, &home.join(".zshrc")).is_err());
+    }
+
+    #[test]
+    fn a_write_outside_the_workspace_works_with_the_grant_and_only_then() {
+        let _alone = alone();
+        let (dir, _file) = outside_file("wc-write");
+        let target = dir.join("made-by-voice.txt").to_string_lossy().to_string();
+        assert!(fs_write(target.clone(), "x".into(), Some("wc-write".into()), None).is_err());
+        assert!(set_whole_computer("wc-write", true, true));
+        fs_write(target.clone(), "hello".into(), Some("wc-write".into()), None).expect("write with the grant");
+        assert_eq!(fs::read_to_string(&target).unwrap(), "hello");
+        set_whole_computer("wc-write", false, false);
+    }
+}

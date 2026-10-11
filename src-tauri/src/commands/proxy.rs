@@ -124,7 +124,70 @@ pub async fn fetch_external(url: String, authToken: Option<String>) -> Result<St
         return Err(format!("HTTP {}: {}", resp.status().as_u16(), redact_url(&url)));
     }
 
-    resp.text().await.map_err(|e| os_error::english(&e))
+    read_text_capped(resp, FETCH_EXTERNAL_MAX_BYTES, &url).await
+}
+
+/// How much of an answer `fetch_external` reads before it gives up.
+///
+/// It used to read whatever came. On a phone a 100 MiB answer became one
+/// string over the bridge and ended the app (out of memory); on the desktop it
+/// only cost memory. The callers are the catalogue (Hugging Face search and
+/// file tree, CivitAI search), with addresses the app builds. Measured on
+/// 10.10.2026: Hugging Face search 9 to 15 KB, a file tree up to 127 KB (a
+/// page of the tree API holds at most 1000 entries, about 0.4 MB), a CivitAI
+/// search of 20 models 0.13 to 2.07 MB. The desktop limit is eight times the
+/// largest of those. The phone never asks CivitAI, so its limit is eight
+/// times a full page of a file tree, and far below what its memory gives.
+const fn fetch_external_limit(phone: bool) -> usize {
+    if phone {
+        4 * 1024 * 1024
+    } else {
+        16 * 1024 * 1024
+    }
+}
+const FETCH_EXTERNAL_MAX_BYTES: usize = fetch_external_limit(cfg!(mobile));
+
+fn fetch_external_too_large(limit: usize, url: &str) -> String {
+    format!(
+        "The answer from {} is larger than {} MB, so it was not read.",
+        redact_url(url),
+        limit / (1024 * 1024)
+    )
+}
+
+/// Read a text body piece by piece and stop at `limit` bytes. A
+/// `Content-Length` over the limit ends it before the first piece; a body
+/// without one is counted while it arrives, and dropping the response closes
+/// the connection. What was read is then decoded by reqwest exactly as
+/// `Response::text()` did before (charset of the Content-Type, UTF-8
+/// otherwise, lossy), so an answer under the limit is the same string.
+async fn read_text_capped(
+    mut resp: reqwest::Response,
+    limit: usize,
+    url: &str,
+) -> Result<String, String> {
+    if resp.content_length().is_some_and(|len| len > limit as u64) {
+        return Err(fetch_external_too_large(limit, url));
+    }
+    let content_type = resp.headers().get(reqwest::header::CONTENT_TYPE).cloned();
+    let mut body: Vec<u8> = Vec::new();
+    while let Some(piece) = resp.chunk().await.map_err(|e| os_error::english(&e))? {
+        if body.len() + piece.len() > limit {
+            return Err(fetch_external_too_large(limit, url));
+        }
+        body.extend_from_slice(&piece);
+    }
+    let mut rebuilt = axum::http::Response::builder();
+    if let Some(value) = content_type {
+        rebuilt = rebuilt.header(reqwest::header::CONTENT_TYPE, value);
+    }
+    let rebuilt = rebuilt
+        .body(body)
+        .map_err(|e| format!("fetch_external: {}", e))?;
+    reqwest::Response::from(rebuilt)
+        .text()
+        .await
+        .map_err(|e| os_error::english(&e))
 }
 
 /// Binary HTTP proxy — fetch any external URL and return bytes.
@@ -323,8 +386,19 @@ pub(crate) fn ssrf_safe_redirect_policy(max: usize) -> reqwest::redirect::Policy
 /// walks through untouched. `resolve_to_addrs` overrides only the address — the
 /// port always comes from the URL.
 fn pinned_client(host: &str, addrs: &[SocketAddr], timeout: Duration) -> Result<reqwest::Client, String> {
+    pinned_client_as(host, addrs, timeout, "LocallyUncensored/2.0")
+}
+
+/// The same pin for a caller that names itself differently (`web_reach`, the
+/// page fetch of the agent). Nothing else about the client changes.
+pub(crate) fn pinned_client_as(
+    host: &str,
+    addrs: &[SocketAddr],
+    timeout: Duration,
+    user_agent: &str,
+) -> Result<reqwest::Client, String> {
     let mut builder = reqwest::Client::builder()
-        .user_agent("LocallyUncensored/2.0")
+        .user_agent(user_agent)
         .timeout(timeout)
         // Redirects are followed by hand in `ssrf_safe_fetch` so every hop gets
         // its own check AND its own pin; letting reqwest follow them would
@@ -877,7 +951,7 @@ async fn cancellable_request(
 ///
 /// `call_id` (optional) is the same callId/cancel mechanic the chunked stream
 /// path already has (`proxy_localhost_stream_chunked` + `cancel_proxy_stream`,
-/// David 2026-06-15): the caller mints an id, sends it here, and fires
+/// 2026-06-15): the caller mints an id, sends it here, and fires
 /// `cancel_proxy_call(call_id)` when the user hits Stop.
 #[tauri::command]
 pub async fn proxy_localhost(
@@ -975,13 +1049,13 @@ pub async fn proxy_localhost_stream(url: String, method: Option<String>, body: O
     resp.bytes().await.map(|b| b.to_vec()).map_err(|e| os_error::english(&e))
 }
 
-/// Chunked streaming localhost proxy for Ollama chat (David 2026-06-02).
+/// Chunked streaming localhost proxy for Ollama chat (2026-06-02).
 ///
 /// The webview CANNOT fetch Ollama directly — its origin is `http://tauri.localhost`
 /// and Ollama's CORS rejects it ("TypeError: Failed to fetch"), so ALL chat traffic
 /// is routed through the proxy. The buffered `proxy_localhost_stream` awaits the
 /// ENTIRE body (2-hour timeout), so a long/slow generation produced NOTHING in the UI
-/// until fully finished — a multi-minute "model loading"/hang (dhasim Discord report).
+/// until fully finished — a multi-minute "model loading"/hang (Discord report).
 /// This variant forwards each chunk to the caller's `on_chunk` Channel as it arrives
 /// → true token-by-token streaming. (`Channel` must be a required arg — wrapping it in
 /// `Option` does not implement `Deserialize`, hence a separate command.)
@@ -996,7 +1070,7 @@ pub async fn proxy_localhost_stream_chunked(
     // Optional id so the JS side can deterministically cancel THIS stream via
     // `cancel_proxy_stream(stream_id)`. Without it, aborting only broke the JS
     // read-loop while Ollama kept generating to completion on the proxy path
-    // (David 2026-06-15: deleting/Stopping a chat must stop the backend too).
+    // (2026-06-15: deleting/Stopping a chat must stop the backend too).
     stream_id: Option<String>,
     // Max silence between two chunks once the backend has started answering.
     // Optional so the renderer can widen it for a backend that is known to
@@ -1198,7 +1272,7 @@ pub fn cancel_proxy_stream(
 /// Upload an image to ComfyUI's `/upload/image` as a clean multipart POST from
 /// Rust. `uploadImage()` in the frontend used a RAW browser `fetch()` — the only
 /// non-proxy fetch left — which 400'd on some WebView2 builds (multipart /
-/// boundary / CORS-preflight quirks; konata 2026-06-14 "Failed to upload image:
+/// boundary / CORS-preflight quirks; 2026-06-14 "Failed to upload image:
 /// HTTP 400"). reqwest's multipart is machine-independent and removes WebView2
 /// as a variable, matching the "everything via the Rust proxy" pattern
 /// (WebView2-149 finding). Returns ComfyUI's JSON body ({ name, subfolder, type }).
@@ -1309,7 +1383,7 @@ pub async fn pull_model_stream(app: tauri::AppHandle, state: tauri::State<'_, cr
     let mut buffer = String::new();
 
     let mut was_cancelled = false;
-    // Bug Z/a v2.5.0 — leonsk29 GH #48. We need to know whether the stream
+    // Bug Z/a v2.5.0 — GH #48. We need to know whether the stream
     // ever produced a terminal "success" line, OR whether it produced an
     // `error` field. Ollama 0.4+ responds to a broken HF reference (e.g.
     // bartowski/Hermes-3 GGUF on llama.cpp-incompatible builds) with HTTP
@@ -1658,7 +1732,7 @@ mod tests {
         assert!(!is_blocked_proxy_host("2606:4700::1111"));
     }
 
-    /// goonerforporn's key used to ride in the search URL as `&token=`, and
+    /// a user's key used to ride in the search URL as `&token=`, and
     /// this function is what quotes that URL back into an error the app then
     /// logs. The scrubber cannot see a secret that is only a substring of a
     /// URL, so the query goes.
@@ -1983,12 +2057,7 @@ mod tests {
 
             // 2. Nothing listening: the failure happens before the first byte.
             //    No marker, or the refused connection reads as a dropped answer.
-            let dead = {
-                let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-                let p = l.local_addr().unwrap().port();
-                drop(l);
-                p
-            };
+            let (dead, _held) = crate::test_support::refusing_port();
             let token = tokio_util::sync::CancellationToken::new();
             let (out, chunks) = pump_and_collect(
                 &format!("http://127.0.0.1:{}/", dead), &token, short, short).await;
@@ -2500,7 +2569,7 @@ mod builtin_model_guard_tests {
     use super::*;
 
     const PORT: u16 = 8127;
-    const GEMMA: &str = "C:\\Users\\ddrob\\AppData\\Roaming\\lu\\models\\mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf";
+    const GEMMA: &str = "C:\\Users\\alice\\AppData\\Roaming\\lu\\models\\mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf";
     const CHAT: &str = "http://127.0.0.1:8127/v1/chat/completions";
 
     fn body(model: &str) -> String {
@@ -2615,5 +2684,144 @@ mod builtin_model_guard_tests {
         assert_eq!(builtin_model_name_from_path("/Users/x/models/qwen2.5-0.5b.gguf"), "qwen2.5-0.5b");
         assert_eq!(builtin_model_name_from_path("C:\\m\\qwen2.5-0.5b.GGUF"), "qwen2.5-0.5b");
         assert_eq!(builtin_model_name_from_path("qwen2.5-0.5b"), "qwen2.5-0.5b");
+    }
+}
+
+
+#[cfg(test)]
+mod fetch_external_limit_tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    /// A server that answers one request with `head` and then `body_len`
+    /// bytes of "a", in pieces. Returns how many bytes it managed to send.
+    async fn body_stub(head: String, body_len: usize) -> (String, tokio::task::JoinHandle<usize>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://127.0.0.1:{}/big", listener.local_addr().unwrap().port());
+        let task = tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut buf = vec![0u8; 4096];
+            let _ = sock.read(&mut buf).await;
+            let _ = sock.write_all(head.as_bytes()).await;
+            let piece = vec![b'a'; 16 * 1024];
+            let mut sent = 0usize;
+            while sent < body_len {
+                let n = piece.len().min(body_len - sent);
+                if sock.write_all(&piece[..n]).await.is_err() {
+                    break;
+                }
+                sent += n;
+            }
+            let _ = sock.shutdown().await;
+            sent
+        });
+        (url, task)
+    }
+
+    const SMALL_LIMIT: usize = 64 * 1024;
+
+    #[tokio::test]
+    async fn a_body_over_the_limit_with_content_length_ends_before_the_first_piece() {
+        let len = 8 * 1024 * 1024;
+        let head = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {len}\r\nConnection: close\r\n\r\n");
+        let (url, server) = body_stub(head, len).await;
+        let resp = reqwest::get(&url).await.unwrap();
+        let err = read_text_capped(resp, SMALL_LIMIT, &url).await.unwrap_err();
+        assert!(err.starts_with("The answer from http://127.0.0.1:"), "{err}");
+        assert!(err.ends_with("is larger than 0 MB, so it was not read."), "{err}");
+        // The connection is gone with the response: the server cannot push the rest.
+        let sent = server.await.unwrap();
+        assert!(sent < len, "the server sent all {sent} bytes, nothing stopped it");
+    }
+
+    #[tokio::test]
+    async fn a_body_over_the_limit_without_content_length_ends_while_it_arrives() {
+        let len = 8 * 1024 * 1024;
+        // No Content-Length: the body ends when the server closes.
+        let head = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n".to_string();
+        let (url, server) = body_stub(head, len).await;
+        let resp = reqwest::get(&url).await.unwrap();
+        assert_eq!(resp.content_length(), None);
+        let err = read_text_capped(resp, SMALL_LIMIT, &url).await.unwrap_err();
+        assert!(err.contains("so it was not read."), "{err}");
+        let sent = server.await.unwrap();
+        assert!(sent < len, "the server sent all {sent} bytes, nothing stopped it");
+    }
+
+    #[tokio::test]
+    async fn a_body_at_the_limit_is_read_whole_with_and_without_content_length() {
+        for with_length in [true, false] {
+            let len = SMALL_LIMIT;
+            let head = if with_length {
+                format!("HTTP/1.1 200 OK\r\nContent-Length: {len}\r\nConnection: close\r\n\r\n")
+            } else {
+                "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n".to_string()
+            };
+            let (url, server) = body_stub(head, len).await;
+            let resp = reqwest::get(&url).await.unwrap();
+            let text = read_text_capped(resp, SMALL_LIMIT, &url).await.unwrap();
+            assert_eq!(text.len(), len);
+            assert!(text.bytes().all(|b| b == b'a'));
+            assert_eq!(server.await.unwrap(), len);
+        }
+    }
+
+    /// The string is the one `Response::text()` gave before: the charset of
+    /// the Content-Type decides, UTF-8 without one, bad bytes become U+FFFD.
+    #[tokio::test]
+    async fn the_text_is_decoded_as_before() {
+        async fn once(head: &str, body: &[u8]) -> (String, String) {
+            let mut seen = Vec::new();
+            for _ in 0..2 {
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let url = format!("http://127.0.0.1:{}/t", listener.local_addr().unwrap().port());
+                let mut answer = format!("{head}Content-Length: {}\r\nConnection: close\r\n\r\n", body.len()).into_bytes();
+                answer.extend_from_slice(body);
+                tokio::spawn(async move {
+                    let (mut sock, _) = listener.accept().await.unwrap();
+                    let mut buf = vec![0u8; 4096];
+                    let _ = sock.read(&mut buf).await;
+                    let _ = sock.write_all(&answer).await;
+                });
+                seen.push(url);
+            }
+            let before = reqwest::get(&seen[0]).await.unwrap().text().await.unwrap();
+            let resp = reqwest::get(&seen[1]).await.unwrap();
+            let now = read_text_capped(resp, SMALL_LIMIT, &seen[1]).await.unwrap();
+            (before, now)
+        }
+        // UTF-8 JSON, the usual answer of both catalogues.
+        let (before, now) = once("HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\n", "{\"name\":\"Gr\u{fc}\u{df}e \u{1f600}\"}".as_bytes()).await;
+        assert_eq!(now, before);
+        assert!(now.contains('\u{fc}'));
+        // Latin-1 named in the header.
+        let (before, now) = once("HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=iso-8859-1\r\n", &[b'G', b'r', 0xFC, 0xDF, b'e']).await;
+        assert_eq!(now, before);
+        assert_eq!(now, "Gr\u{fc}\u{df}e");
+        // No Content-Type and bytes that are not UTF-8.
+        let (before, now) = once("HTTP/1.1 200 OK\r\n", &[b'o', b'k', 0xFF, 0xFE, b'!']).await;
+        assert_eq!(now, before);
+        assert!(now.contains('\u{fffd}'));
+    }
+
+    #[test]
+    fn the_limit_holds_every_answer_a_caller_expects_today() {
+        // Measured on 10.10.2026 (bytes): the largest answer per caller.
+        const HF_SEARCH: usize = 14_600;
+        const HF_TREE: usize = 126_815;
+        const HF_TREE_FULL_PAGE: usize = 450_000;
+        const CIVITAI_SEARCH: usize = 2_070_325;
+        // The phone asks Hugging Face only.
+        for size in [HF_SEARCH, HF_TREE, HF_TREE_FULL_PAGE] {
+            assert!(size * 8 <= fetch_external_limit(true), "{size}");
+        }
+        for size in [HF_SEARCH, HF_TREE, HF_TREE_FULL_PAGE, CIVITAI_SEARCH] {
+            assert!(size * 8 <= fetch_external_limit(false), "{size}");
+        }
+        assert_eq!(FETCH_EXTERNAL_MAX_BYTES, fetch_external_limit(cfg!(mobile)));
+        // No key and no query in the sentence: the address is cut like in every other error.
+        let msg = fetch_external_too_large(fetch_external_limit(false), "https://civitai.com/api/v1/models?token=secret");
+        assert_eq!(msg, "The answer from https://civitai.com/api/v1/models is larger than 16 MB, so it was not read.");
     }
 }

@@ -5,7 +5,7 @@
 // dieselben Felder. Zwei Abschriften waeren zwei Wahrheiten darueber, welcher
 // Regler welchen Wert schickt.
 //
-// 19.09.2026, Befund von David zu Extend Video, Motion Control und Enhance
+// 19.09.2026, Befund vom Inhaber zu Extend Video, Motion Control und Enhance
 // Video: "viel zu fett, viel zu haesslich ... als haette man sich da gar keine
 // Gedanken drueber gemacht". Das lag nicht an der Klappe, sondern hieran: eine
 // Zahl mit einer Stelle und eine Liste mit vier Werten standen in Feldern ueber
@@ -71,7 +71,7 @@ export function SchemaControl({ name, schema, value, onChange, disabled, classNa
         <legend className="mb-1 t-control text-gray-500">Style LoRAs · up to {schema.maxItems ?? 3}</legend>
         {rows.map((row, i) => (
           <div key={i} className="space-y-1.5 rounded-[var(--radius-control)] border border-white/[0.08] p-2">
-            <select aria-label={`LoRA ${i + 1}`} disabled={disabled} className={fieldClass} value={row.path}
+            <select aria-label={`LoRA ${i + 1}`} title={row.path} disabled={disabled} className={fieldClass} value={row.path}
               onChange={(e) => onChange(rows.map((x, j) => (j === i ? { ...x, path: e.target.value } : x)))}>
               {choices.map((v) => <option key={String(v)} value={String(v)}>{String(v)}</option>)}
             </select>

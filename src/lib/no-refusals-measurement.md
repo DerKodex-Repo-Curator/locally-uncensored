@@ -26,7 +26,7 @@ against `CLOUD_PITCH.unfilteredChatModels`. Treat the table as given input,
 exactly like a price list: change a row only when a new measurement says so.
 
 Five rows were downgraded from `full` to `partial` in the mark column on
-2026-10-05, decided by David after the three-round test of that day (a chapter,
+2026-10-05, decided by the owner after the three-round test of that day (a chapter,
 then "more details", then "go further", two passes per model). Each of the five
 declined in round two or three, and the mark is read as a promise about every
 request: Qwen/Qwen3-30B-A3B, Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo,

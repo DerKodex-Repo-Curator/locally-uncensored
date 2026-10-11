@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 3.0.5, samvenice on Discord: in the group menu each participant gets its own
+ * 3.0.5, a user on Discord: in the group menu each participant gets its own
  * persona, picked next to its name and stored on the conversation. The default
  * is what a group has always done: follow the persona setting of the chat.
  *

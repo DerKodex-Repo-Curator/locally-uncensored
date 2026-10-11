@@ -25,6 +25,7 @@ import { downloadSuffix } from '../../lib/formatters'
 // nicht erst darauf warten, dass ein Stueck Programm nachgeladen wird.
 import { comfyStartupError, comfyCrashAdvice, comfyStartThrowText, COMFY_START_FAILED } from '../create/experimental/comfyError'
 import { Modal } from '../ui/Modal'
+import { ModalActions, ModalButton } from '../ui/ModalActions'
 
 // AS-09: PIPER_VOICES und CLOUD_TTS_VOICES sind mit dem Abschnitt, der sie
 // benutzt, nach ./SpeechSettings.tsx gezogen.
@@ -37,6 +38,8 @@ import { LocalApiSettings } from './LocalApiSettings'
 import { RemoteAccessSettings } from './RemoteAccessSettings'
 import { RemoteAccessDocs } from './RemoteAccessDocs'
 import { HardwareSettings } from './HardwareSettings'
+import { AppleHardwareInfo } from './AppleHardwareInfo'
+import { DataFolderWhere, DataFolderAfterword } from './DataFolderWhere'
 import { DownloadLimitSetting } from './DownloadLimitSetting'
 import { ChatbotImporter } from '../import/ChatbotImporter'
 import { ProviderSettings } from './ProviderConfig'
@@ -258,7 +261,7 @@ function WorkflowSection() {
 
 // ── Model Storage (the user's own model folder) ─────────────────
 //
-// GH #122 (zrmdsxa) + Discord "Read me first" (ever.noob): this folder was a
+// GH #122 + Discord "Read me first": this folder was a
 // download TARGET and nothing else. Models already sitting in it were never
 // looked at, and the copy above the field said nothing about that, so the
 // Models tab stayed empty beside a folder full of models. It is read now
@@ -543,7 +546,7 @@ function CustomModelDirNote({ result }: { result: CustomModelDirResult }) {
   if (result.status === 'unsupported') {
     return (
       <div className={`${cls} ${HINWEIS_TEXT.ruhig}`}>
-        Chat models in this folder are read. Image and video on the Mac run on Apple MLX, not ComfyUI, so image models in this folder are not picked up. Install those under Local Media (Apple MLX).
+        Chat models in this folder are read. Image and video on the Mac run on Apple MLX, not ComfyUI, so image models in this folder are not picked up. Install those in the Model Manager, under Image.
       </div>
     )
   }
@@ -775,21 +778,14 @@ function ComfyUpdateConfirmModal({
           This pulls the latest ComfyUI and reinstalls its Python packages. It can take a few minutes. If ComfyUI is running and this app started it, it will be stopped first; a ComfyUI this app did not start blocks the update instead. ComfyUI starts again when the update is done.
         </p>
         {path && <p className="t-label text-gray-500 text-center">ComfyUI folder: {path}</p>}
-        <div className="flex flex-col gap-2 pt-1">
-          <button
-            onClick={onConfirm}
-            className="w-full px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-200 text-sm font-medium transition-colors"
-          >
-            Update
-          </button>
-          <button
-            onClick={onClose}
-            data-autofocus
-            className="w-full px-4 py-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-gray-300 text-xs transition-colors"
-          >
+        <ModalActions>
+          <ModalButton variant="quiet" onClick={onClose} data-autofocus>
             Cancel
-          </button>
-        </div>
+          </ModalButton>
+          <ModalButton variant="primary" onClick={onConfirm}>
+            Update
+          </ModalButton>
+        </ModalActions>
       </div>
     </Modal>
   )
@@ -1266,7 +1262,7 @@ export function ComfyUISettings() {
         {(!status?.found || status?.complete === false) && installIdle && (
           <button
             onClick={() => {
-              // andy_38747 (Discord): let the Path field double as the install
+              // A user (Discord): let the Path field double as the install
               // target so the multi-GB install can land on another drive.
               // Empty field means the backend default (~/ComfyUI). On a carcass
               // re-install with no override, reuse the detected path so the
@@ -1490,7 +1486,7 @@ function CodexAgentSettings() {
         enabled={settings.codexConfirmShell}
         onChange={() => updateSettings({ codexConfirmShell: !settings.codexConfirmShell })}
       />
-      {/* Cloud arm of the same gate, an opt-in since David's decision of
+      {/* Cloud arm of the same gate, an opt-in since the owner's decision of
           2026-08-22: off by default, a cloud model runs like a local one, and
           Bypass really bypasses. Always shown, because it governs Agent mode
           too, which ignores the Codex-only toggle above. */}
@@ -2000,17 +1996,21 @@ export function SettingsPage() {
 
           </Section>
 
-          {/* Bug BB v2.5.0, BobbyT GPU picker. Lazy-loads the GPU list when
+          {/* Bug BB v2.5.0, a user GPU picker. Lazy-loads the GPU list when
               the section opens via detect_gpus probe (nvidia-smi + rocm-smi +
               lspci/wmic). */}
           {/* Not on macOS: every knob in there is a no-op on Apple Silicon.
               The vendor picker forwards CUDA_VISIBLE_DEVICES / HIP_* /
               ONEAPI_* to Ollama and ComfyUI, none of which exist here (Metal,
-              unified memory, and ComfyUI never launches). Showing a dead
-              NVIDIA/AMD/Intel selector is worse than showing nothing. */}
-          {!isMlxImageHost() && (
+              unified memory, and ComfyUI never launches). The Mac gets a plain
+              readout in its place: chip, shared memory, Metal, no control. */}
+          {!isMlxImageHost() ? (
             <Section title="Hardware (GPU picker)">
               <HardwareSettings />
+            </Section>
+          ) : (
+            <Section title="Hardware">
+              <AppleHardwareInfo />
             </Section>
           )}
 
@@ -2071,14 +2071,14 @@ export function SettingsPage() {
                   <Lock size={12} className="mt-0.5 shrink-0 text-sky-500" />
                   <div>
                     <p className="text-gray-700 dark:text-gray-300 font-medium mb-0.5">Cloud mode is active.</p>
-                    <p>Chat, Create renders and voice run on lu-labs.ai against your LU account and are metered against your credits; generated media and job records are stored with your account. Switch to Local in the header to run everything on your machine, and the 100% local pledge below then applies.</p>
+                    <p>Chat, Create renders and voice run on lu-labs.ai against your LU account and are metered against your credits; generated media and job records are stored with your account. Switch to Local in the header to run everything on your machine. What local mode still sends is listed in this section once you are there.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2 pt-1.5">
                   <Shield size={12} className="mt-0.5 shrink-0 text-emerald-500" />
                   <div>
-                    <p className="text-gray-700 dark:text-gray-300 font-medium mb-0.5">Local mode: 100% local.</p>
-                    <p>In local mode chat, agent runs, and image &amp; video generation all execute on your machine. No telemetry, no analytics, no model pings home. Your local data lives in <code className="px-1 py-0.5 rounded bg-black/5 dark:bg-white/5 font-mono text-[0.6rem]">%APPDATA%/Locally Uncensored</code> on Windows (or the equivalent on Linux/macOS).</p>
+                    <p className="text-gray-700 dark:text-gray-300 font-medium mb-0.5">Local mode runs on your machine.</p>
+                    <p>In local mode chat, agent runs, and image &amp; video generation all execute on your machine. LU has no analytics kit and sends no crash reports. In both modes it checks GitHub Releases for updates and counts each press of the Cloud switch. Your local data lives in <DataFolderWhere />.</p>
                   </div>
                 </div>
               </div>
@@ -2087,15 +2087,18 @@ export function SettingsPage() {
                 <div className="flex items-start gap-2">
                   <Lock size={12} className="mt-0.5 shrink-0 text-emerald-500" />
                   <div>
-                    <p className="text-gray-700 dark:text-gray-300 font-medium mb-0.5">100% local by default.</p>
-                    <p>Chat, agent runs, image &amp; video generation all execute on your machine. No telemetry, no analytics, no model pings home. The only network calls LU makes unless you explicitly opt in are: update checks against GitHub Releases, cloud provider APIs (OpenAI, Anthropic, etc.) that you configure yourself with your own API keys, and one anonymous daily count to lu-labs.ai when you press the Cloud switch (which way it was pressed, platform, app version, nothing else).</p>
+                    <p className="text-gray-700 dark:text-gray-300 font-medium mb-0.5">Local by default.</p>
+                    <p>Chat, agent runs, image &amp; video generation all execute on your machine. LU has no analytics kit and sends no crash reports.</p>
+                    <p className="mt-1">On its own LU uses the network for two things. It asks GitHub Releases for a new version a few seconds after start and at most every six hours after that; a new version is downloaded in the background unless you switch that off under Updates, and installing always needs your click. And it counts each press of the Cloud switch with LU Labs: which way it was pressed, platform and app version, no identifier.</p>
+                    <p className="mt-1">While you are signed in to LU Cloud, the app also checks your account at lu-labs.ai every five minutes, and a press of the Cloud switch is counted for your account as well.</p>
+                    <p className="mt-1">Everything else that goes online you start yourself: model and engine downloads, cloud providers you set up with your own API keys, web search in agent runs, and Remote Access.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2 pt-1.5">
                   <Shield size={12} className="mt-0.5 shrink-0 text-emerald-500" />
                   <div>
                     <p className="text-gray-700 dark:text-gray-300 font-medium mb-0.5">You own your data.</p>
-                    <p>Conversations, memories, and generated media live in <code className="px-1 py-0.5 rounded bg-black/5 dark:bg-white/5 font-mono text-[0.6rem]">%APPDATA%/Locally Uncensored</code> on Windows (or the equivalent on Linux/macOS). Back up the folder, move it between machines, or delete it. LU writes nothing else.</p>
+                    <p>Conversations, memories, and generated media live in <DataFolderWhere />. <DataFolderAfterword /></p>
                   </div>
                 </div>
               </div>
@@ -2154,7 +2157,7 @@ export function SettingsPage() {
             <ImportLocalModels />
           </Section>
 
-          {/* goonerforporn (Discord #bug-reports, 2026-08-28): the store knew
+          {/* A user (Discord #bug-reports, 2026-08-28): the store knew
               the key, the changelog named it, and no component ever set it.
               A14 review 8, Windows follow-up: it then sat directly under the
               Model Storage folder field, two bare text boxes in a row, and a
@@ -2392,7 +2395,7 @@ export function lastCheckedText(ts: number, now: number = Date.now()): string {
 }
 
 export function UpdateSection() {
-  const { currentVersion, latestVersion, updateAvailable, releaseNotes, dismissed, isChecking, lastChecked, lastCheckFailed, autoDownload, downloadStatus, downloadProgress, downloadedBytes, totalBytes, errorMessage, progressNote, checkForUpdate, downloadUpdate, installAndRestart, clearDismiss, setAutoDownload, openReleasePage } = useUpdateStore()
+  const { currentVersion, latestVersion, updateAvailable, releaseNotes, dismissed, isChecking, lastChecked, lastCheckFailed, noBuildForPlatform, autoDownload, downloadStatus, downloadProgress, downloadedBytes, totalBytes, errorMessage, progressNote, checkForUpdate, downloadUpdate, installAndRestart, clearDismiss, setAutoDownload, openReleasePage } = useUpdateStore()
   // Defensive: only treat the persisted `latestVersion` as actually newer if a
   // semver compare confirms it. Otherwise the binary was updated out-of-band
   // and the persisted value is stale (e.g. localStorage still says 2.3.8 while
@@ -2519,6 +2522,13 @@ export function UpdateSection() {
                 </button>
               )}
             </div>
+          </div>
+        ) : noBuildForPlatform ? (
+          /* The server answered and the release has no Mac build in it (yet).
+             That is neither a failed check nor "you are on the latest
+             version", so it gets its own quiet line and no tick. */
+          <div className="flex items-center gap-2 t-micro text-gray-600" data-testid="update-no-build">
+            No update for this Mac yet.
           </div>
         ) : lastCheckFailed ? (
           /* R2-12: hier stand der gruene Haken auch dann, wenn die Pruefung gar
@@ -2800,6 +2810,10 @@ function TroubleshootSection() {
                 {report.host.disk_free_gb} GB
               </span>
             </div>
+            {/* Not on a Mac: it has no graphics memory of its own, the RAM row
+                above IS the pool its graphics unit draws from, and the row
+                could only ever read "not detected" there. */}
+            {!isMacOS() && (
             <div className="flex items-center justify-between text-[0.65rem]">
               <span className="text-gray-500">VRAM (GPU)</span>
               <span className="text-gray-300 font-mono">
@@ -2810,6 +2824,7 @@ function TroubleshootSection() {
                   : 'not detected'}
               </span>
             </div>
+            )}
           </div>
         </div>
       )}

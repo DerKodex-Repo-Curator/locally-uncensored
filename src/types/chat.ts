@@ -9,6 +9,16 @@ export interface ImageAttachment {
   name: string       // filename
 }
 
+/** A clip or sound track attached for Create in chat. Only the facts live in
+ *  the message; the bytes stay in the app session
+ *  (lib/create/chat-attachments.ts) and never enter the chat store. */
+export interface MediaAttachment {
+  kind: 'video' | 'audio'
+  mimeType: string
+  name: string
+  size: number
+}
+
 /**
  * A file of any kind attached to a user message (3.0.5).
  *
@@ -59,10 +69,12 @@ export interface Message {
    *  typed, while `content` holds the full expanded instruction the model
    *  actually receives. Display-only — never sent to the model. */
   displayContent?: string
+  /** Clips and sound tracks attached for Create in chat. */
+  media?: MediaAttachment[]
   /** Coding-Agent slash command that triggered this assistant turn (e.g.
    *  "review", "init"). When set, CodexView wraps the whole step transcript in a
    *  collapsible tool-call-style window — default collapsed, live-streams while
-   *  running (David 2026-06-12). Undefined for normal coding instructions. */
+   *  running (2026-06-12). Undefined for normal coding instructions. */
   slashCommand?: string
   thinking?: string
   /** Which model produced this assistant turn. Set in group chats so the
@@ -88,8 +100,8 @@ export interface Message {
   hidden?: boolean
   tool_calls?: { id?: string; function: { name: string; arguments: Record<string, unknown> } }[]
   /** OpenAI tool-result linkage on role:'tool' messages. Persisted so id-based
-   *  providers (lu-cloud/DeepInfra, OpenAI) can match a tool result to its call
-   *  ACROSS turns. Without it, once a tool call is in the history DeepInfra 422s
+   *  providers (lu-cloud, OpenAI) can match a tool result to its call
+   *  ACROSS turns. Without it, once a tool call is in the history the upstream 422s
    *  "tool_call_id: Field required" on every follow-up turn (Bug 4, 2026-07-11). */
   tool_call_id?: string
   // Real token usage reported by the model (Ollama prompt_eval_count/eval_count,
@@ -172,7 +184,7 @@ export interface Conversation {
    *  message. Fewer than two entries means a normal single-model chat. */
   groupModels?: string[]
   /** Group chat: the persona each participant speaks as, model name to
-   *  persona id (3.0.5, samvenice on Discord). A model without an entry
+   *  persona id (3.0.5, a user on Discord). A model without an entry
    *  follows the chat's own persona setting, which is how every group worked
    *  before this field existed. */
   groupPersonas?: Record<string, string>

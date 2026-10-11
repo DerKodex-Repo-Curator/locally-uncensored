@@ -30,21 +30,24 @@
  */
 import { useState, useEffect } from 'react'
 import { Check, Download, ChevronRight } from 'lucide-react'
-import { ONBOARDING_MODELS, recommendedOnboardingModelName, strongestOnboardingModelName } from '../../lib/constants'
+import { ONBOARDING_MODELS, onboardingModelCopy, recommendedOnboardingModelName, strongestOnboardingModelName, type OnboardingModel } from '../../lib/constants'
+import { recommendedOnSharedMemory, sharedMemoryAdvisory, sharedMemoryBudgetGb } from '../../lib/onboarding-shared-memory'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useProviderStore } from '../../stores/providerStore'
 import { useDownloadStore } from '../../stores/downloadStore'
 import { useModelStore } from '../../stores/modelStore'
-import { detectProviderModelPath, startModelDownloadToPath, luEngineDownloadDir } from '../../api/discover'
+import { detectProviderModelPath, luEngineDownloadDir, type PlannedDownload } from '../../api/discover'
+import { startPlannedDownload } from '../../api/model-download'
+import { gbOf, imagePartFileName } from '../../lib/image-part'
 import { hfUrlToOllamaRef, hfUrlToLmStudioSubdir } from '../../lib/hf-to-provider'
 import { pullModelTauri, checkConnection as checkOllama } from '../../api/ollama'
 import { activateBuiltinModel } from '../../api/engine'
 import { builtinModelNameFromPath } from '../../lib/builtin-model-identity'
 import { mayEnableFromWizard } from '../../lib/onboarding-provider-gate'
 import { bundledPickerIdForFile } from '../../lib/bundled-download-activation'
-import { backendCall } from '../../api/backend'
+import { backendCall, isMacOS } from '../../api/backend'
 import { getSystemVRAM } from '../../api/comfyui'
-import { getMaxVramGb } from '../../lib/hardware'
+import { getMaxVramGb, getSharedMemoryGb } from '../../lib/hardware'
 import { classifyOnboardingBackend, resolveOnboardingBackend } from '../../lib/onboarding-backend'
 import { ProgressBar } from '../ui/ProgressBar'
 import { formatBytes } from '../../lib/formatters'
@@ -65,6 +68,21 @@ interface ModelsStepProps {
   /** Ueberlebt diesen Schritt: der Schlussbildschirm zaehlt sie. */
   pulledModels: string[]
   setPulledModels: (update: (prev: string[]) => string[]) => void
+}
+
+/**
+ * The files of one onboarding pick: the model, and its image part when it has
+ * one. Same rule as the Models page (planModelDownload): the part lands next
+ * to the model under the name the engine looks for, with its own size and
+ * digest, and both are filed as one download.
+ */
+export function onboardingPlan(model: OnboardingModel): PlannedDownload[] {
+  const expectedBytes = model.expectedBytes ?? (model.sizeGB ? Math.round(model.sizeGB * 1_073_741_824) : undefined)
+  const plan: PlannedDownload[] = [{ url: model.downloadUrl, filename: model.filename, expectedBytes, sha256: model.sha256 }]
+  if (model.mmprojUrl) {
+    plan.push({ url: model.mmprojUrl, filename: imagePartFileName(model.filename), expectedBytes: model.mmprojBytes, sha256: model.mmprojSha256 })
+  }
+  return plan
 }
 
 export function ModelsStep({ skin, scan, fleet, step, setStep, pulledModels, setPulledModels }: ModelsStepProps) {
@@ -224,11 +242,20 @@ export function ModelsStep({ skin, scan, fleet, step, setStep, pulledModels, set
           // there's no <user>/<repo> nesting — list_bundled_models scans the
           // dir directly. We await completion here (not fire-and-forget) so the
           // engine starts on a fully-downloaded file and the first chat works.
-          dlStore.getState().setMeta(model.filename, model.downloadUrl, 'gguf', destDir!)
-          const expectedBytes = model.expectedBytes ?? (model.sizeGB ? Math.round(model.sizeGB * 1_073_741_824) : undefined)
-          await startModelDownloadToPath(model.downloadUrl, destDir!, model.filename, expectedBytes, model.sha256)
-          dlStore.getState().startPolling()
+          const plan = onboardingPlan(model)
+          await startPlannedDownload(plan, destDir!, model.label)
           await awaitDownloadComplete(model.filename)
+          // The image part is awaited too: an engine started before it lands
+          // would bring the model up without image input. A part that fails
+          // is not a failed model: the chat works, and the part can be added
+          // from the installed model with one click.
+          if (plan[1]) {
+            try {
+              await awaitDownloadComplete(plan[1].filename)
+            } catch {
+              setDownloadError(`${model.label} is installed, but its image part did not download. You can add it later under Models, Installed.`)
+            }
+          }
           // Same door as the Models page (lib/bundled-download-activation):
           // the engine path comes from the model list, not from a string glued
           // together here, and the downloaded model is the one the chat uses.
@@ -245,10 +272,7 @@ export function ModelsStep({ skin, scan, fleet, step, setStep, pulledModels, set
           // Studio's library — the second half of the same Discord bug.
           const subdir = hfUrlToLmStudioSubdir(model.downloadUrl)
           const targetDir = subdir ? `${destDir}/${subdir}` : destDir!
-          dlStore.getState().setMeta(model.filename, model.downloadUrl, 'gguf', targetDir)
-          const expectedBytes = model.expectedBytes ?? (model.sizeGB ? Math.round(model.sizeGB * 1_073_741_824) : undefined)
-          await startModelDownloadToPath(model.downloadUrl, targetDir, model.filename, expectedBytes, model.sha256)
-          dlStore.getState().startPolling()
+          await startPlannedDownload(onboardingPlan(model), targetDir, model.label)
         }
         setPulledModels(prev => [...prev, name])
       } catch (e) {
@@ -291,7 +315,25 @@ export function ModelsStep({ skin, scan, fleet, step, setStep, pulledModels, set
   // none of those tools name (0 from getMaxVramGb reads as "unknown", not as
   // "no VRAM"), so a machine ComfyUI can already see is not made to look
   // worse than it is.
+  //
+  // A Mac is asked differently. It has no card and ComfyUI never runs there,
+  // so both probes above answer nothing and the step used to know nothing:
+  // the 7B starter on every Mac, no advisory on any. What a model can take
+  // on a Mac is a share of the one memory pool, the same budget the Model
+  // Manager compares its chat tiles with (lib/onboarding-shared-memory.ts).
+  // The pool is `shared_memory_mib` on the Apple entry of `detect_gpus`, with
+  // `system_info` as the fallback. On a Mac `systemVRAM` therefore holds
+  // that budget, not a card: one piece of state, read two ways (AS-09 counts
+  // the `useState` of this folder).
+  const sharedMemory = isMacOS()
   useEffect(() => {
+    if (isMacOS()) {
+      let alive = true
+      getSharedMemoryGb()
+        .then((pool) => { if (alive) setSystemVRAM(sharedMemoryBudgetGb(pool)) })
+        .catch(() => {})
+      return () => { alive = false }
+    }
     getMaxVramGb().then((v) => {
       if (v > 0) { setSystemVRAM(v); return }
       getSystemVRAM().then((v2) => setSystemVRAM(v2)).catch(() => {})
@@ -350,7 +392,7 @@ export function ModelsStep({ skin, scan, fleet, step, setStep, pulledModels, set
   // der eigentliche Befund: `modelStore.setModels` setzt, wenn keine Wahl
   // vorliegt, den ERSTEN chatfaehigen Eintrag der Liste. Wer uebersprungen
   // wurde, hat also nie gewaehlt und landete trotzdem auf einem Modell: eine
-  // Persona auf einem Qwen3-4B, das sie nie angefasst hatte. David
+  // Persona auf einem Qwen3-4B, das sie nie angefasst hatte. Der Inhaber
   // 04.09.2026: „modellauswahl muss noch da sein oder nicht? ich denke ja."
   //
   // Was BLEIBT, ist P4 („Nur wenn der User noch gar kein Modell installiert
@@ -363,7 +405,10 @@ export function ModelsStep({ skin, scan, fleet, step, setStep, pulledModels, set
   // Which entry the badge sits on: the hardware-aware pick, or the static
   // fallback when VRAM is unknown / fits nothing. See
   // `recommendedOnboardingModelName` for the reused threshold.
-  const recommendedModelName = recommendedOnboardingModelName(ONBOARDING_MODELS, systemVRAM)
+  // On a Mac the pick is the strongest model that fits its memory budget.
+  const recommendedModelName = sharedMemory
+    ? recommendedOnSharedMemory(ONBOARDING_MODELS, systemVRAM)
+    : recommendedOnboardingModelName(ONBOARDING_MODELS, systemVRAM)
 
   // Die Wahl steht NICHT hier. Sie steht dort, wo der Chat sie liest, in
   // `modelStore.activeModel`, derselben Stelle, die der Modellknopf des
@@ -529,6 +574,14 @@ export function ModelsStep({ skin, scan, fleet, step, setStep, pulledModels, set
         }).map((model) => {
           const selected = selectedModels.includes(model.name)
           const pulled = pulledModels.includes(model.name) || (model.filename ? downloads[model.filename]?.status === 'complete' : false)
+          // What the card says in words: the PC text as written, or the same
+          // facts as a Mac reads them (memory, no card, no VRAM).
+          const copy = onboardingModelCopy(model, sharedMemory)
+          const advisory = sharedMemory
+            ? sharedMemoryAdvisory(model, systemVRAM)
+            : systemVRAM !== null && systemVRAM < model.vramGB
+              ? 'Full GPU offload may not fit. Use CPU/offload settings or skip local setup.'
+              : ''
           return (
             <button
               key={model.name}
@@ -563,12 +616,12 @@ export function ModelsStep({ skin, scan, fleet, step, setStep, pulledModels, set
                       </span>
                     )}
                   </div>
-                  <p className={`text-[0.6rem] mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{model.description}</p>
-                  {systemVRAM !== null && systemVRAM < model.vramGB && (
-                    <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">Full GPU offload may not fit. Use CPU/offload settings or skip local setup.</p>
+                  <p className={`text-[0.6rem] mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{copy.description}</p>
+                  {advisory && (
+                    <p className="text-xs mt-1 text-gray-500 dark:text-gray-400" data-testid="onboarding-model-advisory">{advisory}</p>
                   )}
                   <p className={`text-[0.55rem] mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                    {model.size} · VRAM: {model.vram}
+                    {model.size}{model.mmprojBytes ? ` + ${gbOf(model.mmprojBytes)} GiB image input` : ''} · {copy.memory}
                   </p>
                 </div>
                 {pulled ? (

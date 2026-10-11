@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { routeCloud, seedOnboardingDone, signInViaGate, cloudSwitch, cloudSwitchBehindModal, type CloudScenario } from './support/cloud-mock'
 
 /**
- * Das Verkaufs-Panel am Wolkenschalter (David, 13.09.2026).
+ * Das Verkaufs-Panel am Wolkenschalter (13.09.2026).
  *
  * Bis 3.0.0 zeigte ein Klick auf den Schalter ohne Sitzung ein Login-Fenster,
  * also die falsche Frage: wer noch nichts gekauft hat, kann sich nicht
@@ -50,7 +50,7 @@ test('without a session one click opens the sales panel, not a login form', asyn
 
   // Die drei gezaehlten Zeilen.
   const lines = page.getByTestId('cloud-sales-lines')
-  await expect(lines).toContainText('19 chat models with no refusals')
+  await expect(lines).toContainText('19 No Filter chat models')
   await expect(lines).toContainText('14 uncensored video models')
   await expect(lines).toContainText('7 uncensored image models')
 
@@ -79,7 +79,7 @@ test('the purchase button carries the price and leaves for the browser', async (
     () => (window as unknown as { __E2E_OPENED_URLS__?: string[] }).__E2E_OPENED_URLS__ ?? [],
   )
   expect(opened.some((u) => u.endsWith('/pricing'))).toBe(true)
-  // Gekauft wird auf der Website. Die App hat nie Stripe angefasst.
+  // Gekauft wird auf der Website. Die App hat nie eine Zahlung angefasst.
   expect(opened.some((u) => /stripe|checkout\/start/i.test(u))).toBe(false)
   // Und der Schalter ist davon nicht umgesprungen.
   await expect(cloudSwitchBehindModal(page)).toHaveAttribute('aria-checked', 'false')

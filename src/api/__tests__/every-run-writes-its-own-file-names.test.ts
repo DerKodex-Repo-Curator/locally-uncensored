@@ -1,5 +1,5 @@
 /**
- * Discord 2026-10-01 (theitalianstallion92): downloads "mutated" into copies
+ * Discord 2026-10-01: downloads "mutated" into copies
  * of other renders. ComfyUI numbers a file one past the highest it still finds
  * for the prefix, and a gallery delete frees that number, so the next run with
  * the same prompt took the same name and a download of the older entry got the

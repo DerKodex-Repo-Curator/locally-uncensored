@@ -99,7 +99,7 @@ describe('switch point 3: the read-only chain', () => {
   })
 })
 
-// David 2026-08-22, replacing G15a: the cloud arm is the user's opt-in, not a
+// 2026-08-22, replacing G15a: the cloud arm is the user's opt-in, not a
 // fourth mode. Off by default, so lu-cloud goes through the same three modes a
 // local provider does.
 describe('the cloud shell gate is an opt-in, not a fourth mode', () => {

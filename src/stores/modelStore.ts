@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { yieldSilentLocalRuns } from '../lib/silent-runs'
+import { noteModelSwitch } from '../lib/model-switch-stop'
 import { persist } from 'zustand/middleware'
 import { safeJSONStorage } from '../lib/storage-quota'
 import { canAutoSelectChat } from '../lib/chat-model-minimum'
@@ -335,7 +337,18 @@ export const useModelStore = create<ModelState>()(
           catch (e) { log.warn('[modelStore] could not note the model on the open chat', { err: e }) }
         }
         if (!prev || prev === name) return
-        // Exactly ONE local model stays in VRAM at a time (David 2026-06-12:
+        // An answer that is still being written on the local lane may lose
+        // its engine to this pick. It is not held back; if it ends unfinished
+        // it says that the switch was the reason (lib/model-switch-stop.ts).
+        noteModelSwitch()
+        // A silent run (the memory digest after a turn or a voice session)
+        // holds the local lane like any turn, and every unload below waits
+        // for that lane. The person just asked for another model: the silent
+        // run gives way first, so the old model is let go now and not after
+        // work nobody is watching. A turn somebody IS watching still holds
+        // the unload back (lib/silent-runs.ts).
+        yieldSilentLocalRuns()
+        // Exactly ONE local model stays in VRAM at a time (2026-06-12:
         // "darf niemals 2 gleichzeitig geladen sein, außer man macht Compare").
         // Compare uses its own store + provider calls, NOT setActiveModel, so it
         // is unaffected. EXCEPTION (R2-3, lu-301/bau/review-offload2.md, Runde 2):
@@ -350,7 +363,7 @@ export const useModelStore = create<ModelState>()(
         //   - Cloud (anthropic:: / OpenRouter / OpenAI etc.) → no local VRAM, skip
         // The old `!prev.includes('::')` guard skipped LM Studio entirely, so
         // switching AWAY from an LM Studio model left it loaded → two models in
-        // VRAM at once. (David live find.)
+        // VRAM at once. (the owner live find.)
         const prevIsLms = isLmStudioProvider(
           (prevModel && 'providerName' in prevModel && prevModel.providerName) as string | undefined,
         )
@@ -503,7 +516,7 @@ export const useModelStore = create<ModelState>()(
         }),
 
       dismissPull: (name) => {
-        // Bug #5 (phantomderp v2.4.3): the X-button used to remove the
+        // Bug #5 (a user v2.4.3): the X-button used to remove the
         // entry from `activePulls` without telling Rust to stop the
         // underlying stream. The Tauri-side `pull_model_stream` kept
         // emitting `pull-progress` events that re-created the entry via

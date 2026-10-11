@@ -7,7 +7,7 @@ import { useModelStore } from '../../stores/modelStore'
 import { getModelMaxTokens } from '../../lib/context-compaction'
 import { AnimatePresence, motion } from 'framer-motion'
 
-// Memory button. Lives in the TOP BAR next to the model picker (David
+// Memory button. Lives in the TOP BAR next to the model picker (the owner
 // 2026-06-06: "memory button raus aus chat/code/agent, neben den modelloader
 // oben als gehirn icon"). One brain icon → an EDITABLE popover where the user
 // views / ADDS / DELETES the remembered context that gets injected into every
@@ -98,7 +98,7 @@ function MemoryPopover({ onClose }: { onClose: () => void }) {
   // `-translate-x-1/2`. A CSS transform on ANY ancestor makes that ancestor the
   // containing block for `position: fixed`, so without the portal the overlay
   // was clamped to the header-center's ~132px width on every viewport ≥1024px
-  // (David flagged the squeezed Memory panel). Portaling out of the transformed
+  // (the owner flagged the squeezed Memory panel). Portaling out of the transformed
   // subtree restores true viewport-anchored full-screen positioning.
   return createPortal(
     <motion.div
@@ -109,7 +109,7 @@ function MemoryPopover({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="w-[420px] max-h-[68vh] lu-elevated rounded-xl overflow-hidden flex flex-col"
+        className="w-[420px] max-h-[calc(68vh/var(--ui-scale))] lu-dialog rounded-xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

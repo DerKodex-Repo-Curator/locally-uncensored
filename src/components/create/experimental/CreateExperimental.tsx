@@ -22,6 +22,7 @@ import { AdvancedDrawer } from './AdvancedDrawer'
 import { WorkflowsModal } from '../WorkflowsModal'
 import { Hinweis } from '../../ui/Hinweis'
 import { BannerText } from './BannerText'
+import { MacVideoMemoryNotice } from './MacVideoMemoryNotice'
 import { MaskEditor } from './MaskEditor'
 import { VhsInstallModal } from './VhsInstallModal'
 import { CloudHiddenNotice } from '../../cloud/CloudHiddenNotice'
@@ -45,6 +46,7 @@ import { studioPickFor } from '../../../lib/render/create-studio'
 import { modelForOp, useCloudCatalogStore } from '../../../stores/cloudCatalogStore'
 import { stageShowsSetupCard, laneModelCount } from './stageGate'
 import { isMlxImageHost } from '../../../api/mlx-image'
+import { mlxTakesStartImage } from '../../../api/mlx-video'
 import { fetchGalleryItemBlob } from './galleryUrl'
 import { loadImageRef } from './loadImage'
 
@@ -123,7 +125,7 @@ function CreateExperimentalInner() {
   const [selectedPreset, setSelectedPreset] = useState<CreatePreset | null>(null)
   const [presetStarted, setPresetStarted] = useState(false)
 
-  // One-click CORS fix (David 2026-07-17): restart the user-managed ComfyUI
+  // One-click CORS fix (2026-07-17): restart the user-managed ComfyUI
   // under LU's management so it carries --enable-cors-header. On success the
   // banner clears; if LU can't do it (unknown path / remote host) the backend
   // error explains the manual route and stays visible in the banner.
@@ -212,7 +214,7 @@ function CreateExperimentalInner() {
     }
   }, [])
 
-  // David 2026-07-11: the Stage starts EMPTY and never auto-surfaces a persisted
+  // 2026-07-11: the Stage starts EMPTY and never auto-surfaces a persisted
   // gallery item — not on mount, not on a mode/intent switch. It fills only on an
   // explicit pick (a gallery tile, or a result's "Edit" action) or a fresh
   // generation made in THIS session. Seed prevTop with whatever is already on top
@@ -259,13 +261,14 @@ function CreateExperimentalInner() {
   // (3.0.4 Gegenprobe 8).
   const banner = error ?? (setupCardOwnsStage || comfyStarting ? null : modelLoadError)
 
-  // "Edit with mask" on a finished image force-sets the 'edit' intent. On the
-  // MLX Mac that lane does not exist (no ComfyUI inpaint nodes, and MLX
-  // generate DROPS the source + mask — it silently produced an unrelated fresh
-  // text-to-image instead of an edit). Hide the action where the lane can't
-  // run, using the same rule the IntentBar renders from.
+  // "Edit with mask" on a finished image force-sets the 'edit' intent and
+  // opens the mask editor. The MLX Mac has no mask lane: its local Edit is
+  // Qwen-Image 2.1, an edit from the prompt alone, and that tab is reached
+  // through the bar. So the rule is asked without the Mac's Edit lane, and
+  // the action stays hidden there.
   const editAvailable = isIntentAvailable('edit', backend, isMlxImageHost())
-  const animateAvailable = isIntentAvailable('animate', backend, isMlxImageHost())
+  const mlxAnimate = useCreateStore((s) => mlxTakesStartImage(s.videoModelList))
+  const animateAvailable = isIntentAvailable('animate', backend, isMlxImageHost(), mlxAnimate)
 
   // Pull a finished result back in as the working source (ImageRef). Needed
   // because a text-to-image run leaves `source` empty — without this, "Edit
@@ -311,7 +314,7 @@ function CreateExperimentalInner() {
     }
   }, [adoptResult, setError])
 
-  // David 2026-07-10: source-needing ops must start EMPTY — never silently
+  // 2026-07-10: source-needing ops must start EMPTY — never silently
   // adopt a gallery image as the input. Adoption is always explicit: the
   // InputSlot's "pick from gallery" strip, drag&drop, the file picker, or a
   // result's "Edit" action. While an op intent owns the stage, clicking a
@@ -355,7 +358,7 @@ function CreateExperimentalInner() {
 
       {/* CPU-mode warning, persistent while LU's ComfyUI runs with --cpu.
           Without it a user sees "Ready to generate" and then a bare 20-minute
-          timeout (shd_scorpion, RX 7900 XTX). Local renders only, cloud jobs
+          timeout (RX 7900 XTX). Local renders only, cloud jobs
           never touch the local ComfyUI.
 
           The sentence itself lives in lib/comfy-cpu-banner.ts, because it is
@@ -376,6 +379,10 @@ function CreateExperimentalInner() {
         </Hinweis>
       )}
 
+      {/* A Mac with less memory than the lane's video model is recommended
+          for. The run is not held back, so it is said before it starts. */}
+      <MacVideoMemoryNotice />
+
       {/* Idle outage (R18 Befund 2): ComfyUI died while nobody was rendering
           and the tab said nothing about it for 180 seconds. One quiet line,
           no button: the render path restarts it and this says so. Nothing is
@@ -384,10 +391,10 @@ function CreateExperimentalInner() {
         <Hinweis className="px-4 py-2 shrink-0">{idleNotice}</Hinweis>
       )}
 
-      {/* Cross-origin block (#75, cinemazverev): a user-managed ComfyUI 0.19+
+      {/* Cross-origin block (#75): a user-managed ComfyUI 0.19+
           answers the WebView's media/WS requests with a Sec-Fetch 403, so results
           couldn't be viewed. LU proxies the bytes so they still display, but the
-          live progress bar + native video seeking degrade. David 2026-07-17: keep
+          live progress bar + native video seeking degrade. 2026-07-17: keep
           the message short and offer a one-click fix — LU restarts ComfyUI under
           its own management, which always passes the CORS flag. Local only,
           dismissible; the long manual-flag hint only appears if the fix fails.
@@ -422,7 +429,7 @@ function CreateExperimentalInner() {
 
       <CloudHiddenNotice />
 
-      {/* Cloud gallery retention (David 2026-07-24). Cloud renders live on our
+      {/* Cloud gallery retention (2026-07-24). Cloud renders live on our
           servers, not on this machine, so the gallery is not permanent storage.
           Cloud mode only. One time ever: no close X and no auto-hide, the only
           way out is the explicit "Do not show again", and it stays dismissed
@@ -505,7 +512,7 @@ function CreateExperimentalInner() {
           // also ist dies die letzte fehlende Haelfte.
           keepMounted
         >
-          <div className="flex h-[min(600px,90vh)] flex-col overflow-hidden rounded-2xl bg-lu-base">
+          <div className="flex h-[min(600px,calc(90vh/var(--ui-scale)))] flex-col overflow-hidden rounded-2xl bg-lu-base dark:bg-transparent">
             <Suspense fallback={<div className="flex flex-1 items-center justify-center t-control text-gray-400">Loading…</div>}>
               <PresetWorkshop
                 key={selectedPreset.id}

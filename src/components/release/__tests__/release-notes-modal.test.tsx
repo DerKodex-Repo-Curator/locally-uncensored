@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Redesign guard (Bauer, 19.09.2026): David asked for the sheet to carry the
+ * Redesign guard (Bauer, 19.09.2026): the owner asked for the sheet to carry the
  * real house logo instead of a pulsing gradient square, to lose the Sparkles
  * icon and every other decorative "magic" glyph, and to keep working for an
  * entry written before groups existed. Four things are pinned here so a later
@@ -235,15 +235,19 @@ describe('the wired-up sheet, end to end', () => {
 
   it('opens for the shipping version and Escape closes it, stamping the version so it does not return', async () => {
     render(<ReleaseNotesModal />)
-    // package.json pins the running version to 3.0.5, and RELEASE_NOTES
-    // carries an entry for it, so the sheet is open on mount.
+    // The running version is the one in package.json, read and never typed:
+    // a number written here was wrong at every release. RELEASE_NOTES carries
+    // an entry for it, so the sheet is open on mount.
+    const shipping = JSON.parse(
+      readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../../package.json'), 'utf8'),
+    ).version as string
     await waitFor(() => expect(screen.getByTestId('release-heading')).toBeTruthy())
-    expect(screen.getByTestId('release-heading').textContent).toBe("What's new in 3.0.5")
-    expect(useReleaseNotesStore.getState().lastNotesVersion).not.toBe('3.0.5')
+    expect(screen.getByTestId('release-heading').textContent).toBe(`What's new in ${shipping}`)
+    expect(useReleaseNotesStore.getState().lastNotesVersion).not.toBe(shipping)
 
     fireEvent.keyDown(document, { key: 'Escape' })
 
-    await waitFor(() => expect(useReleaseNotesStore.getState().lastNotesVersion).toBe('3.0.5'))
+    await waitFor(() => expect(useReleaseNotesStore.getState().lastNotesVersion).toBe(shipping))
     await waitFor(() => expect(screen.queryByTestId('release-heading')).toBeNull())
   })
 })

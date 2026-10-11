@@ -2,6 +2,7 @@ import { checkComfyConnection, getImageUrl } from '../../../api/comfyui'
 import { refreshResultUrl, resolveResultUrl } from '../../../api/cloud/jobs'
 import { backendCall, fetchLocalhostBytes, isTauri } from '../../../api/backend'
 import { useCreateStore, type GalleryItem } from '../../../stores/createStore'
+import { blobFromUrl } from '../../../lib/render/data-url'
 
 /** Resolve a gallery item's display URL. Priority mirrors MediaViewer/Gallery:
  *  remoteUrl (cloud signed URL) → dataUrl (in-memory self-contained fallback)
@@ -141,7 +142,7 @@ function guessMime(filename: string): string {
  * `<video>`/`<img>` /view load with a Sec-Fetch-Site 403, while download +
  * history keep working because those ride the Rust proxy (no Origin header).
  * The user sees "can't view the result" even though the render exists (#75,
- * cinemazverev). Re-fetch the bytes THROUGH the proxy (no Origin → not blocked)
+ * A user). Re-fetch the bytes THROUGH the proxy (no Origin → not blocked)
  * and hand back a blob: URL the element can display. Local items only — cloud
  * media has its own re-sign path (recoverGalleryUrl). Returns null when the
  * fallback doesn't apply or the proxy fetch fails.
@@ -173,17 +174,13 @@ export async function proxiedComfyBlobUrl(item: GalleryItem): Promise<string | n
 /** Fetch a gallery item's media bytes for adoption as an op source.
  *
  *  The naive `fetch(galleryItemUrl(item))` was the "failed to fetch" behind
- *  every source-needing op in cloud mode (David 2026-07-10): a cloud item's
+ *  every source-needing op in cloud mode (2026-07-10): a cloud item's
  *  signed URL expires ~1 h after issue, and a local ComfyUI item's /view URL
  *  is dead whenever the local engine isn't running — both surface as a bare
  *  TypeError. Re-sign expired cloud media once via the job id, and turn the
  *  unrecoverable cases into actionable messages. */
 export async function fetchGalleryItemBlob(item: GalleryItem): Promise<Blob> {
-  const tryFetch = async (url: string) => {
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`media request failed (${res.status})`)
-    return res.blob()
-  }
+  const tryFetch = blobFromUrl
   try {
     return await tryFetch(galleryItemUrl(item))
   } catch (err) {
@@ -202,7 +199,7 @@ export async function fetchGalleryItemBlob(item: GalleryItem): Promise<Blob> {
   }
 }
 
-/** Discord 2026-09-26 (boromirofgeo): dragging a gallery tile onto the Edit
+/** Discord 2026-09-26: dragging a gallery tile onto the Edit
  *  drop zone did nothing. An in-page <img> drag carries a URL, never a File,
  *  so the zone's `dataTransfer.files[0]` was always empty. The tile now names
  *  its gallery item under this type, and the zone adopts it like a click. */

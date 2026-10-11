@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * The empty chat screen, mounted for real (2.6.8, David).
+ * The empty chat screen, mounted for real (2.6.8).
  *
  * "auch die Latest Chats dann im Hauptscreen wie in der Webapp, ausser man
  *  klappt das Sidepanel auf."
@@ -11,7 +11,7 @@
  * holds the rule that connects it to the panel: it stands in the main area
  * while the panel is collapsed, and nowhere while the panel is open.
  *
- * Widened after the screen check on the bundle (David, 2026-09-02): the list
+ * Widened after the screen check on the bundle (2026-09-02): the list
  * only stood on the no-chat screen, so New Chat led to a blank main area. It
  * has to stand above the composer for as long as the open chat is still empty,
  * and go the moment the first message is sent.
@@ -77,7 +77,7 @@ describe('the latest chats on the home screen', () => {
     expect(useChatStore.getState().activeConversationId).toBe('a')
   })
 
-  // GH #141 (Wruktarr): with Code or Remote picked in the collapsed rail the
+  // GH #141: with Code or Remote picked in the collapsed rail the
   // list showed the plain chats. It follows the mode now, like the panel.
   it('Code picked in the rail: the code chats, and opening one stays in Code', () => {
     useChatStore.setState({

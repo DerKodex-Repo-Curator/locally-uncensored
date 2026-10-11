@@ -10,7 +10,7 @@ import {
 
 /**
  * R5-10/R5-11 (3.0.1-Liste): the pure request rule, tested for itself before
- * the store and the popup that call it (David's Entscheid, empfohlene
+ * the store and the popup that call it (the owner's decision, empfohlene
  * Reihenfolge in bau/w2ui.md).
  */
 describe('SAMPLING_DEFAULTS', () => {

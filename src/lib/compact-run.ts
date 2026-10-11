@@ -32,7 +32,8 @@
  *     default — measured on the ship exe, where the chat sent 32768, the
  *     extraction that follows every turn sent nothing, and `ollama ps` then
  *     reported 4096 while the UI still said 32K. Same model, same num_ctx:
- *     `resolveAgentNumCtx` is the one resolver.
+ *     this call names no window, so the provider sends the one the model was
+ *     last sent (`ollamaNumCtx` in api/ollama.ts).
  *
  *  5. STOP DOES NOT REACH IT. Passing `{}` as options means the abort can only
  *     be seen BETWEEN requests; the in-flight one keeps generating and keeps
@@ -73,8 +74,7 @@
  * downgrade follows.
  */
 
-import { getProviderForModel, getProviderIdFromModel } from '../api/providers'
-import { resolveAgentNumCtx } from './agent-num-ctx'
+import { getProviderForModel } from '../api/providers'
 import { settleThinking } from './thinking-stripper'
 import {
   buildCompactPrompt,
@@ -112,8 +112,6 @@ export interface CompactRunInput {
   activeModel: string
   /** Optional steer from `/compact <focus>`. */
   focus?: string
-  /** settings.contextWindowOverride. */
-  contextWindowOverride?: number
   /** The turn's abort signal, so Stop reaches this call too. */
   signal?: AbortSignal
   /** Override the deadline (tests). */
@@ -190,19 +188,12 @@ export async function runCompactSummary(input: CompactRunInput): Promise<Compact
     if (input.signal?.aborted) return fail('aborted')
 
     const { provider, modelId } = getProviderForModel(input.activeModel)
-    const providerId = getProviderIdFromModel(input.activeModel)
-    // Same model, same num_ctx — otherwise Ollama reloads (hazard 4).
-    const contextWindow = await resolveAgentNumCtx(
-      modelId, providerId, input.contextWindowOverride, input.activeModel,
-    ).catch(() => undefined)
-
     let raw = ''
     // chatStream, not chatWithTools: the no-chunk watchdog only exists here
     // (hazard 1). No `tools` field at all (hazard 6).
     const stream = provider.chatStream(modelId, [{ role: 'user', content: prompt }], {
       temperature: COMPACT_TEMPERATURE,
       maxTokens: COMPACT_MAX_TOKENS,
-      contextWindow,
       // Denken AUS, und zwar gemessen (03.09.2026, Qwen3.5-9B, genau diese
       // Werte): das Modell verbrauchte alle 1200 Token im Denk-Kanal — 4553
       // Zeichen Ueberlegung — und schrieb KEINE EINZIGE ZEILE Antwort. In der

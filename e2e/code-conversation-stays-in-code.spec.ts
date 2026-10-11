@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './support/tauri-mock'
 import { seedOnboardingDone } from './support/cloud-mock'
-import { openNewChat } from './support/ui'
+import { openNewChat, appModules, type AppWindow } from './support/ui'
 
 /**
  * Gegenprobe on the real Windows build, 30.09.2026, two findings:
@@ -30,9 +30,9 @@ async function bootCode(page: Page): Promise<void> {
 
 /** A Code conversation with one exchange, written the way the store writes it, then flushed to disk. */
 async function codeVerlauf(page: Page): Promise<void> {
+  await appModules(page, ['/src/stores/chatStore.ts'])
   await page.evaluate(async (marke) => {
-    const chatPath = '/src/stores/chatStore.ts'
-    const chat = await import(/* @vite-ignore */ chatPath) as typeof import('../src/stores/chatStore')
+    const chat = (window as unknown as AppWindow).__APP__['/src/stores/chatStore.ts'] as typeof import('../src/stores/chatStore')
     const aktiv = chat.useChatStore.getState().activeConversationId
     if (!aktiv) throw new Error('no active Code conversation')
     const conv = chat.useChatStore.getState().conversations.find((c) => c.id === aktiv)
@@ -77,9 +77,9 @@ const CHAT_MARKE = 'Zeile aus dem Chat, zu der der Chat-Knopf zurueckfuehrt'
 
 /** A plain chat with one exchange, worked on before the Code conversation. */
 async function chatVerlauf(page: Page): Promise<void> {
+  await appModules(page, ['/src/stores/chatStore.ts'])
   await page.evaluate(async (marke) => {
-    const chatPath = '/src/stores/chatStore.ts'
-    const chat = await import(/* @vite-ignore */ chatPath) as typeof import('../src/stores/chatStore')
+    const chat = (window as unknown as AppWindow).__APP__['/src/stores/chatStore.ts'] as typeof import('../src/stores/chatStore')
     const id = chat.useChatStore.getState().createConversation('m', '', 'lu')
     chat.useChatStore.getState().addMessage(id, { id: 'cu1', role: 'user', content: 'hello', timestamp: Date.now() })
     chat.useChatStore.getState().addMessage(id, { id: 'ca1', role: 'assistant', content: marke, timestamp: Date.now() + 1 })
@@ -116,11 +116,10 @@ test('the Chat button goes back to the chat, and so does the start after a Code 
 test('New on an untouched Code session adds no second empty entry', async ({ page }) => {
   // 3.0.4 box run: every click on New added another empty "Coding Agent".
   await bootCode(page)
-  const codeConvs = () => page.evaluate(async () => {
-    const chatPath = '/src/stores/chatStore.ts'
-    const chat = await import(/* @vite-ignore */ chatPath) as typeof import('../src/stores/chatStore')
+  const codeConvs = () => appModules(page, ['/src/stores/chatStore.ts']).then(() => page.evaluate(() => {
+    const chat = (window as unknown as AppWindow).__APP__['/src/stores/chatStore.ts'] as typeof import('../src/stores/chatStore')
     return chat.useChatStore.getState().conversations.filter((c) => c.mode === 'codex').length
-  })
+  }))
   const newButton = page.getByRole('button', { name: 'New', exact: true })
   await newButton.click()
   const before = await codeConvs()
@@ -138,22 +137,19 @@ test('New Chat in the sidebar follows the same rule as New in Code', async ({ pa
   // 3.0.4 Gegenprobe 8: the sidebar's New Chat added an empty "Coding Agent"
   // row on every click and reset Bypass to Ask.
   await bootCode(page)
-  const state = () => page.evaluate(async () => {
-    const chatPath = '/src/stores/chatStore.ts'
-    const codexPath = '/src/stores/codexStore.ts'
-    const chat = await import(/* @vite-ignore */ chatPath) as typeof import('../src/stores/chatStore')
-    const codex = await import(/* @vite-ignore */ codexPath) as typeof import('../src/stores/codexStore')
+  const state = () => appModules(page, ['/src/stores/chatStore.ts', '/src/stores/codexStore.ts']).then(() => page.evaluate(() => {
+    const chat = (window as unknown as AppWindow).__APP__['/src/stores/chatStore.ts'] as typeof import('../src/stores/chatStore')
+    const codex = (window as unknown as AppWindow).__APP__['/src/stores/codexStore.ts'] as typeof import('../src/stores/codexStore')
     const { conversations, activeConversationId } = chat.useChatStore.getState()
     return {
       count: conversations.filter((c) => c.mode === 'codex').length,
       mode: codex.useCodexStore.getState().modeByConversation[activeConversationId ?? ''] ?? null,
     }
-  })
-  await page.evaluate(async () => {
-    const chatPath = '/src/stores/chatStore.ts'
-    const codexPath = '/src/stores/codexStore.ts'
-    const chat = await import(/* @vite-ignore */ chatPath) as typeof import('../src/stores/chatStore')
-    const codex = await import(/* @vite-ignore */ codexPath) as typeof import('../src/stores/codexStore')
+  }))
+  await appModules(page, ['/src/stores/chatStore.ts', '/src/stores/codexStore.ts'])
+  await page.evaluate(() => {
+    const chat = (window as unknown as AppWindow).__APP__['/src/stores/chatStore.ts'] as typeof import('../src/stores/chatStore')
+    const codex = (window as unknown as AppWindow).__APP__['/src/stores/codexStore.ts'] as typeof import('../src/stores/codexStore')
     codex.useCodexStore.getState().chooseCodexMode(chat.useChatStore.getState().activeConversationId!, 'bypass', false)
   })
   const sidebarNew = page.getByRole('button', { name: /New Chat/i })

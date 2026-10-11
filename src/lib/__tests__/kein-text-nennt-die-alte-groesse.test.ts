@@ -103,7 +103,7 @@ function dezimalfunde(zeilen: string[], quelle: string): string[] {
 
 describe('die Katalogzahl bleibt in der Quelle', () => {
   it('die beiden Kataloge sind gelesen, nicht geraten', () => {
-    expect(MLX_KATALOG).toHaveLength(14)
+    expect(MLX_KATALOG).toHaveLength(56)
     const nsfw = MLX_KATALOG.find((e) => e.name === 'UnfilteredAI Gen v2')
     expect(nsfw?.roh).toBe('8.6')
     // Die Zahl, um die es geht: derselbe Eintrag, zwei Zaehlweisen.
@@ -122,12 +122,12 @@ describe('die Katalogzahl bleibt in der Quelle', () => {
     // Modelle gar nicht erwaehnen.
     const gesetzt = [
       'Local media on the Mac: UnfilteredAI Gen v2 is an 8.6 GB download.',
-      'Z-Image Turbo braucht 25,0 GB Platz.',
+      'Z-Image Turbo braucht 32,8 GB Platz.',
     ]
     const funde = dezimalfunde(gesetzt, 'probe')
     expect(funde).toHaveLength(2)
     expect(funde[0]).toContain('8.0 GB')
-    expect(funde[1]).toContain('23.3 GB')
+    expect(funde[1]).toContain('30.5 GB')
 
     // Gegenprobe: die richtige Zahl und eine Speicherangabe gehen durch.
     expect(dezimalfunde([

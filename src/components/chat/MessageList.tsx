@@ -6,6 +6,7 @@ import { groupSpeakers } from '../../lib/group-chat'
 import { useAutoScroll } from '../../hooks/useAutoScroll'
 import { MessageBubble } from './MessageBubble'
 import { WorkingAnchor } from './WorkingAnchor'
+import { useComputerStore } from '../../stores/computerStore'
 import { CompactBlock } from './CompactBlock'
 import { compactionAnchors } from '../../lib/compact-summary'
 import { Hinweis } from '../ui/Hinweis'
@@ -57,7 +58,7 @@ interface Props {
   isGenerating: boolean
   /** Per-conversation generating flag — drives the 3-dot typing indicator so it
    *  shows ONLY in the chat that is actually generating, not in every chat the
-   *  user switches to (David 2026-06-12). Falls back to isGenerating. */
+   *  user switches to (2026-06-12). Falls back to isGenerating. */
   isThisChatGenerating?: boolean
   isLoadingModel?: boolean
   onRegenerate?: (conversationId: string, assistantMessageId: string) => void
@@ -71,6 +72,8 @@ interface Props {
 
 export function MessageList({ isGenerating, isThisChatGenerating, isLoadingModel, onRegenerate, onEdit, pendingApprovalId, onApprove, onReject }: Props) {
   const showTyping = isThisChatGenerating ?? isGenerating
+  // The question of the first use of computer control is open in this conversation.
+  const chatAsked = useComputerStore((s) => !!s.chatAsk && !s.chatAsk.voice && (s.chatAsk.conversationId === null || s.chatAsk.conversationId === useChatStore.getState().activeConversationId))
   const conversation = useChatStore((s) => {
     if (!s.activeConversationId) return undefined
     return s.conversations.find((c) => c.id === s.activeConversationId)
@@ -175,7 +178,7 @@ export function MessageList({ isGenerating, isThisChatGenerating, isLoadingModel
       ref={scrollRef}
       className="flex-1 overflow-y-auto scrollbar-thin py-4"
       style={{
-        // Soft top fade — chat content "blurs out" under the header (David).
+        // Soft top fade — chat content "blurs out" under the header.
         WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, #000 28px)',
         maskImage: 'linear-gradient(to bottom, transparent 0, #000 28px)',
       }}
@@ -184,7 +187,7 @@ export function MessageList({ isGenerating, isThisChatGenerating, isLoadingModel
           anchor included (G33).
 
           Die Breite kommt aus `composer-width.ts` und nicht mehr aus
-          `--lu-measure`. David, 05.09.2026: das Transkript stand exakt auf
+          `--lu-measure`. 05.09.2026: das Transkript stand exakt auf
           der Spaltenbreite und war damit sogar schmaler als die Promptbox
           darunter (759 gegen 792,3 gerenderte px am Windows-Bau). Es soll
           links und rechts um je rund 20 Prozent ueber die Box hinausragen,
@@ -252,7 +255,10 @@ export function MessageList({ isGenerating, isThisChatGenerating, isLoadingModel
             conversationId={conversation?.id}
             // A run waiting on the user is not working: same words as the Code
             // tab (G15b), Gegenprobe 01.10.2026 read "Working 49s" here.
-            label={isLoadingModel ? 'Loading model' : pendingApprovalId ? 'Waiting for your approval' : undefined}
+            // The first use of computer control in this chat waits for the user too.
+            awaitingApproval={!!pendingApprovalId || chatAsked}
+            loadingModel={isLoadingModel}
+            message={lastMessage}
           />
         )}
       </div>

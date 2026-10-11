@@ -1,5 +1,5 @@
 /**
- * GH #146 (joshmichael, 2026-10-01): LoRAs deleted from models/loras stayed in
+ * GH #146 (2026-10-01): LoRAs deleted from models/loras stayed in
  * the persisted stack, showed as "2 active" with nothing ticked, and every run
  * sent them until ComfyUI refused the graph. One was a Z-Image character that
  * rode into the Animate lane.

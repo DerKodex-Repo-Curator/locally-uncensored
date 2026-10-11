@@ -1,6 +1,6 @@
 [package]
 name = "locally-uncensored"
-version = "3.0.5"
+version = "3.0.6"
 description = "Private, local AI chat & image/video generation"
 authors = ["purpledoubled"]
 edition = "2021"
@@ -60,13 +60,29 @@ tokio-tungstenite = "0.26"
 tower-http = { version = "0.6", features = ["cors", "fs"] }
 jsonwebtoken = "9"
 qrcode = "0.14"
-image = { version = "0.25", default-features = false, features = ["png"] }
+# "jpeg" is for the screenshots of computer use (commands/computer): a JPEG of
+# a desktop is a fifth of the PNG. It adds zune-jpeg (MIT OR Apache-2.0 OR Zlib).
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 rand = "0.8"
 sha2 = "0.10"
+# Unpacking the private Python of the voice loop (commands/voice_loop). Both
+# are already in Cargo.lock through the updater plugin, so this adds no crate
+# to the build.
+tar = "0.4"
+# flate2 serves the voice loop and the unpacking of a fetched page. One line,
+# a key may not stand twice.
+flate2 = "1"
+# Unpacking a fetched page (commands/web_body.rs): a server may pack its answer
+# with gzip, deflate, brotli or zstd whether the request asks for it or not.
+# All three are in the build already (png brings flate2, tauri-utils brings
+# brotli, zip brings zstd), with exactly these features, so naming them adds
+# no crate and no feature to any target.
+brotli = { version = "8", default-features = false, features = ["std"] }
+zstd = { version = "0.13", default-features = false }
 local-ip-address = "0.6"
 socket2 = "0.5"
 # Structured tracing — used for the JSON-log mode behind `LU_LOG_FORMAT=json`
-# (uselu Phase 3 parity). Default formatter is the compact text layer so
+# (the web app Phase 3 parity). Default formatter is the compact text layer so
 # the existing console output stays readable for a desktop user.
 # Local time with a real UTC offset for the agent's get_current_time tool.
 # Already resolved in the lock (jsonwebtoken pulls it with `clock` +
@@ -80,11 +96,23 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # tracing-subscriber 0.3 (it re-exports `MakeWriter` from it); `max_log_files`
 # needs >= 0.2.3.
 tracing-appender = "0.2"
+# Astra computer use (commands/computer). enigo (MIT) simulates mouse and
+# keyboard on all three systems; on Linux only its pure Rust X11 backend, so
+# the build needs no libxdo and no Wayland libraries. It does link
+# libxkbcommon there (the workflows install libxkbcommon-dev; at run time the
+# library is already present wherever GTK is).
+enigo = { version = "0.6", default-features = false, features = ["x11rb"] }
+# The global stop shortcut of computer use (MIT OR Apache-2.0). Held below 2.4
+# on purpose: 2.4 asks for tauri 2.12 and would move the whole app with it.
+tauri-plugin-global-shortcut = ">=2.3, <2.4"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_System_JobObjects", "Win32_System_Threading", "Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "0.59", features = ["Win32_System_JobObjects", "Win32_System_Threading", "Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
+# The accessibility tree for computer use (Apache-2.0). "input" is the one
+# feature its core module does not compile without.
+uiautomation = { version = "0.25", default-features = false, features = ["input"] }
 # Registry access for LM Studio install-path lookup (Bug #2 — system-wide
-# installs in C:\Program Files\LM Studio that techx69 reported on v2.4.3).
+# installs in C:\Program Files\LM Studio that a user reported on v2.4.3).
 winreg = "0.55"
 
 # OS keychain for provider API keys (H5). Windows Credential Manager + macOS
@@ -96,6 +124,24 @@ winreg = "0.55"
 # crate's sync-secret-service default.
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 keyring = { version = "3", default-features = false, features = ["apple-native", "windows-native"] }
+
+# Screen capture and the window list for computer use (Apache-2.0). Not on
+# Linux: there xcap pulls in PipeWire, D-Bus and Wayland libraries at build
+# time, and LU reads X11 itself through x11rb instead.
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
+xcap = "0.9"
+
+# The X11 client enigo already brings (MIT OR Apache-2.0), named here for the
+# "randr" feature: monitors, capture and the window list of computer use.
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = { version = "0.13", features = ["randr"] }
+
+# Which app a window belongs to, for computer use. All four are already in
+# Cargo.lock through tauri and xcap (MIT, and libc MIT OR Apache-2.0).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSRunningApplication", "libc"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSURL"] }
+libc = "0.2"
 
 [profile.release]
 panic = "abort"

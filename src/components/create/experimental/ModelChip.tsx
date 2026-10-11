@@ -15,10 +15,12 @@ import { useUIStore } from '../../../stores/uiStore'
 import { useContentPolicy } from '../../../hooks/useContentPolicy'
 import { Select, type SelectOption, type SelectTag } from '../ui/Select'
 import { TYPE_LABEL } from './badges'
+import { UNFILTERED_MARK_LABEL } from '../../../lib/unfiltered-mark'
 import { useLocalPick } from './localPick'
 import { useLocalModelFits } from '../../../hooks/useLocalModelFit'
 import { vramFitLabel } from '../../../lib/vram-fit'
 import { localModelLabel } from '../../../lib/local-model-name'
+import { isMlxImageHost, mlxPickerFamily } from '../../../api/mlx-image'
 
 // Portplan P7: lipsync/music/extend/motion reach the Studio track through the
 // SAME picker as their classic op-specialized twins, one list, matching what
@@ -39,15 +41,17 @@ function studioCostHint(id: string): string | undefined {
 }
 
 const CLOUD_BADGE: SelectTag = { label: 'Cloud' }
-// C2: the "No refusals" mark on models the provider ships with its own
-// filter off (CloudModel.adult, web parity: apps/web/components/create/
-// experimental/ModelChip.tsx). The mark says what the MODEL can do and
+// C2: the measured mark (lib/unfiltered-mark) on models the provider ships with its own
+// filter off (CloudModel.adult, web parity: the web app).
+// The mark says what the MODEL can do and
 // decides nothing itself: while the account's content policy still filters
 // (anything but 'off'), it stays pale, since the account setting is the
 // boundary, not the model. No adult vocabulary here, this surface sits on
 // the payment domain.
+// No accent since 2026-10-09: the accent belongs to the statement mark of the
+// chat picker, this mark is the quiet one everywhere.
 const noRefusalsBadge = (policyOff: boolean): SelectTag =>
-  ({ label: 'No refusals', tone: policyOff ? 'accent' : 'quiet' })
+  (policyOff ? { label: UNFILTERED_MARK_LABEL } : { label: UNFILTERED_MARK_LABEL, tone: 'quiet' })
 
 // Local-mode discovery (2.5.8): hosted models ride at the bottom of the local
 // picker as teaser rows — picking one opens the Cloud sheet instead of
@@ -81,7 +85,7 @@ function CloudModelChip() {
   const setCloudVideoModel = useCreateStore((s) => s.setCloudVideoModel)
   const setCloudOpModel = useCreateStore((s) => s.setCloudOpModel)
   // Subscribed, not read once: the music sublabel must follow the length
-  // slider live so the shown price is the billed price (A3, sockenmonster).
+  // slider live so the shown price is the billed price (A3).
   const musicDuration = useCreateStore((s) => s.musicDuration)
   const models = useCloudCatalogStore((s) => s.models)
   const contentPolicy = useContentPolicy()
@@ -93,7 +97,7 @@ function CloudModelChip() {
   // trainer kinds together for Character-Studio TRAIN) and store into
   // cloudOpModel. Character-Studio USE is its own thing: it picks a
   // GENERATION endpoint compatible with the trained LoRA's family, not a
-  // trainer. A picker showing trainers there would be a lie (uselu main
+  // trainer. A picker showing trainers there would be a lie (the web app main
   // 5be5dec3).
   const special =
     (intent === 'character' && !characterUse) || intent === 'lipsync' || intent === 'music' ||
@@ -181,7 +185,7 @@ function CloudModelChip() {
           group,
           tags: tierMarks(m),
           // adult models keep the standard Cloud badge everywhere EXCEPT the row
-          // itself, where "No refusals" is strictly more informative, matching web.
+          // itself, where "No Filter" is strictly more informative, matching web.
           badge: m.adult
             ? noRefusalsBadge(contentPolicy === 'off')
             : CLOUD_BADGE,
@@ -226,12 +230,21 @@ function LocalModelChip() {
   // lokalen Modelle bleiben in dieser Ordnung, nach Familie gruppiert werden
   // nur die Cloud-Listen oben. `value` oben haelt sich an die ungeordnete Liste, denn die
   // zeigt, welches Modell ein Lauf wirklich nimmt.
-  const options: SelectOption[] = sortByTier(list.map((m) => ({ m, tier: localTier(m) }))).map(({ m, tier }) => ({
+  // On the Mac a model's family is the one its catalogue id says, for the tag
+  // and for the tier: the type alone called SD Turbo "SD 1.5" and sorted it
+  // under "Older models" (api/mlx-image mlxPickerFamily).
+  const mac = isMlxImageHost()
+  const family = (m: { name: string }) => (mac && !isVideo && !laneList ? mlxPickerFamily(m.name) : null)
+  const options: SelectOption[] = sortByTier(list.map((m) => ({ m, tier: localTier({ name: m.name, type: family(m)?.type ?? m.type }) }))).map(({ m, tier }) => ({
     value: m.name,
-    // The catalogue's name for a file it knows, the file name as the tooltip
-    // (lib/local-model-name); any other file as before.
+    // The catalogue's name for a file it knows (lib/local-model-name); any
+    // other file as before.
     ...localModelLabel(m.name),
-    badge: { label: TYPE_LABEL[m.type] },
+    // The whole name is the tooltip: the file name on Windows and Linux,
+    // the catalogue name on the Mac. It is what is left where a name is cut
+    // off after all (a narrow window, a very long file name).
+    title: m.name,
+    badge: { label: family(m)?.label ?? TYPE_LABEL[m.type] },
     group: tierGroup({ tier }),
     tags: [...tierMarks({ tier }), ...fitMarks(m.name)],
   }))
@@ -255,7 +268,12 @@ function LocalModelChip() {
       size="sm"
       searchable
       align="right"
-      className="min-w-[150px] max-w-[230px]"
+      // A name ends in what tells two packs of one model apart ("… 4-bit",
+      // "… 8-bit", "… Turbo 8-bit" on the Mac, "… (INT8)" or a quant
+      // elsewhere), and 230 px cut exactly that off: "MLX Qwen-Im…" three
+      // times (persona walk, Fund 17). The row has the room, so the chip may
+      // take it, on every platform.
+      className="min-w-[150px] max-w-[360px]"
       options={options}
       value={value}
       onChange={(v) => {

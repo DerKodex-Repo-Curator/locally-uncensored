@@ -6,7 +6,7 @@ import { flushMemoryPersist } from './memory-persistence'
 import { isRecord } from '../types/json-guards'
 
 /**
- * Der Altpfad fuer alte Cloud-Erinnerungen im Desktop (R5-30, Entscheid David
+ * Der Altpfad fuer alte Cloud-Erinnerungen im Desktop (R5-30, Entscheid des Inhabers
  * vom 12.09.2026).
  *
  * Vor dem heutigen Protokoll lag die Kontosammlung als EIN Blob in der Wolke.

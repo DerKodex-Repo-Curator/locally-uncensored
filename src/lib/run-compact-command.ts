@@ -41,6 +41,7 @@ import { shouldAutoCompact, MIN_MESSAGES_SINCE_COMPACT } from './compact-trigger
 import { effectiveSendWindow, sendWindowFor } from './send-window'
 import { sendsToALanBackend } from './lan-openai-slot'
 import { useSendSizeStore } from '../stores/sendSizeStore'
+import { COMPACTING_ACTIVITY, useRunActivityStore } from '../stores/runActivityStore'
 import type { CompactionRecord, Message } from '../types/chat'
 import { formatCount } from './formatters'
 
@@ -124,7 +125,6 @@ export async function runCompactForConversation(opts: {
     turns,
     activeModel: opts.activeModel,
     focus: opts.focus,
-    contextWindowOverride: useSettingsStore.getState().settings.contextWindowOverride,
     signal: opts.signal,
   })
   if (!result.ok) return { ok: false, reason: result.reason, detail: result.detail }
@@ -336,12 +336,21 @@ export async function maybeAutoCompact(opts: {
   })
   if (!verdict.shouldCompact) return null
 
-  const outcome = await runCompactForConversation({
-    conversationId: opts.conversationId,
-    activeModel: opts.activeModel,
-    trigger: 'auto',
-    signal: opts.signal,
-  })
+  // The summary is a model call of its own and can take a while. The status
+  // line of the run says so instead of "Starting".
+  const { setActivity } = useRunActivityStore.getState()
+  setActivity(opts.conversationId, COMPACTING_ACTIVITY)
+  let outcome: Awaited<ReturnType<typeof runCompactForConversation>>
+  try {
+    outcome = await runCompactForConversation({
+      conversationId: opts.conversationId,
+      activeModel: opts.activeModel,
+      trigger: 'auto',
+      signal: opts.signal,
+    })
+  } finally {
+    setActivity(opts.conversationId, null)
+  }
   if (!outcome.ok) {
     meldeAutoFehlschlag(opts.conversationId, outcome)
     return null

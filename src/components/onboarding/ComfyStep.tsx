@@ -66,7 +66,7 @@ export function ComfyStep({ skin, fleet, step, setStep }: ComfyStepProps) {
 
   const [comfyPathInput, setComfyPathInput] = useState('')
   const [comfyReady, setComfyReady] = useState(false)
-  // Bug #3 (ninjastic2008 v2.4.3): multi-install disambiguation. When
+  // Bug #3 (a user v2.4.3): multi-install disambiguation. When
   // `detect_all_comfyui_installs` returns more than one hit the user picks
   // explicitly instead of LU auto-picking the first scan match. Picking
   // the wrong install caused "ComfyUI loaded endlessly" because their
@@ -104,7 +104,7 @@ export function ComfyStep({ skin, fleet, step, setStep }: ComfyStepProps) {
       // kein Render-Zustand, und liegt deshalb in einer Ref.
       comfyAutoDetectStarted.current = true
       // First: enumerate ALL installs (Bug #3). When >1 we show a picker
-      // BEFORE auto-picking — preventing the ninjastic2008 trap where LU
+      // BEFORE auto-picking — preventing the a user trap where LU
       // detected their manual install while they wanted the empty placeholder
       // path. `find_comfyui` is the auto-pick fallback for the single-install
       // case, which keeps the existing happy-path behaviour intact.
@@ -539,7 +539,7 @@ export function ComfyStep({ skin, fleet, step, setStep }: ComfyStepProps) {
                   return ` • ETA ${m}:${String(s).padStart(2, '0')}`
                 })()}
               </span>
-              {/* Cancel button (Bug #1 — techx69) */}
+              {/* Cancel button (Bug #1 —) */}
               <button
                 onClick={async () => {
                   // Level (c): Cancel is the only way out of a multi-GB

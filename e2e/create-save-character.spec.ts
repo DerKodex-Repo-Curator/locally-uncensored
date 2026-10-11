@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { routeCloud, seedOnboardingDone, signInViaGate, cloudSwitch } from './support/cloud-mock'
 
 /**
- * "Save character from this video" (Discord, applejames): frames picked from a
+ * "Save character from this video" (Discord): frames picked from a
  * generated video become a named character that is kept on this machine. The
  * frames are real: Chromium decodes a small clip and the canvas reads them.
  * The character survives a reload and starts a training set in Character

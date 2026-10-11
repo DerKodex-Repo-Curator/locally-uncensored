@@ -38,7 +38,7 @@ describe('comfyStartupError', () => {
     expect(msg).not.toContain('line 40\n')
   })
 
-  // Ticket 007 (falcon bob): unter der Ausgabe stand immer derselbe allgemeine
+  // Ticket 007 (a user): unter der Ausgabe stand immer derselbe allgemeine
   // Satz, obwohl der Einordner des Installers wusste, was WinError 1114
   // bedeutet. Jetzt reicht Rust den konkreten Rat mit, und er gewinnt.
   it('haengt den mitgelieferten Rat unter die Ausgabe', () => {

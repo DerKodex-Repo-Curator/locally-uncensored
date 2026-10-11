@@ -81,7 +81,7 @@ describe('cloud pitch', () => {
 
   it('the sales panel says three things, in the order the order named them', () => {
     expect(cloudSalesLines()).toEqual([
-      '19 chat models with no refusals',
+      '19 No Filter chat models',
       '14 uncensored video models',
       '7 uncensored image models',
     ])

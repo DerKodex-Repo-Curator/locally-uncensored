@@ -45,7 +45,7 @@ export interface MemoryInjectOpts {
    * tool call it was never offered, gemma4 then spends the whole turn in its
    * thinking channel deciding to "use the web_search tool", emits zero
    * content, and the user stares at a silent empty bubble (live find
-   * 2026-06-11, David's no-answer report). Agent chats keep them: there the
+   * 2026-06-11, the owner's no-answer report). Agent chats keep them: there the
    * tools actually exist.
    */
   excludeToolResults?: boolean
@@ -173,7 +173,7 @@ export function getMemoryBudget(contextTokens: number) {
  * context-tier budget unchanged. A positive override sets the injected count,
  * grows the token budget (~150 tok/memory, never below the tier's) so the extra
  * entries actually fit, and allows all types, so the user isn't locked to
- * "32k ctx = 15 memories" (David 2026-06-07). Exported for unit testing.
+ * "32k ctx = 15 memories" (2026-06-07). Exported for unit testing.
  */
 export function effectiveMemoryBudget(contextTokens: number, override?: number | null): MemoryBudgetTier {
   const tier = getMemoryBudget(contextTokens)
@@ -362,7 +362,7 @@ interface MemoryState {
   updateMemorySettings: (updates: Partial<MemorySettings>) => void
 
   // Export / Import: importers report what they did with every usable entry
-  // of the file so the UI can give feedback (konata-session 2026-06-07: silent
+  // of the file so the UI can give feedback (a user-session 2026-06-07: silent
   // 0-import; box test T5 2026-09-11: re-import doubled the collection).
   exportAsMarkdown: () => string
   importFromMarkdown: (markdown: string) => MemoryImportResult
@@ -548,7 +548,7 @@ export function migrateMemoryState(persistedState: unknown, version: number): Me
  * two are written as code points on purpose: the house rule bans the characters
  * themselves from this tree, and a character class is no exception.
  *
- * R5-23 (3.0.1): apps/web/stores/memoryStore.ts writes a different pair of
+ * R5-23 (3.0.1): the web app writes a different pair of
  * separators again (`**title**: content ... *(source)* · date`, a colon and a
  * middle dot, plus the same two dashes as an accepted read variant). A memory
  * exported by one app and imported into the other silently dropped tags,
@@ -1182,7 +1182,7 @@ export const useMemoryStore = create<MemoryState>()(
           return { added: 0, updated: 0, alreadyPresent: 0 }
         }
         // Tolerant shape handling: accept LU's own {entries:[...]} export, a
-        // bare [...] array, or {memories:[...]} (konata-session 2026-06-07,
+        // bare [...] array, or {memories:[...]} (a user-session 2026-06-07,
         // imports silently produced 0 entries on any other shape).
         const entriesField = prop(raw, 'entries')
         const memoriesField = prop(raw, 'memories')

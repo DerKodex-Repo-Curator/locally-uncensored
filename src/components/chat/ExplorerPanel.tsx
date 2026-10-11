@@ -4,7 +4,7 @@
  * plus the Approve-and-run card that goes with it.
  *
  * Both plan pieces are here because the prompt window is the prompt window and
- * shows nothing about plans (David, 2026-08-22, fifth time of asking). They are
+ * shows nothing about plans (2026-08-22, fifth time of asking). They are
  * at the BOTTOM of the column rather than the top for the same reading, filed
  * the same day: opening the Code tab, the eye wants the files first, and a plan
  * sitting above the folder picker made no sense to him.
@@ -217,7 +217,7 @@ export function ExplorerPanel({ onApprovePlan }: Props) {
     if (next.includes(node.path) && !listings[node.path]) load(node.path)
   }
 
-  // Der Ordner-Dialog der gepackten App (Fehler D, aldrich_ironhart,
+  // Der Ordner-Dialog der gepackten App (Fehler D, ein Nutzer,
   // 08.09.2026).
   //
   // `asWorkspace: true` laesst die Rust-Seite einen Ordner, den sie nicht als

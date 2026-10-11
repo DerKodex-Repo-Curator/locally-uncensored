@@ -29,7 +29,7 @@ interface Props {
 }
 
 /**
- * One row for a whole run of consecutive tool calls (David 2026-07-31).
+ * One row for a whole run of consecutive tool calls (2026-07-31).
  *
  * While the run is live the band renders only the ACTIVE call and morphs in
  * place when the agent moves to the next tool — file_read transitions into
@@ -38,7 +38,7 @@ interface Props {
  *
  * Two things must never disappear into the collapse: an approval request
  * (activeToolCall puts it in front, and ToolCallBlock opens itself for
- * pending_approval), and completed media results (konata 2026-06-07 "and no
+ * pending_approval), and completed media results (a user 2026-06-07 "and no
  * image") — those calls keep rendering below the band whatever its state.
  */
 export function ToolCallBand({ calls, notes, renderNote, pendingApprovalId, onApprove, onReject }: Props) {
@@ -153,7 +153,7 @@ function BandHeader({
       className="flex items-center gap-1.5 py-0.5 text-left hover:opacity-80 transition-opacity min-w-0"
     >
       <Wrench size={10} className="text-gray-500 dark:text-gray-500 shrink-0" />
-      <span className="t-micro text-gray-600 dark:text-gray-400">
+      <span className="t-micro italic pr-0.5 text-gray-600 dark:text-gray-400">
         {calls.length} steps
       </span>
       {!live &&

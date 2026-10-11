@@ -1,4 +1,4 @@
-// Wie die Cloud-Waehler Modelle ordnen und kennzeichnen (02.10.2026, David).
+// Wie die Cloud-Waehler Modelle ordnen und kennzeichnen (02.10.2026).
 //
 // Die Stufe ordnet, sie versteckt nichts: 'best' steht oben und traegt eine
 // kleine Marke, 'older' steht gesammelt unten unter einer Zwischenzeile, alles
@@ -83,7 +83,7 @@ export function mediaFamily(label: string): string {
 /**
  * Die Liste eines Cloud-Waehlers, in Reihenfolge und mit Gruppenkopf.
  *
- * 05.10.2026, David: die Waehler in Create gruppieren die Cloud-Modelle nach
+ * 05.10.2026: die Waehler in Create gruppieren die Cloud-Modelle nach
  * Familie, mit denselben einzeiligen Koepfen wie die Modellauswahl im Chat.
  * Das trifft auf den Entscheid vom 02.10. (Beste oben, Aeltere gesammelt
  * unten). Beides gilt so zusammen, wie im Web:

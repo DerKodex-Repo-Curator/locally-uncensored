@@ -194,7 +194,7 @@ function parseChatGpt(raw: unknown): NormalisedConversation[] {
     // regenerations, multiple sibling branches — the old "first node with
     // parent==null, then children[0] forever" walk lands on the ORIGINAL
     // (often abandoned) branch and frequently dead-ends at 0 messages, which
-    // is why mikes_pp's import produced "no conversations". Two strategies,
+    // is why a user's import produced "no conversations". Two strategies,
     // best first:
     //   1. `current_node` is the leaf of the visible thread — walk PARENT
     //      links up to the root and reverse. Exactly what the user saw.
@@ -281,10 +281,10 @@ function parseChatGpt(raw: unknown): NormalisedConversation[] {
 // Modern Claude exports carry the message body in a typed `content[]` block
 // array ([{ type:'text', text:'…' }, { type:'tool_use', … }]) and frequently
 // leave the flat `text` field EMPTY — so the old `m.text`-only read imported
-// those conversations as 0 messages and dropped them entirely (aldrich,
+// those conversations as 0 messages and dropped them entirely (a user,
 // Discord 2026-06-20 "how do i import chats from claude"). Prefer the text
 // blocks, fall back to the flat field, and append any extracted attachment
-// text (mikes_pp also asked for uploaded-file content). Non-text blocks
+// text (a user also asked for uploaded-file content). Non-text blocks
 // (tool_use / tool_result / thinking) carry no `text` string and are skipped.
 function extractClaudeText(m: unknown): string {
   const chunks: string[] = []
@@ -465,7 +465,7 @@ export async function parseExportFile(file: File): Promise<ParseResult> {
     // exports nest everything under a dated top-level folder, e.g.
     // "1716800000-ab12cd…/conversations.json", so the old exact-path lookup of
     // "conversations.json" / "data/conversations.json" missed entirely and the
-    // user saw "no conversation file found" (mikes_pp, Discord 2026-06-07).
+    // user saw "no conversation file found" (Discord 2026-06-07).
     const entries: Array<{ path: string; entry: JSZip.JSZipObject }> = []
     zip.forEach((path, entry) => { if (!entry.dir) entries.push({ path, entry }) })
     // Split on BOTH separators. Standard zips use '/', but Windows tools
@@ -481,7 +481,7 @@ export async function parseExportFile(file: File): Promise<ParseResult> {
     //    for large exports, sharded as conversations-000.json,
     //    conversations-001.json, … (ChatGPT splits at ~100 chats per shard).
     //    Parse EVERY such file and MERGE them, wherever they sit in the tree
-    //    (handles the dated-folder nesting). mikes_pp, Discord 2026-06-17:
+    //    (handles the dated-folder nesting). Discord 2026-06-17:
     //    only the first 100 chats imported because we returned on the first
     //    file and conversations-001.json was ignored.
     const isConversationsFile = (p: string) => {

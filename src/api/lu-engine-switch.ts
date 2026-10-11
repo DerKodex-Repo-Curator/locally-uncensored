@@ -2,7 +2,7 @@
  * Handing the shared local slot to the LU Engine because the user picked one
  * of its models.
  *
- * A14 (2.6.8), David: on a Mac with Ollama as the chat backend, a GGUF in the
+ * A14 (2.6.8), the owner: on a Mac with Ollama as the chat backend, a GGUF in the
  * LU Engine folder is listed now, and Use on it has to do the whole job. Half
  * a job would be worse than the old invisibility: a tile that starts an engine
  * nothing routes to, or a picked model that answers from Ollama.

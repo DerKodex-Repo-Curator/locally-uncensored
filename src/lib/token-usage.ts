@@ -15,7 +15,7 @@
  *    once burned its whole 16,384-token completion budget producing zero
  *    visible output; counting that (or high-watering totalTokens across the
  *    conversation, as this component used to) pinned the counter at "16.5k"
- *    forever while the next real prompt cost 65 tokens (David, 2026-07-12).
+ *    forever while the next real prompt cost 65 tokens (2026-07-12).
  *    Only the assistant's visible content joins future prompts, so only that
  *    is added on top of the anchor.
  */

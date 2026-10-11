@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { seedOnboardingDone } from './support/cloud-mock'
 
 /**
- * GH #146 (joshmichael, 2026-10-01), nachgeklickt wie gemeldet: zwei LoRAs
+ * GH #146 (2026-10-01), nachgeklickt wie gemeldet: zwei LoRAs
  * sind aus models/loras geloescht, stehen aber noch im gespeicherten Stapel.
  * Der Stapel zeigte "2 active" ohne Haken, und jeder Lauf schickte sie mit.
  * Hier antwortet ein nachgebautes ComfyUI ueber proxy_localhost, und die Liste
@@ -78,7 +78,7 @@ test('picks whose files are gone leave the stack, the count matches what is tick
   await expect(page.getByText('Strength')).toBeVisible()
   const strength = page.getByRole('textbox', { name: 'Strength of film_grain_xl' })
   await expect(strength).toHaveValue('0.80')
-  // Discord 2026-10-02 (throwaway050558): the number can be typed, negative
+  // Discord 2026-10-02: the number can be typed, negative
   // and beyond the slider's 0 to 2, and more than 10 stops at 10.
   await strength.fill('-4')
   await strength.blur()

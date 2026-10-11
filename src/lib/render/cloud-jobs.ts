@@ -15,7 +15,7 @@ export type CreateIntentLike =
   | 'character' | 'lipsync' | 'music' | 'extend' | 'motion'
 
 export type RenderKind = 'image' | 'video' | 'audio'
-// 'upscale'/'eraser' are WaveSpeed utility endpoints (super-resolution /
+// 'upscale'/'eraser' are hosted utility endpoints (super-resolution /
 // masked object removal) — cloud-only intents in the Create UI since 2.5.7.
 // 2.5.8 adds the specialized ops behind the new Create categories: 'lipsync'
 // (talking character), 'extend' (continue a clip), 'motion' (motion transfer,
@@ -28,9 +28,9 @@ export type RenderOp =
   | 'studio' | 'lipsync' | 'extend' | 'motion' | 'music' | 'tts' | 'lora-train'
 
 // One shared compute-credit wallet — text + media draw from the same budget
-// (server shape: uselu /api/jobs/quota).
+// (server shape: the web app /api/jobs/quota).
 //
-// `topup`, `video` and `trainings` have been on the wire since migration 0029;
+// `topup`, `video` and `trainings` have been on the wire for a long time;
 // they are optional here because an older server does not send them, and the
 // meter must read an absent field as "uncapped" rather than as zero. See
 // credits-meter.ts for the rule both the chip and the Create gate follow.

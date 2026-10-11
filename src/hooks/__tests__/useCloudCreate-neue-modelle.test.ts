@@ -1,7 +1,7 @@
 /**
  * Bild, Bearbeiten, Video und Animate fahren die neuen Studio-Modelle
- * (02.10.2026, Web-Paritaet; Vorlage: apps/web/hooks/__tests__/
- * useCloudCreate-neue-modelle.test.ts). Daran haengen Dinge, die still falsch
+ * (02.10.2026, Web-Paritaet; Vorlage: the web app).
+ * Daran haengen Dinge, die still falsch
  * sein koennen: der Op, das Bild als Liste, keine Maske fuer Editoren per
  * Anweisung, keine klassischen Laengenfelder fuer ein Studio-Video, und
  * Enhance Image, das weiter den festen Endpunkt nimmt.

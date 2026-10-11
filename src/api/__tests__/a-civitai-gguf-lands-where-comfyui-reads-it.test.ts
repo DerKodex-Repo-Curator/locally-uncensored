@@ -1,5 +1,5 @@
 /**
- * rantokim, Discord 2026-09-23 (Windows 11, RTX 5060 Ti 16 GB): a CivitAI
+ * Discord 2026-09-23 (Windows 11, RTX 5060 Ti 16 GB): a CivitAI
  * GGUF, qwenImageEdit2511_q50.gguf, downloaded to "Complete" and the
  * Installed tab stayed at 0. It went to checkpoints/, which no loader reads
  * for .gguf, and the ComfyUI-GGUF pack that reads diffusion_models/ was never

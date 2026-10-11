@@ -39,7 +39,7 @@ import { contextOverflowOf } from './context-overflow'
  * nur EINE Kopie trug. Wer nur zaehlt, ebnet sie ein und verliert sie still.
  * Nachgemessen ist sie kein Sonderfall von useChat.ts:
  *
- *  1. WOHER er kommt. 422 ist DeepInfras Status fuer einen schlechten
+ *  1. WOHER er kommt. 422 ist der Status des Upstreams fuer einen schlechten
  *     Parameter; der LU-Cloud-Proxy reicht 400 UND 422 absichtlich durch,
  *     damit der Abstieg drinnen ueberhaupt greifen kann. Genau so steht es an
  *     der Quelle: api/providers/openai-provider.ts, `sendChat` — dort

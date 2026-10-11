@@ -400,7 +400,7 @@ describe('Qwen-Image 2.1 bundle', () => {
   it('exists exactly once, next to the edition with the other text encoder and the Noct Q finetune', () => {
     // The two prompt enhancer add-ons share the family and carry no model file.
     const withModel = getImageBundles().filter(b => b.workflow === 'qwenimage' && b.files.some(f => f.subfolder === 'diffusion_models'))
-    expect(withModel.map(b => b.name)).toEqual(['Qwen-Image 2.1 (Generate and Edit)', 'Qwen-Image 2.1 (No Refusals)', 'Noct Q (Qwen-Image 2.1, Unfiltered)'])
+    expect(withModel.map(b => b.name)).toEqual(['Qwen-Image 2.1 (Generate and Edit)', 'Qwen-Image 2.1 (No Filter)', 'Noct Q (Qwen-Image 2.1, Unfiltered)'])
     expect(withModel[0].name).toBe(bundle!.name)
     expect(bundle).toBeDefined()
   })

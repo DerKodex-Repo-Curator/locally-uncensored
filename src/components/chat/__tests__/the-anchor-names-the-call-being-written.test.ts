@@ -25,21 +25,21 @@ describe('the run anchor while a call is written', () => {
     expect(anchor()).toContain('Working')
 
     act(() => useRunActivityStore.getState().setActivity('c1', toolProgressActivity({ name: 'file_write', argsChars: 300 })))
-    expect(anchor()).toContain('Preparing file_write')
+    expect(anchor()).toContain('Preparing to write')
     expect(anchor()).not.toContain('kB')
 
     act(() => useRunActivityStore.getState().setActivity('c1', toolProgressActivity({ name: 'file_write', argsChars: 2300 })))
-    expect(anchor()).toContain('Preparing file_write')
+    expect(anchor()).toContain('Preparing to write')
     expect(anchor()).toContain('2 kB')
 
     act(() => useRunActivityStore.getState().setActivity('c1', null))
     expect(anchor()).toContain('Working')
   })
 
-  it('an explicit label wins, and another conversation does not leak in', () => {
+  it('an approval wait wins, and another conversation does not leak in', () => {
     useRunActivityStore.getState().setActivity('c1', toolProgressActivity({ name: 'shell_execute', argsChars: 10 }))
     useRunActivityStore.getState().setActivity('c2', toolProgressActivity({ name: 'file_write', argsChars: 10 }))
-    render(createElement(WorkingAnchor, { isRunning: true, conversationId: 'c1', label: 'Waiting for your approval' }))
+    render(createElement(WorkingAnchor, { isRunning: true, conversationId: 'c1', awaitingApproval: true }))
     expect(anchor()).toContain('Waiting for your approval')
     expect(anchor()).not.toContain('Preparing')
     cleanup()

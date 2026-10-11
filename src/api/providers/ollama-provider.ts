@@ -13,6 +13,7 @@ import type {
 } from './types'
 import { ProviderError } from './types'
 import { localFetch, localFetchStream, ollamaUrl } from '../backend'
+import { ollamaWindowOption } from '../ollama'
 import { isLocalTransportFailure, localBackendUnreachableMessage } from '../../lib/local-backend-transport'
 import { parseNDJSONStream } from '../stream'
 import { idleAbortGuard, isStreamIdleTimeout, STREAM_IDLE_TIMEOUT_MS } from '../stream-idle'
@@ -52,6 +53,8 @@ export interface OllamaChatRequest {
   options?: OllamaRequestOptions
   /** Tri-state; deleted again on the 400-retry, hence optional. */
   think?: boolean
+  /** Constrained output: a JSON schema the answer must match. */
+  format?: Record<string, unknown>
 }
 
 // Was auf dieser Route ZURUECKKOMMT, liegt als `OllamaChatChunk` in ./wire,
@@ -143,7 +146,7 @@ export class OllamaProvider implements ProviderClient {
 
     // v2.4.6 Bug L: dropped hardcoded `num_gpu: 99`. Old code forced ALL
     // layers onto the GPU on every chat request, which on 8 GB laptop cards
-    // pushed the KV cache out into system RAM (nightmare13740 Discord
+    // pushed the KV cache out into system RAM (Discord
     // 2026-05-18: 30 tok/s in ollama CLI vs 6.9 tok/s in LU on RTX 4070
     // Laptop + gemma3:4b). Letting Ollama do its own VRAM-aware layer
     // placement restores CLI parity on tight cards and is a no-op on
@@ -153,19 +156,10 @@ export class OllamaProvider implements ProviderClient {
     if (options?.topP !== undefined) ollamaOptions.top_p = options.topP
     if (options?.topK !== undefined) ollamaOptions.top_k = options.topK
     if (options?.maxTokens && options.maxTokens > 0) ollamaOptions.num_predict = options.maxTokens
-    // Bug AA v2.5.0, forward user's context-window override. Without this
-    // Ollama silently uses num_ctx=2048 (its default), which RAG payloads
-    // and long-turn chats blow through immediately. Kj103x Discord
-    // 2026-05-27: "LU caps VRAM ~5 GB regardless of context window UI
-    // setting", the UI setting was never wired here. Setting num_ctx
-    // higher than the loaded model's max is harmless (Ollama clamps).
-    // num_ctx comes from the caller (hook): the user override OR the model's
-    // real context length (capped for VRAM safety). 0/undefined → Ollama keeps
-    // its own default; the hook always passes a real value so a chat never
-    // silently sits at Ollama's 2048 default.
-    if (options?.contextWindow && options.contextWindow > 0) {
-      ollamaOptions.num_ctx = options.contextWindow
-    }
+    // The window: resolved in ONE place for every request to Ollama, so the
+    // model is never loaded again by a call that sends another one. Without
+    // any, Ollama runs at its own small default and cuts real chats short.
+    Object.assign(ollamaOptions, await ollamaWindowOption(model, options?.window))
     body.options = ollamaOptions
     // Tri-state: true → explicit think on, false → explicit think off
     // (saves tokens on QwQ / DeepSeek-R1 / Gemma 4 etc.), undefined →
@@ -225,7 +219,7 @@ export class OllamaProvider implements ProviderClient {
 
           // Mid-stream `{"error":"..."}` line (runner crash, OOM) inside an
           // HTTP-200 stream, surface it instead of yielding a silent empty
-          // chat turn (rikki Discord 2026-06-10, Win11 proxy path). `error`
+          // chat turn (Discord 2026-06-10, Win11 proxy path). `error`
           // kommt als `string | undefined` aus dem Parser, der `typeof`-Test
           // von frueher sass auf einem `unknown` aus einer Typzusicherung.
           if (chunk.error) {
@@ -322,18 +316,13 @@ export class OllamaProvider implements ProviderClient {
     if (options?.topP !== undefined) ollamaOptions.top_p = options.topP
     if (options?.topK !== undefined) ollamaOptions.top_k = options.topK
     if (options?.maxTokens && options.maxTokens > 0) ollamaOptions.num_predict = options.maxTokens
-    // Bug AA v2.5.0, see chatStream() for the why.
-    // num_ctx comes from the caller (hook): the user override OR the model's
-    // real context length (capped for VRAM safety). 0/undefined → Ollama keeps
-    // its own default; the hook always passes a real value so a chat never
-    // silently sits at Ollama's 2048 default.
-    if (options?.contextWindow && options.contextWindow > 0) {
-      ollamaOptions.num_ctx = options.contextWindow
-    }
+    // The window, see chatStream().
+    Object.assign(ollamaOptions, await ollamaWindowOption(model, options?.window))
     body.options = ollamaOptions
     // Tri-state think flag, see chatStream() for details.
     if (options?.thinking === true) body.think = true
     else if (options?.thinking === false) body.think = false
+    if (options?.jsonSchema) body.format = options.jsonSchema
 
     type LocalFetchInit = NonNullable<Parameters<typeof localFetch>[1]>
     const fetchOptions = (bodyObj: OllamaChatRequest): LocalFetchInit => {
@@ -421,7 +410,7 @@ export class OllamaProvider implements ProviderClient {
       // works exactly this way.
       supportsTools: Array.isArray(m.capabilities) ? m.capabilities.includes('tools') : undefined,
       // K12 (3.0.1): no `unfiltered` here, on purpose but with a real gap
-      // behind it. The "No refusals" mark (ModelRowMarks.tsx) only fires for
+      // behind it. The "No Filter" mark (ModelRowMarks.tsx) only fires for
       // 'full', and only the cloud catalog path (openai-provider.ts
       // listModels) ever sets that field, because it is the only one backed
       // by a real measurement. Ollama's own /api/tags carries nothing like

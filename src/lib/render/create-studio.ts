@@ -1,6 +1,6 @@
 // Die Bruecke zwischen dem Create-Tab und der Studio-Registrierung.
 //
-// 19.09.2026, Entscheid von David: die neuen Endpunkte sollen nicht nur in den
+// 19.09.2026, Entscheid des Inhabers: die neuen Endpunkte sollen nicht nur in den
 // Presets waehlbar sein, sondern auch in den Unterkategorien von Create. Bis
 // heute war der Studio-Pfad ausschliesslich im Preset-Fenster zu Hause, und
 // keine der Unterkategorien konnte ein Studio-Modell fahren.
@@ -22,7 +22,7 @@ import { intentToJob, type CreateIntentLike } from './cloud-jobs'
 // video upscale via the older utility-op path. This is not a leftover type
 // gap: components/create/experimental/intents.ts documents (comment at the
 // 'upscale' intent, predates the Studio port) that a separate video-upscale
-// intent is "a feature decision for David ... out of scope here": it needs
+// intent is "a feature decision for the owner ... out of scope here": it needs
 // a new IntentBar tile and Composer wiring, a UI feature addition, not an
 // integration fold. StudioIntent stays as the local shim until that decision
 // is made; the video_upscale role list below (STUDIO_MODELS entries

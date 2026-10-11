@@ -337,6 +337,53 @@ export function pruneSupersededPlans<T extends DecayMessage>(
   return { messages: out, prunedCount: drop.size + blank.size }
 }
 
+/** Looks at the screen that stay complete: the newest ones. */
+export const KEEP_SCREEN_LOOKS = 2
+
+/** What stands in for the rest of an older result of computer control. */
+export const OLD_SCREEN_LOOK_NOTE = '[older look at the screen left out]'
+
+/**
+ * Shorten every result of computer control but the newest ones to its first
+ * line.
+ *
+ * A step on the screen answers with what it did and with a new look: the
+ * window in front, the pointer, the list of windows or of every button. Only
+ * the newest look says what the screen is like. The older ones are stale by
+ * definition, and a model that reads twenty of them works at a full context
+ * for nothing (box, 09.10.2026: 267 tokens per step, forever). The first line
+ * stays, because it is the record of what was done or why it was not.
+ *
+ * Final like the age decay: a shortened result is never shortened again, and
+ * per step at most one more result crosses the line.
+ */
+export function pruneOldScreenLooks<T extends DecayMessage>(
+  messages: T[],
+  keep: number = KEEP_SCREEN_LOOKS,
+): { messages: T[]; prunedCount: number; savedChars: number } {
+  const out = messages.slice()
+  const results = pairToolCalls(messages)
+    .filter((p) => p.name === 'computer_use' && p.resultIndex >= 0)
+    .map((p) => p.resultIndex)
+  let prunedCount = 0
+  let savedChars = 0
+  for (const index of results.slice(0, Math.max(0, results.length - keep))) {
+    const content = messages[index].content
+    if (typeof content !== 'string' || content.includes(OLD_SCREEN_LOOK_NOTE)) continue
+    // Hermes carries the result inside a tag on a user message: the tag stays.
+    const wrapped = /^([\s\S]*?<tool_response>\s*)([\s\S]*?)(\s*<\/tool_response>[\s\S]*)$/.exec(content)
+    const body = wrapped ? wrapped[2] : content
+    const lines = body.split('\n')
+    if (lines.length < 2) continue
+    const short = `${lines[0]}\n${OLD_SCREEN_LOOK_NOTE}`
+    if (short.length >= body.length) continue
+    out[index] = { ...messages[index], content: wrapped ? `${wrapped[1]}${short}${wrapped[3]}` : short } as T
+    prunedCount += 1
+    savedChars += body.length - short.length
+  }
+  return { messages: out, prunedCount, savedChars }
+}
+
 /**
  * Bound the WORKING history the loop carries from step to step.
  *
@@ -489,11 +536,15 @@ export interface BuildRequestOptions<T> extends DecayOptions<T> {
   ageImages?: boolean
   /** How many of the newest user turns keep their attachments (plan A4). */
   keepImages?: number
+  /** Shorten older results of computer control to one line. Off with decay off. */
+  pruneScreenLooks?: boolean
 }
 
 export interface BuiltRequest<T> extends DecayReport<T> {
   /** Superseded plan messages dropped or blanked. */
   prunedPlans: number
+  /** Older looks at the screen shortened to one line. */
+  prunedScreenLooks: number
   /** Attachments left behind by the image rule (plan A4). */
   droppedImages: number
   /** Base64 characters the image rule kept off the wire. */
@@ -534,6 +585,12 @@ export function buildRequestMessages<T extends DecayMessage>(
     working = pruned.messages
     prunedPlans = pruned.prunedCount
   }
+  let prunedScreenLooks = 0
+  if (opts.enabled !== false && opts.pruneScreenLooks !== false) {
+    const pruned = pruneOldScreenLooks(working)
+    working = pruned.messages
+    prunedScreenLooks = pruned.prunedCount
+  }
   const compacted = compactMessages(
     working as unknown as Parameters<typeof compactMessages>[0],
     opts.budgetTokens,
@@ -545,6 +602,7 @@ export function buildRequestMessages<T extends DecayMessage>(
     savedChars: decayed.savedChars,
     trimmedKeys: decayed.trimmedKeys,
     prunedPlans,
+    prunedScreenLooks,
     droppedImages: aged.strippedImages,
     savedImageChars: aged.savedChars,
     promptTokens: estimateMessageTokens(

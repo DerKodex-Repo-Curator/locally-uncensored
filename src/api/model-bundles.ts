@@ -39,19 +39,29 @@ export interface DiscoverModel {
   /** Exact byte count, when the catalog knows it to the byte. A file of the same name
    *  and another size is NOT this file (a mirror's repack), so it never counts as installed. */
   sizeBytes?: number
-  // Vision projector that belongs to `downloadUrl`. A text GGUF carries no
-  // image tower: llama.cpp keeps it in a separate mmproj file and only sees
-  // images when the server is started with `--mmproj`. When this is set the
-  // download writes BOTH files into the model folder and the built-in engine
-  // picks the projector up by name (see `mmprojFileName`). Ollama entries never
-  // need it, their tag already ships a projector layer.
+  // The image part that belongs to `downloadUrl` (llama.cpp calls it mmproj).
+  // A text GGUF carries no image tower: the engine sees images only when this
+  // second file lies next to the model and is passed along at start. When it
+  // is set, the download fetches BOTH files as one job and the built-in engine
+  // picks the part up by name (see `mmprojFileName`). The four fields come as
+  // one row out of api/image-parts.ts, read from the repository's file list.
+  // Ollama entries never carry it, their tag brings its own projector layer.
   mmprojUrl?: string
   mmprojSizeGB?: number
+  /** Exact byte count of the image part. */
+  mmprojBytes?: number
+  /** SHA-256 of the image part, 64 hex characters. */
+  mmprojSha256?: string
+  /**
+   * Set on a GGUF entry whose family has image input while this entry has
+   * none: the one sentence that says why. Never together with `mmprojUrl`.
+   */
+  noImagePart?: string
   // Discovery flags
   hot?: boolean       // Featured/trending model
   agent?: boolean     // Supports Agent Mode tool calling
   released?: string   // Release date YYYY-MM for sorting (newest first)
-  // F4 (juliandiggins-stack GH#21): explicit CPU-only / ≤8 GB RAM
+  // F4 (GH#21): explicit CPU-only / ≤8 GB RAM
   // tag. Surfaces a green "CPU-friendly" badge in DiscoverModels and
   // exposes the optional "Lightweight" filter. Set true for ≤4B
   // unfiltered models we have personally test-loaded on a CPU-only
@@ -435,7 +445,7 @@ export function getImageBundles(): ModelBundle[] {
     // are the Hugging Face LFS values read on 2026-10-03; the address answers
     // without a token. Not marked verified: no run on real hardware yet.
     {
-      name: 'Qwen-Image 2.1 (No Refusals)',
+      name: 'Qwen-Image 2.1 (No Filter)',
       description: 'Qwen-Image 2.1 with a text encoder that has its refusal direction removed by the community (Heretic). Only the text encoder differs: the image model and the VAE are the official files, shared with the official bundle and not downloaded twice. Generates from a prompt and edits a reference image from a prompt, no mask needed. With both text encoders installed, pick one under Text encoder in the Expert settings. Image model under the Qwen Research License, non-commercial use: https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE. Text encoder under Apache 2.0.',
       tags: ['Qwen Image 2.1', 'Image', 'Edit', '1024px'],
       uncensored: true,
@@ -450,7 +460,7 @@ export function getImageBundles(): ModelBundle[] {
       files: [
         QWEN21_DIFFUSION_MODEL,
         {
-          name: 'Qwen3-VL 8B Text Encoder, No Refusals (INT8)',
+          name: 'Qwen3-VL 8B Text Encoder, No Filter (INT8)',
           description: 'Text encoder for Qwen-Image 2.1 with the refusal direction removed (Heretic). From pottokao/Qwen-Image-2.1-Text-Encoder-Heretic.',
           pulls: '', tags: ['Text Encoder', '9.35 GB'], updated: 'New',
           downloadUrl: 'https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-int8-convrot/resolve/main/qwen3vl_8b_int8_convrot_heretic.safetensors',
@@ -555,7 +565,7 @@ export function getImageBundles(): ModelBundle[] {
       ],
     },
     {
-      name: 'Qwen-Image 2.1 Prompt Enhancer (No Refusals)',
+      name: 'Qwen-Image 2.1 Prompt Enhancer (No Filter)',
       description: 'Add-on for Qwen-Image 2.1. The same prompt enhancer with its refusals taken out by the community (Heretic), so your prompt and your edit instruction stay what you wrote. Turns a short prompt into a long, detailed one and looks at your pictures when you edit. It runs before the image model and makes room for it afterwards. Turn it on with Improve my prompt in the advanced settings. Qwen Research License, non-commercial use: https://huggingface.co/Adahm/PE-Heretic-INT8-ConvRot-for-Qwen-Image-2.1/blob/main/LICENSE',
       tags: ['Qwen Image 2.1', 'Prompt Enhancer', 'Addon'],
       uncensored: true,
@@ -566,7 +576,7 @@ export function getImageBundles(): ModelBundle[] {
       url: 'https://huggingface.co/Adahm/PE-Heretic-INT8-ConvRot-for-Qwen-Image-2.1',
       files: [
         {
-          name: 'Qwen Prompt Enhancer, Image, No Refusals (INT8)',
+          name: 'Qwen Prompt Enhancer, Image, No Filter (INT8)',
           description: 'Writes the prompt for a new picture. From pottokao/Qwen-Image-2.1-PE-T2I-Heretic.',
           pulls: '', tags: ['Prompt Enhancer', '9.47 GB'], updated: 'New',
           downloadUrl: 'https://huggingface.co/Adahm/PE-Heretic-INT8-ConvRot-for-Qwen-Image-2.1/resolve/main/qwen3.5_9b_qwen_image_2.1_pe_t2i_heretic.int8_convrot.safetensors',
@@ -575,7 +585,7 @@ export function getImageBundles(): ModelBundle[] {
           sha256: '91b9ba42539fb662775181eabce845befe2c1441658a736fadf0033dd799d8f3',
         },
         {
-          name: 'Qwen Prompt Enhancer, Edit, No Refusals (INT8)',
+          name: 'Qwen Prompt Enhancer, Edit, No Filter (INT8)',
           description: 'Rewrites an edit instruction and reads your pictures. From darrellbest/Qwen-Image-2.1-PE-I2I-Heretic.',
           pulls: '', tags: ['Prompt Enhancer', '9.47 GB'], updated: 'New',
           downloadUrl: 'https://huggingface.co/Adahm/PE-Heretic-INT8-ConvRot-for-Qwen-Image-2.1/resolve/main/qwen3.5_9b_qwen_image_2.1_pe_i2i_heretic.int8_convrot.safetensors',
@@ -807,7 +817,7 @@ export const CUSTOM_NODE_REGISTRY: Record<string, CustomNodeEntry> = {
   // VHS_VideoCombine · the ONLY ComfyUI node that produces actual .mp4 video
   // output. Without it, the workflow falls back to SaveAnimatedWEBP which
   // makes "video generation" emit an animated .webp file. Two reporters
-  // (miguelkodoatie on Discord 2026-05-14, Turbulent_Tomato7559 on Reddit
+  // (a user on Discord 2026-05-14 on Reddit
   // 2026-05-10) hit this on v2.4.3/2.4.4: t2i works, t2v "succeeds" but the
   // output is a .webp that no video player will open. v2.4.4 added a
   // warning banner; v2.4.5 makes it a one-click install instead.
@@ -881,7 +891,7 @@ export interface ModelBundle {
   addonFor?: string
   workflow: string
   /**
-   * How the pickers order this bundle (Oct 2026, David). 'best' is today's open
+   * How the pickers order this bundle (Oct 2026). 'best' is today's open
    * weight state of the art and stands on top with a small mark, 'older' is
    * collected under "Older models", everything else keeps its usual place.
    * Nothing is hidden by it. Every local model is an open weight, so there is
@@ -1135,7 +1145,7 @@ export function getVideoBundles(): ModelBundle[] {
         ...H3_SHARED_FILES,
       ],
     },
-    // The 8 step turbo LoRA for MiniMax H3 (Discord 2026-10-03, boromirofgeo:
+    // The 8 step turbo LoRA for MiniMax H3 (Discord 2026-10-03:
     // "how do I get the turbo lora into the stack"). The file is the one the
     // official templates video_minimax_h3_t2v and _i2v load with
     // LoraLoaderModelOnly at strength 1. Free to download, read from the

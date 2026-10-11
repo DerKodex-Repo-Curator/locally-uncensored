@@ -30,7 +30,6 @@ vi.mock('../../../api/providers', () => ({
   }),
 }))
 vi.mock('../../model-compatibility', () => ({ isThinkingCompatible: () => plan.thinkCompatible }))
-vi.mock('../../agent-num-ctx', () => ({ resolveAgentNumCtx: async () => 16384 }))
 vi.mock('../../run-lane-of-model', () => ({ laneOf: () => plan.lane, currentLaneFacts: () => ({}) }))
 vi.mock('../../run-slot', () => ({
   runInLane: async (o: { conversationId: string; lane: string }, body: () => Promise<void>) => {
@@ -110,9 +109,12 @@ describe('Improve my prompt: Lauf (Desktop)', () => {
     expect(new Set(calls.lanes.map((l) => l.id))).toEqual(new Set(['create::improve-prompt']))
   })
 
-  it('nutzt die Kontextgroesse des Chats, damit ein lokales Modell nicht neu geladen wird', async () => {
+  it('names no window of its own, so a local model is sent the one it is loaded with', async () => {
+    // The provider resolves the window (api/ollama.ts); a call that names
+    // none can never be the reason Ollama loads the model again.
     await improvePrompt('x', { kind: 'image' })
-    expect(calls.list[0].opts.contextWindow).toBe(16384)
+    expect(calls.list[0].opts).not.toHaveProperty('window')
+    expect(calls.list[0].opts).not.toHaveProperty('contextWindow')
   })
 
   it('schaltet das Denken aus, wo das Modell es kann, sonst nur die kleinste Stufe', async () => {

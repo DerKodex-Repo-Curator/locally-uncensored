@@ -17,6 +17,7 @@ import {
 import { getProvider } from '../../api/providers'
 import { PROVIDER_PRESETS } from '../../api/providers/types'
 import { Modal } from '../ui/Modal'
+import { ModalActions, ModalButton } from '../ui/ModalActions'
 import { backendCall } from '../../api/backend'
 import { diagnoseBuiltinEngine, readBuiltinSlotStatus } from '../../api/builtin-ensure'
 import { useBuiltinEngineStatus } from '../../hooks/useBuiltinEngineStatus'
@@ -26,6 +27,7 @@ import { disabledSlotNote } from '../../lib/disabled-slot-note'
 import { HINWEIS_TEXT, HINWEIS_ZEILE, PUNKT_FARBE } from '../../lib/hinweis'
 import { parkApiKeyForBackend, restoreParkedApiKeyForBackend } from '../../lib/parked-key'
 import { isBuiltinEngineMissing } from '../../lib/builtin-engine-presence'
+import { providerBadgeClass } from '../../lib/provider-badge'
 import { engineNoticeDismissed as engineNoticeDismissedThisSession, dismissEngineNoticeForSession, resetEngineNoticeDismissal } from '../../lib/engine-notice-session'
 
 const isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
@@ -626,9 +628,9 @@ export function ProviderSettings() {
                       die beiden koennen nicht mehr zwei Dinge behaupten. */}
                   <Zustandspunkt status={status} />
                   <span className="text-[0.65rem] text-gray-300 font-medium truncate">{view.label}</span>
-                  {config.managed && <span className="text-[0.5rem] px-1 py-0.5 rounded bg-purple-500/15 text-purple-300 shrink-0">DEFAULT</span>}
-                  {config.isLocal && <span className="text-[0.5rem] px-1 py-0.5 rounded bg-green-500/10 text-green-400 shrink-0">LOCAL</span>}
-                  {!config.isLocal && <span className="text-[0.5rem] px-1 py-0.5 rounded bg-blue-500/10 text-blue-400 shrink-0">CLOUD</span>}
+                  {config.managed && <span className={providerBadgeClass('default')}>DEFAULT</span>}
+                  {config.isLocal && <span className={providerBadgeClass('local')}>LOCAL</span>}
+                  {!config.isLocal && <span className={providerBadgeClass('cloud')}>CLOUD</span>}
                   <Zustandssymbol status={status} />
                 </div>
                 <ChevronDown size={10} className={`text-gray-500 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
@@ -853,7 +855,7 @@ export function ProviderSettings() {
           <span>Add Provider</span>
         </button>
         {/* Hellmodus-Luecke aus Welle 2, in f336b91e gemeldet statt
-            geaendert. Die Flaeche war `bg-[#363636]` OHNE `dark:`, blieb im
+            geaendert. Die Flaeche war fest auf #363636 gesetzt, OHNE `dark:`, blieb im
             Hellmodus also dunkel, waehrend der Rescue-Layer in index.css
             die Schrift darin nach unten dreht (`.light .text-gray-500 →
             #374151`). Ergebnis: #374151 auf #363636 = 1,17:1, praktisch
@@ -862,7 +864,7 @@ export function ProviderSettings() {
             „Active" stand auf Weiss bei 1,74:1 und traegt jetzt green-700
             mit 5,02:1. */}
         {dropdownOpen && (
-          <div ref={dropdownRef} style={dropdown.style} className={`absolute z-50 w-full bg-white dark:bg-lu-overlay border border-gray-200 dark:border-white/10 rounded-lg shadow-xl overflow-y-auto scrollbar-thin ${dropdown.nachOben ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+          <div ref={dropdownRef} style={dropdown.style} className={`absolute z-50 w-full lu-elevated rounded-lg overflow-y-auto scrollbar-thin ${dropdown.nachOben ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
             {/* Local group */}
             <div className="px-2.5 py-1 text-[0.5rem] uppercase tracking-wider text-gray-600 font-semibold">Local</div>
             {localPresets.map(preset => {
@@ -911,23 +913,20 @@ export function ProviderSettings() {
       </div>
 
       {/* Cloud privacy warning popup */}
-      <Modal open={showCloudWarning} onClose={() => { setShowCloudWarning(false); setPendingPreset(null) }} title="">
-        <div className="space-y-4 text-center">
-          <h3 className="text-base font-semibold text-white">Enable Cloud Provider</h3>
+      <Modal open={showCloudWarning} onClose={() => { setShowCloudWarning(false); setPendingPreset(null) }} title="Enable Cloud Provider">
+        <div className="space-y-3">
           <p className="text-[12px] text-gray-400 leading-relaxed">
             Cloud providers send your data to external servers. Your conversations will no longer be fully private or offline.
           </p>
           <p className="text-[12px] text-gray-400 leading-relaxed">
             For maximum privacy, use Ollama or a local backend instead.
           </p>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => { setShowCloudWarning(false); setPendingPreset(null) }}
-              className="px-4 py-1.5 rounded-lg text-[0.7rem] text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-            >
+          <ModalActions>
+            <ModalButton variant="quiet" onClick={() => { setShowCloudWarning(false); setPendingPreset(null) }}>
               Cancel
-            </button>
-            <button
+            </ModalButton>
+            <ModalButton
+              variant="primary"
               onClick={() => {
                 setShowCloudWarning(false)
                 void (async () => {
@@ -939,11 +938,10 @@ export function ProviderSettings() {
                   setPendingPreset(null)
                 })()
               }}
-              className="px-4 py-1.5 rounded-lg text-[0.7rem] font-medium bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors"
             >
               Continue
-            </button>
-          </div>
+            </ModalButton>
+          </ModalActions>
         </div>
       </Modal>
 
@@ -951,33 +949,29 @@ export function ProviderSettings() {
           reached now (R9) when parkApiKeyForBackend already tried and
           failed to place the key in the OS keychain, so it stays accurate:
           this device really has nowhere durable to keep it. */}
-      <Modal open={showKeyLossWarning} onClose={() => { setShowKeyLossWarning(false); setPendingPreset(null) }} title="">
-        <div className="space-y-4 text-center" data-testid="key-loss-warning-modal">
-          <h3 className="text-base font-semibold text-white">API Key Will Be Lost</h3>
+      <Modal open={showKeyLossWarning} onClose={() => { setShowKeyLossWarning(false); setPendingPreset(null) }} title="API Key Will Be Lost">
+        <div className="space-y-3" data-testid="key-loss-warning-modal">
           <p className="t-control text-gray-400 leading-relaxed">
             The current OpenAI-compatible backend has an API key set, and this device has no OS keychain LU could safely park it in. Switching backends clears it from this slot, and it will NOT survive an app restart while parked.
           </p>
           <p className="t-control text-gray-400 leading-relaxed">
             If you switch back to this backend later, you will need to enter the key again.
           </p>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => { setShowKeyLossWarning(false); setPendingPreset(null) }}
-              className="px-4 py-1.5 rounded-lg t-mono text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-            >
+          <ModalActions>
+            <ModalButton variant="quiet" onClick={() => { setShowKeyLossWarning(false); setPendingPreset(null) }}>
               Cancel
-            </button>
-            <button
+            </ModalButton>
+            <ModalButton
+              variant="primary"
               onClick={() => {
                 if (pendingPreset) applyPreset(pendingPreset)
                 setShowKeyLossWarning(false)
                 setPendingPreset(null)
               }}
-              className="px-4 py-1.5 rounded-lg t-mono font-medium bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors"
             >
               Switch Anyway
-            </button>
-          </div>
+            </ModalButton>
+          </ModalActions>
         </div>
       </Modal>
     </div>

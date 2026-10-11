@@ -10,9 +10,9 @@
  * valuable moment to have a current copy of the chats on disk, and it was the
  * one moment nothing asked for one.
  *
- * aldrich_ironhart, 2.6.5, Discord #general 18.08.: "has anyone lost their
+ * A user, 2.6.5, Discord #general 18.08.: "has anyone lost their
  * chats after a restart??", then "My code chats are vaporised", a coding chat
- * around 230k tokens. sockenmonster on the same build lost nothing.
+ * around 230k tokens. A user on the same build lost nothing.
  */
 import { backendCall } from '../api/backend'
 import { idbStorage, hasFailedRead, onIdbWrite } from './idbStorage'
@@ -37,6 +37,11 @@ export const STORE_KEYS = [
   'rag-store', 'workflow-store', 'lu-cloud-catalog',
   'lu_cloud_notice', 'lu_comfy_notice', 'locally-uncensored-model-health',
   'locally-uncensored-agent-goal',
+  // Computer control: the switch and the always allowed apps.
+  'locally-uncensored-computer',
+  // Create in chat: the orders of every conversation, so a card and its
+  // result survive a lost WebView profile like the chat they stand in.
+  'LU-create-orders',
   // Added 2.6.8. Every one of these was persisted and none of them was listed,
   // so the NSIS/WebView2 wipe this file exists to survive destroyed them:
   //   staged-changes            approved edits that are not on disk yet — the

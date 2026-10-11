@@ -1,5 +1,5 @@
 /**
- * Discord 2026-09-28 (xambran): every agent permission on Auto, and the model
+ * Discord 2026-09-28: every agent permission on Auto, and the model
  * still could not open the user's files. The file tools only work inside the
  * chat's working folder; the refusal for anything else is recognised here, so
  * the user gets the way out above the chat and the model a hint it can pass on.

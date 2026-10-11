@@ -258,7 +258,7 @@ describe('cloudCatalogStore', () => {
     }
 
     it('music follows the length slider, not a static 60 s quote', () => {
-      // sockenmonster's exact run: 3:10 = 190 s at 30 cr/s.
+      // a user's exact run: 3:10 = 190 s at 30 cr/s.
       expect(modelCostHint(ace, 'music', 190)).toBe('5,700 cr')
       expect(modelCostHint(ace, 'music', 60)).toBe('1,800 cr')
     })

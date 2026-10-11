@@ -66,6 +66,7 @@ export default defineConfig([
     '.vite',
     '.llama-build',
     '.preview-mobile',
+    '.design-shots',
     '.claude',
   ]),
 

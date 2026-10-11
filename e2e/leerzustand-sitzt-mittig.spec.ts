@@ -4,10 +4,10 @@ import { seedOnboardingDone } from './support/cloud-mock'
 import { openNewChat, oeffneSeitenleiste } from './support/ui'
 
 /**
- * David, 19.09.2026: "Ask LU anything" (der Leerzustand vor der ersten
+ * 19.09.2026: "Ask LU anything" (der Leerzustand vor der ersten
  * Nachricht) sass zu tief statt mittig, und dieselbe Ursache traf zwei
  * weitere Leerzustaende in derselben Datei: den "New Chat"-Bildschirm mit
- * der Liste der letzten Chats (David, 2026-09-02) und den Code-Reiter vor
+ * der Liste der letzten Chats (2026-09-02) und den Code-Reiter vor
  * einer offenen Unterhaltung.
  *
  * Ursache (ChatView.tsx, gefunden per git blame): der Block, der `chat-
@@ -72,7 +72,7 @@ async function measureLanding(page: Page): Promise<Measurement> {
 
 /** Ein Nutzer nimmt "mittig" so wahr: der Block darf minimal ueber der
  *  rechnerischen Mitte sitzen (bis zu 4 % der Flaechenhoehe), aber nie
- *  darunter (Auftrag David, 19.09.2026). */
+ *  darunter (Auftrag 19.09.2026). */
 function expectMittig(m: Measurement) {
   expect(m.deviationPct).toBeLessThanOrEqual(4)
   expect(m.deviationPct).toBeGreaterThanOrEqual(-4)
@@ -127,7 +127,7 @@ test('New-Chat-Recents-Leerzustand sitzt mittig (Seitenleiste zu)', async ({ pag
   // Past the AnimatePresence exit/enter transition, sonst liest man noch den
   // alten "home"-Baum.
   await expect(page.getByTestId('chat-session-strip')).toBeVisible()
-  // F1-Fix (David, 19.09.2026, box-gruen/n2/BERICHT.md): der Block fuer eine
+  // F1-Fix (19.09.2026, box-gruen/n2/BERICHT.md): der Block fuer eine
   // aktive, leere Unterhaltung ist jetzt derselbe `chat-landing`-Block wie
   // die Eingangsseite (Zeichen, "Ask LU anything", Modellname), nur MIT der
   // Recents-Liste darunter statt ohne sie. Dieselbe `measureLanding`-Funktion
@@ -138,7 +138,7 @@ test('New-Chat-Recents-Leerzustand sitzt mittig (Seitenleiste zu)', async ({ pag
 })
 
 /**
- * F2 (David, 19.09.2026, box-gruen/n2/BERICHT.md Teil A): der Remote-Reiter
+ * F2 (19.09.2026, box-gruen/n2/BERICHT.md Teil A): der Remote-Reiter
  * (Dispatch-Ansicht, noch keine dispatchte Unterhaltung) lief in der
  * Windows-Feldsitzung 8,7 % von der Flaechenmitte weg statt der im
  * Code-Reiter gemessenen 1,3 %. Quelltextlich ist es DERSELBE `!activeConversationId`-
@@ -164,7 +164,7 @@ for (const { label, width, height } of sizes) {
 }
 
 /**
- * F1 (David, 19.09.2026, box-gruen/n2/BERICHT.md Teil A, schwerer Nebenfund):
+ * F1 (19.09.2026, box-gruen/n2/BERICHT.md Teil A, schwerer Nebenfund):
  * "+ New Chat" legt sofort eine aktive, aber leere Unterhaltung an
  * (`createConversation` setzt `activeConversationId` synchron, chatStore.ts).
  * Die alte Bedingung fuer den Leerzustand-Block war `!activeConversationId`

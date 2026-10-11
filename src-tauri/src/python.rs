@@ -17,11 +17,12 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 /// jeden anderen. Ungeschuetzt waren ausgerechnet die beiden pip-Laeufe, die
 /// die laengste Ausgabe erzeugen und dabei staendig Pfade drucken.
 ///
-/// anglefire (Ticket 003, 03.09.) heisst auf seinem Windows "1 בוגר", also
+/// A user (Ticket 003, 03.09.) heisst auf seinem Windows "1 בוגר", also
 /// stehen in jedem gedruckten Pfad hebraeische Zeichen. `CREATE_NO_WINDOW`
 /// sitzt hier mit drin, damit auch das nicht Stelle fuer Stelle nachgezogen
 /// werden muss.
 pub fn python_command<S: AsRef<std::ffi::OsStr>>(python_bin: S) -> Command {
+    crate::commands::note_interpreter_command();
     let mut cmd = Command::new(python_bin);
     cmd.env("PYTHONIOENCODING", "utf-8");
     cmd.env("PYTHONUTF8", "1");
@@ -55,7 +56,7 @@ pub fn python_command<S: AsRef<std::ffi::OsStr>>(python_bin: S) -> Command {
 /// PYTHONHOME = '/tmp/.mount_LocallieGkad/usr/'
 /// ```
 ///
-/// numbrain hit exactly this installing ComfyUI on Linux Mint (Discord
+/// A user hit exactly this installing ComfyUI on Linux Mint (Discord
 /// 2026-07-28) with a perfectly healthy Python 3.12, and our diagnosis sent
 /// them off to reinstall Python, which of course changed nothing. No AppImage
 /// user could ever install ComfyUI.
@@ -153,7 +154,7 @@ pub enum ComfyVenv {
 /// Which of the three answers holds for `comfyui_dir`.
 ///
 /// Both the classic `venv` and the modern `.venv` are checked (issue #51,
-/// adhney: a macOS/Linux ComfyUI installed into `.venv` was missed and started
+/// A user: a macOS/Linux ComfyUI installed into `.venv` was missed and started
 /// on the system Python). `venv` first, so LU's own installer keeps its exact
 /// behaviour. Usable beats Broken beats Absent.
 ///
@@ -233,22 +234,101 @@ pub fn resolve_comfyui_venv_python(comfyui_dir: &Path) -> Option<String> {
 #[cfg(not(target_os = "windows"))]
 pub fn get_python_bin() -> String {
     for name in crate::os_paths::unix_python_candidates() {
-        let Ok(path) = which::which(name) else { continue };
-        let mut cmd = python_command(&path);
-        cmd.arg("--version");
-        match cmd.output() {
-            Ok(output) if output.status.success() => {
-                return path.to_string_lossy().to_string();
+        for path in python_paths_for(name) {
+            let mut cmd = python_command(&path);
+            cmd.arg("--version");
+            match cmd.output() {
+                Ok(output) if output.status.success() => {
+                    return path.to_string_lossy().to_string();
+                }
+                _ => continue,
             }
-            _ => continue,
         }
     }
     String::new()
 }
 
+/// The directories a Python lands in that a Finder-started app never has on
+/// its PATH.
+///
+/// An app opened from the Finder or the Dock inherits the launchd PATH
+/// (`/usr/bin:/bin:/usr/sbin:/sbin`), not the shell's. So `brew install
+/// python@3.12`, which is exactly what our own "Python not found" message
+/// tells the user to run, put an interpreter into `/opt/homebrew/bin` that
+/// `which` could not see, and the same message came back (Fehlerkontrolle
+/// Mac, 08.10.2026, Fund 1). These are looked at in addition to PATH, in this
+/// order: Homebrew on Apple Silicon, Homebrew on Intel and python.org, the
+/// pyenv shims, uv and pipx, and the real interpreter of the Xcode Command
+/// Line Tools.
+#[cfg(not(target_os = "windows"))]
+pub fn fixed_python_dirs(home: &Path) -> Vec<PathBuf> {
+    vec![
+        PathBuf::from("/opt/homebrew/bin"),
+        PathBuf::from("/usr/local/bin"),
+        home.join(".pyenv/shims"),
+        home.join(".local/bin"),
+        PathBuf::from("/Library/Developer/CommandLineTools/usr/bin"),
+    ]
+}
+
+// The lookup itself is shared with every other program a Finder-started app
+// has to find outside its PATH, see `finder_path`.
+#[cfg(not(target_os = "windows"))]
+pub use crate::finder_path::find_in_dirs;
+
+/// Every place `name` resolves to: the PATH hit first, so a shell-started app
+/// keeps its exact behaviour, then the fixed directories. `/usr/bin/python3`
+/// is left out while nothing stands behind it (see `apple_shim_is_backed`).
+#[cfg(not(target_os = "windows"))]
+pub fn python_paths_for(name: &str) -> Vec<PathBuf> {
+    let on_path = which::which(name).ok();
+    let fixed = find_in_dirs(name, &fixed_python_dirs(&crate::os_paths::home()));
+    let mut out: Vec<PathBuf> = Vec::new();
+    for path in on_path.into_iter().chain(fixed) {
+        if is_apple_python_shim(&path) && !apple_shim_is_backed(developer_dir().as_deref()) {
+            continue;
+        }
+        if !out.contains(&path) {
+            out.push(path);
+        }
+    }
+    out
+}
+
+/// `/usr/bin/python3` on macOS is not an interpreter but a shim into the
+/// developer tools. Without them, starting it pops up the system dialog
+/// "Install Command Line Developer Tools" in the middle of our probe.
+#[cfg(not(target_os = "windows"))]
+pub fn is_apple_python_shim(path: &Path) -> bool {
+    cfg!(target_os = "macos") && (path == Path::new("/usr/bin/python3") || path == Path::new("/usr/bin/python"))
+}
+
+/// Whether the shim has an interpreter to hand over to: the active developer
+/// directory carries its own `usr/bin/python3`.
+#[cfg(not(target_os = "windows"))]
+pub fn apple_shim_is_backed(developer_dir: Option<&Path>) -> bool {
+    developer_dir.is_some_and(|d| d.join("usr/bin/python3").is_file())
+}
+
+/// What `xcode-select -p` names. It only prints a path and never opens the
+/// install dialog, which is the whole reason to ask it first.
+#[cfg(not(target_os = "windows"))]
+fn developer_dir() -> Option<PathBuf> {
+    static DIR: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| {
+        let out = crate::process_util::foreign_system_command("/usr/bin/xcode-select").arg("-p").output().ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let dir = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        (!dir.is_empty()).then(|| PathBuf::from(dir))
+    })
+    .clone()
+}
+
 /// Windows: probe in order of reliability. Crucially this now tries the `py -3`
 /// launcher and C:\Program Files\Python* — without them, an all-users python.org
-/// install that skipped the "Add to PATH" checkbox (the aldrich "python not
+/// install that skipped the "Add to PATH" checkbox (the a user "python not
 /// installed" Discord report) was invisible to LU even though Python WAS
 /// installed: `where python` returned nothing (or only the Store stub) and the
 /// fixed-path scan only looked at the bare `C:\PythonXX` drive-root layout.
@@ -344,7 +424,7 @@ fn python_in_fixed_paths() -> Option<String> {
 
 /// All-users python.org installs land in C:\Program Files\PythonXX (and the
 /// 32-bit build under Program Files (x86)) — neither was scanned before, the
-/// other half of the aldrich report.
+/// other half of the report.
 #[cfg(target_os = "windows")]
 fn python_in_program_files() -> Option<String> {
     for env_key in ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"] {
@@ -456,7 +536,7 @@ pub fn is_trainer_arch(bits: u32, machine: &str) -> bool {
 
 /// [`python_version`] plus [`is_trainer_arch`] in one process spawn.
 ///
-/// gekiritz (Discord, 2026-09-16): "Set up trainer" kept reporting "the
+/// A user (Discord, 2026-09-16): "Set up trainer" kept reporting "the
 /// Python in the trainer environment ... needs 3.10, 3.11 or 3.12", rebuilt
 /// on request, and kept failing the same way. `python_version` alone cannot
 /// see why: it only reads `sys.version_info`, which a 32-bit or ARM64 Python
@@ -495,7 +575,7 @@ pub fn python_version_and_arch(exe: &str) -> Option<(String, bool)> {
 /// a lane whose wheels stop at a version has to ask "which Pythons are
 /// there" and pick its own. Until 2.6.8 nobody asked, so a box whose newest
 /// Python was 3.14 built the trainer venv from 3.14 and died at step 4/4
-/// (sockenmonster, Discord, August and ticket 0004 on 2026-09-05).
+/// (Discord, August and ticket 0004 on 2026-09-05).
 ///
 /// Runde 3, B1(a): PATH alone missed the exact boxes the torch preflight
 /// exists for. `uv python install` and `pyenv install`, the two commands
@@ -711,7 +791,7 @@ mod tests {
         // K11: the interpreter python_command builds is always the SYSTEM
         // python (or a venv on top of it), never something LU bundles, so it
         // must not inherit an AppImage's own library path the way `git` did
-        // on CachyOS/Arch (K2/K11 field report, mallic 2026-09-16).
+        // on CachyOS/Arch (K2/K11 field report, a user 2026-09-16).
         std::env::set_var("APPDIR", "/tmp/.mount_LocallieGkad");
         std::env::set_var(
             "LD_LIBRARY_PATH",
@@ -746,7 +826,7 @@ mod tests {
         assert_eq!(python_command(String::from("py")).get_program(), "py");
     }
 
-    // ── AppImage Python env poisoning (numbrain, Discord 2026-07-28) ────────
+    // ── AppImage Python env poisoning (Discord 2026-07-28) ────────
 
     /// The exact values from the failing install on Linux Mint. Our own
     /// AppImage mount, inherited by the python3 we spawn, which then cannot
@@ -856,7 +936,7 @@ mod tests {
 
     #[test]
     fn resolve_finds_dot_venv_layout() {
-        // Issue #51 (adhney): ComfyUI installed into `.venv` (uv / modern
+        // Issue #51: ComfyUI installed into `.venv` (uv / modern
         // `python -m venv .venv`) must also be picked up, not just `venv`.
         let tmp = crate::os_paths::test_dir("dotvenv-present");
         let inner = if cfg!(target_os = "windows") {
@@ -1024,7 +1104,7 @@ mod tests {
         }
         let resolved: Vec<String> = crate::os_paths::unix_python_candidates()
             .iter()
-            .filter_map(|n| which::which(n).ok())
+            .flat_map(|n| python_paths_for(n))
             .map(|p| p.to_string_lossy().to_string())
             .collect();
         assert!(
@@ -1033,7 +1113,65 @@ mod tests {
         );
     }
 
-    // ── Windows resolver helpers (Bug B — aldrich "python not installed") ────
+    // ── Fehlerkontrolle Mac, Fund 1: ein Python ausserhalb von PATH ─────────
+
+    /// A Finder-started app has `/usr/bin:/bin:/usr/sbin:/sbin` and nothing
+    /// else, so the directories Homebrew, pyenv and uv install into have to be
+    /// named outright.
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn the_fixed_directories_cover_homebrew_pyenv_uv_and_the_command_line_tools() {
+        let dirs = fixed_python_dirs(Path::new("/Users/someone"));
+        for expected in [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/Users/someone/.pyenv/shims",
+            "/Users/someone/.local/bin",
+            "/Library/Developer/CommandLineTools/usr/bin",
+        ] {
+            assert!(dirs.contains(&PathBuf::from(expected)), "{expected} is not searched");
+        }
+        assert_eq!(dirs[0], PathBuf::from("/opt/homebrew/bin"), "Homebrew on Apple Silicon comes first");
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn an_interpreter_in_a_fixed_directory_is_found_without_path() {
+        let tmp = crate::os_paths::test_dir("fixed-python");
+        let brew = tmp.join("opt/homebrew/bin");
+        let local = tmp.join("usr/local/bin");
+        fs::create_dir_all(&brew).unwrap();
+        fs::create_dir_all(&local).unwrap();
+        fs::write(local.join("python3.12"), "stub").unwrap();
+        // A directory of that name is not an interpreter.
+        fs::create_dir_all(brew.join("python3.11")).unwrap();
+        let dirs = [brew.clone(), local.clone(), tmp.join("missing")];
+        assert_eq!(find_in_dirs("python3.12", &dirs), vec![local.join("python3.12")]);
+        assert!(find_in_dirs("python3.11", &dirs).is_empty());
+        fs::write(brew.join("python3.12"), "stub").unwrap();
+        assert_eq!(
+            find_in_dirs("python3.12", &dirs),
+            vec![brew.join("python3.12"), local.join("python3.12")],
+            "the order of the directories is the order of the answers"
+        );
+    }
+
+    /// Without the developer tools `/usr/bin/python3` opens an install dialog
+    /// instead of answering, so it is only started when something backs it.
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn the_apple_shim_counts_only_with_developer_tools_behind_it() {
+        assert!(!apple_shim_is_backed(None), "no developer directory, no interpreter");
+        let tmp = crate::os_paths::test_dir("clt");
+        assert!(!apple_shim_is_backed(Some(&tmp)), "a developer directory without python3");
+        fs::create_dir_all(tmp.join("usr/bin")).unwrap();
+        fs::write(tmp.join("usr/bin/python3"), "stub").unwrap();
+        assert!(apple_shim_is_backed(Some(&tmp)));
+        assert!(!is_apple_python_shim(Path::new("/opt/homebrew/bin/python3")));
+        assert_eq!(is_apple_python_shim(Path::new("/usr/bin/python3")), cfg!(target_os = "macos"));
+    }
+
+    // ── Windows resolver helpers (Bug B — a user "python not installed") ────
 
     #[cfg(target_os = "windows")]
     #[test]
@@ -1064,7 +1202,7 @@ mod tests {
     }
 
     // ── K4: a 64-bit interpreter can still be the wrong architecture ────────
-    // (gekiritz, Discord 2026-09-16: a 3.11/3.12 that passes every version
+    // (Discord 2026-09-16: a 3.11/3.12 that passes every version
     // check and still cannot install torch).
 
     #[test]
@@ -1116,20 +1254,20 @@ mod tests {
         assert!(launcher_list_paths("no launcher here\n").is_empty());
     }
 
-    // Ticket 0004, sockenmonster, 2026-09-06: his machine runs the new Python
+    // Ticket 0004, 2026-09-06: his machine runs the new Python
     // install manager, whose `py -0p` prints the tag with a bitness suffix in
     // brackets. The path after the star is what matters, and it is read.
     #[test]
     fn the_install_manager_listing_with_its_bracketed_tag_is_read_too() {
-        let listing = "-V:3.14[-64] *   C:\\Users\\milan\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe\n";
+        let listing = "-V:3.14[-64] *   C:\\Users\\alice\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe\n";
         assert_eq!(
             launcher_list_paths(listing),
-            vec!["C:\\Users\\milan\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe"]
+            vec!["C:\\Users\\alice\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe"]
         );
         // and that Python is outside the trainer's range, so the winget step runs
         assert!(!crate::commands::trainer::trainer_supports_python("3.14.6"));
         assert!(crate::commands::trainer::choose_trainer_python(&[(
-            "C:\\Users\\milan\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe".to_string(),
+            "C:\\Users\\alice\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe".to_string(),
             "3.14.6".to_string(),
         )])
         .is_none());

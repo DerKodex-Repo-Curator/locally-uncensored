@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * "Save character from this video" (Discord, applejames): frames picked from a
+ * "Save character from this video" (Discord): frames picked from a
  * video become a named character kept on this machine, and that character
  * loads into the reference strip or starts a set in Character Studio.
  */

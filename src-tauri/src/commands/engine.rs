@@ -56,7 +56,7 @@ const PORT_SEARCH_SPAN: u16 = 20;
 /// `externalBin: ["bin/lu-llama-server"]` inside the bundled app (target
 /// triple suffix stripped, `.exe` on Windows).
 ///
-/// GitHub #120 (AnnSdf1969, Ubuntu 26.04, 2026-08-28): the file used to be
+/// GitHub #120 (Ubuntu 26.04, 2026-08-28): the file used to be
 /// called `llama-server`, and Tauri's deb bundler copies every external
 /// binary straight into `/usr/bin`. Debian ships its own `llama.cpp-tools`
 /// package that owns `/usr/bin/llama-server`, so dpkg refused the whole
@@ -138,6 +138,15 @@ pub(crate) fn effective_ctx(tuning: &EngineTuning) -> u32 {
     if tuning.ctx == 0 { 8192 } else { tuning.ctx }
 }
 
+/// A GGUF file name without its extension, whatever case the extension is in.
+fn gguf_stem(file_name: &str) -> &str {
+    let at = file_name.len().saturating_sub(".gguf".len());
+    match file_name.get(at..) {
+        Some(ext) if ext.eq_ignore_ascii_case(".gguf") => &file_name[..at],
+        _ => file_name,
+    }
+}
+
 /// Name a vision projector gets on disk: `<model stem>.mmproj.gguf`, written
 /// next to the model. Mirrors `mmprojFileName` in src/api/discover.ts, which is
 /// what the downloader writes. Derived from the model name rather than kept
@@ -145,11 +154,7 @@ pub(crate) fn effective_ctx(tuning: &EngineTuning) -> u32 {
 /// models in it would otherwise both claim one `mmproj-F16.gguf`.
 pub(crate) fn mmproj_sibling_path(model_path: &str) -> PathBuf {
     let p = Path::new(model_path);
-    let stem = p
-        .file_name()
-        .and_then(|s| s.to_str())
-        .map(|s| s.strip_suffix(".gguf").or_else(|| s.strip_suffix(".GGUF")).unwrap_or(s))
-        .unwrap_or("");
+    let stem = p.file_name().and_then(|s| s.to_str()).map(gguf_stem).unwrap_or("");
     p.with_file_name(format!("{stem}.mmproj.gguf"))
 }
 
@@ -157,27 +162,141 @@ pub(crate) fn mmproj_sibling_path(model_path: &str) -> PathBuf {
 /// projectors out of the model picker: they are GGUFs in the same folder, so
 /// the plain "every .gguf is a model" scan would offer them as chat models and
 /// llama-server would refuse to load them. Covers our own `.mmproj.gguf`
-/// convention and the upstream `mmproj-*.gguf` names a user may drop in by hand.
+/// convention and the upstream names a user may drop in by hand, which carry
+/// `mmproj` in front (`mmproj-F16.gguf`) or as a word of its own further back
+/// (`<model>.mmproj-Q8_0.gguf`, `<model>-mmproj-f16.gguf`).
 pub(crate) fn is_projector_file(file_name: &str) -> bool {
     let lower = file_name.to_ascii_lowercase();
-    let stem = lower.strip_suffix(".gguf").unwrap_or(&lower);
-    stem.ends_with(".mmproj") || stem.starts_with("mmproj")
+    let stem = gguf_stem(&lower);
+    stem.starts_with("mmproj") || stem.split(['-', '.']).any(|word| word == "mmproj")
+}
+
+/// The last word of a GGUF name when it says how the weights are stored
+/// (`Q4_K_M`, `IQ4_XS`, `f16`) and not which model it is. Lowercase in.
+fn is_quant_word(word: &str) -> bool {
+    let digit_after = |prefix: &str| {
+        word.strip_prefix(prefix)
+            .and_then(|rest| rest.chars().next())
+            .is_some_and(|c| c.is_ascii_digit())
+    };
+    digit_after("q")
+        || digit_after("iq")
+        || matches!(word, "f16" | "f32" | "bf16" | "fp16" | "fp32" | "int4" | "int8")
+}
+
+/// A lowercase GGUF stem without its trailing quant word, if it has one.
+fn without_quant_word(stem: &str) -> &str {
+    match stem.rfind(['-', '.']) {
+        Some(at) if is_quant_word(&stem[at + 1..]) => &stem[..at],
+        _ => stem,
+    }
+}
+
+/// Which model a lowercase model stem is, whatever quant it was saved in:
+/// `foo-bar-q4_k_m`, `foo-bar.q8_0` and `foo-bar.i1-q4_k_m` (the imatrix
+/// builds of the same weights) are all `foo-bar`.
+fn model_base(stem: &str) -> &str {
+    let base = without_quant_word(stem);
+    base.strip_suffix(".i1").or_else(|| base.strip_suffix("-i1")).unwrap_or(base)
+}
+
+/// The model an upstream projector names in its own file name, lowercase stem
+/// in. These are the three shapes the big GGUF publishers use:
+/// `mmproj-<model>-f16`, `<model>.mmproj-Q8_0` and `<model>-mmproj-f16`. None
+/// for a projector that names nothing (`mmproj-F16`) and for one in our own
+/// `<file>.mmproj` shape, which belongs to exactly that file and no other.
+fn projector_names_model(stem: &str) -> Option<&str> {
+    if stem.ends_with(".mmproj") {
+        return None;
+    }
+    let named = without_quant_word(stem);
+    named
+        .strip_prefix("mmproj-")
+        .or_else(|| named.strip_suffix(".mmproj"))
+        .or_else(|| named.strip_suffix("-mmproj"))
+        .filter(|model| !model.is_empty())
+}
+
+/// Pick the projector of `model_name` out of the GGUF file names in its folder.
+/// The one rule for every folder, ours and another tool's alike:
+///
+/// 1. `<model file>.mmproj.gguf`, the name our own downloads write.
+/// 2. An upstream projector that carries this model's name. Two of them (an
+///    f16 and a Q8_0 of the same projector) are a choice we do not make.
+/// 3. A projector that names nothing or names something else, but only when it
+///    is the single projector in a folder that holds this one model and no
+///    other (several quants of it count as one). That is a repo folder as
+///    LM Studio keeps it, or a models folder with one model in it.
+///
+/// Anything else is a guess, and a guess is worse than none: the models folder
+/// is flat, so one stray `mmproj-F16.gguf` would otherwise hang itself on every
+/// text model in it and the app would call them all able to see.
+fn pick_projector<'a>(model_name: &str, gguf_names: &'a [String]) -> Option<&'a str> {
+    let model = gguf_stem(model_name).to_ascii_lowercase();
+    let stems: Vec<(&'a str, String)> = gguf_names
+        .iter()
+        .map(|name| (name.as_str(), gguf_stem(name).to_ascii_lowercase()))
+        .collect();
+    let only = |mut found: Vec<&'a str>| if found.len() == 1 { found.pop() } else { None };
+
+    let own = format!("{model}.mmproj");
+    let ours: Vec<&str> = stems.iter().filter(|(_, stem)| *stem == own).map(|(name, _)| *name).collect();
+    if !ours.is_empty() {
+        return only(ours);
+    }
+
+    let base = model_base(&model);
+    let projectors: Vec<&(&str, String)> = stems.iter().filter(|(name, _)| is_projector_file(name)).collect();
+    let named: Vec<&str> = projectors
+        .iter()
+        .filter(|(_, stem)| projector_names_model(stem) == Some(base))
+        .map(|(name, _)| *name)
+        .collect();
+    if !named.is_empty() {
+        return only(named);
+    }
+
+    let models: Vec<&String> = stems
+        .iter()
+        .filter(|(name, _)| !is_projector_file(name))
+        .map(|(_, stem)| stem)
+        .collect();
+    let one_model = models.contains(&&model) && models.iter().all(|stem| model_base(stem) == base);
+    match projectors.as_slice() {
+        [(name, stem)] if one_model && !stem.ends_with(".mmproj") => Some(name),
+        _ => None,
+    }
 }
 
 /// Absolute path of the projector belonging to `model_path`, if it is on disk.
-/// Absence is the normal case (text-only model) and never an error.
+/// Absence is the normal case (text-only model) and never an error. Which file
+/// belongs is `pick_projector`'s rule; the folder is only read when the name
+/// our own downloads write is not there.
 pub(crate) fn existing_mmproj(model_path: &str) -> Option<String> {
-    let p = mmproj_sibling_path(model_path);
-    p.is_file().then(|| p.to_string_lossy().to_string())
+    let exact = mmproj_sibling_path(model_path);
+    if exact.is_file() {
+        return Some(exact.to_string_lossy().to_string());
+    }
+    let model = Path::new(model_path);
+    let dir = model.parent()?;
+    let gguf_names: Vec<String> = std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .filter(|entry| entry.path().is_file())
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| gguf_stem(name).len() < name.len())
+        .collect();
+    let picked = pick_projector(model.file_name()?.to_str()?, &gguf_names)?;
+    Some(dir.join(picked).to_string_lossy().to_string())
 }
 
 /// Can this GGUF read images once the built-in engine loads it?
 ///
 /// Exactly the question `existing_mmproj` answers when the server is started:
 /// llama-server sees images only with `--mmproj`, and that flag rides the argv
-/// only when the projector file sits next to the model. Reported with the
-/// model list so the frontend stops guessing from the model NAME. Nebenbefund
-/// N3 of the D1 counter-check (Windows build, 2026-08-29): a text-only
+/// only when `existing_mmproj` finds the projector next to the model. Reported
+/// with the model list so the frontend stops guessing from the model NAME.
+/// Nebenbefund N3 of the D1 counter-check (Windows build, 2026-08-29): a text-only
 /// gemma-3-4b conversion is a gemma3 by name, the app fed it the picture it
 /// had just generated, and the run ended on a red "This model can't read
 /// images" line under a picture that came out fine.
@@ -286,6 +405,10 @@ pub(crate) struct OffloadInputs {
     /// number, and the log line that started every start read that way
     /// regardless of which kind of number backed it.
     pub free: bool,
+    /// Size of the image part (mmproj) that lies next to the model, 0 for a
+    /// model without one. The part is loaded into graphics memory beside the
+    /// weights, so it is part of what has to fit.
+    pub image_part_bytes: u64,
 }
 
 /// What the start should send as `-ngl`, and the sentence that explains it.
@@ -298,6 +421,10 @@ pub(crate) struct OffloadPlan {
     /// One English clause for the log line, naming the numbers it decided on.
     /// Without it the log would carry a layer count nobody could argue with.
     pub why: String,
+    /// Whether the image part is loaded with the model. False in exactly one
+    /// case: the model alone fits on the card and the part would push it off.
+    /// Always true for a model without a part, where there is nothing to drop.
+    pub with_image_part: bool,
 }
 
 fn mib(bytes: u64) -> u64 {
@@ -319,10 +446,12 @@ fn mib(bytes: u64) -> u64 {
 /// Pure. No file is read and no card is asked; the caller collects the inputs
 /// so this can be checked against hardware nobody here owns.
 pub(crate) fn plan_offload(input: &OffloadInputs) -> OffloadPlan {
+    let part = input.image_part_bytes;
     let Some(vram) = input.vram_bytes else {
         return OffloadPlan {
             layers: None,
             why: "no probe measured graphics memory on this machine, so every layer is requested exactly as before".to_string(),
+            with_image_part: true,
         };
     };
     // A header that answers zero is a header that answered nothing.
@@ -342,16 +471,42 @@ pub(crate) fn plan_offload(input: &OffloadInputs) -> OffloadPlan {
         format!("the card holds {} MiB in total (actual free memory was not measured)", mib(vram))
     };
     let whole = input.model_bytes + kv_per_layer * blocks as u64 + overhead;
-    if whole <= vram {
+    if whole + part <= vram {
+        let what = if part > 0 { "the model, its cache and its image part" } else { "the model and its cache" };
         return OffloadPlan {
             layers: None,
             why: format!(
-                "the model and its cache need about {} MiB and {vram_clause}, so every layer is requested",
-                mib(whole)
+                "{what} need about {} MiB and {vram_clause}, so every layer is requested",
+                mib(whole + part)
             ),
+            with_image_part: true,
         };
     }
-    let usable = vram.saturating_sub(overhead);
+    // The image part (October 2026). The model alone fits, and its part would
+    // be the thing that pushes layers off the card: then the model is loaded
+    // whole and without the part, and the app says so in one sentence. A model
+    // that answers at full speed and cannot see beats one that can see and
+    // crawls, and the user who wants the picture has a way to get it (a
+    // smaller context), while nobody asked for a slow chat.
+    if part > 0 && whole <= vram {
+        return OffloadPlan {
+            layers: None,
+            why: format!(
+                "the model and its cache need about {} MiB and {vram_clause}, so every layer is requested, but the image part needs {} MiB more than that leaves, so the model is loaded without image input",
+                mib(whole),
+                mib(part)
+            ),
+            with_image_part: false,
+        };
+    }
+    // The model alone does not fit. It is shared between the card and the
+    // processor either way, so here the part stays: it takes its room out of
+    // the budget first and costs a few layers, and a model the user chose
+    // larger than the card does not lose its image input for good over it.
+    // Only a card that cannot hold the part at all loads without it.
+    let budget = vram.saturating_sub(overhead);
+    let with_image_part = part == 0 || part < budget;
+    let usable = if with_image_part { budget - part } else { budget };
     let per_layer = input.model_bytes / blocks as u64 + kv_per_layer;
     // A layer that costs nothing cannot be divided into the budget, so that
     // case answers 0 layers instead of dividing by zero.
@@ -362,15 +517,55 @@ pub(crate) fn plan_offload(input: &OffloadInputs) -> OffloadPlan {
         Some(b) => format!("{b} layers the GGUF header names"),
         None => format!("{ASSUMED_BLOCK_COUNT} layers assumed, because the GGUF header carries no block count"),
     };
+    let part_clause = if part == 0 {
+        String::new()
+    } else if with_image_part {
+        format!(", {} MiB of that set aside for the image part", mib(part))
+    } else {
+        format!(", and without image input because the image part of {} MiB does not fit at all", mib(part))
+    };
     OffloadPlan {
         layers: Some(layers),
         why: format!(
-            "the model and its cache need about {} MiB but {vram_clause}, so {layers} of {counted} go on the card, at about {} MiB per layer and {} MiB held back for the driver and the compute buffers",
+            "the model and its cache need about {} MiB but {vram_clause}, so {layers} of {counted} go on the card, at about {} MiB per layer and {} MiB held back for the driver and the compute buffers{part_clause}",
             mib(whole),
             mib(per_layer),
             mib(overhead)
         ),
+        with_image_part,
     }
+}
+
+/// Said when a model came up without its image part because the card has no
+/// room for it. Shown as it is, in the model menu and on the Models page.
+pub(crate) const IMAGE_PART_NO_ROOM_NOTE: &str =
+    "Loaded without image input: the graphics memory has no room for the image part next to the model. A smaller context makes room.";
+
+/// Said when the engine refused the image part and the model was started
+/// again without it.
+pub(crate) const IMAGE_PART_REFUSED_NOTE: &str =
+    "Loaded without image input: the engine could not load this model's image part.";
+
+/// Did llama-server die on the image part and not on the model?
+///
+/// The part is loaded AFTER the model, by its own code path, and that path
+/// names itself when it fails: `clip_init: failed to load model`,
+/// `mtmd_init_from_file: error:`, `failed to load multimodal model`. A line
+/// that only mentions the part, like the one reporting that it was loaded,
+/// does not count; the line has to name the part and a failure together.
+///
+/// NOT PROVEN ON A REAL FAILURE. The pinned llama.cpp loads every part this
+/// was tried with, so the markers come from reading its source, and the
+/// arithmetic is proven by the tests below. What it buys: a catalog model
+/// whose part the engine does not understand still starts and answers, and
+/// says that it cannot see, where it used to not start at all.
+pub(crate) fn stderr_blames_the_image_part(stderr: &str) -> bool {
+    const NAMES: &[&str] = &["mmproj", "mtmd", "clip_", "multimodal"];
+    const FAILS: &[&str] = &["fail", "error", "unsupported", "not supported", "unknown", "invalid"];
+    stderr.lines().any(|line| {
+        let lower = line.to_ascii_lowercase();
+        NAMES.iter().any(|n| lower.contains(n)) && FAILS.iter().any(|f| lower.contains(f))
+    })
 }
 
 /// The `-ngl` value in a finished argv.
@@ -466,8 +661,19 @@ pub(crate) fn build_server_args(model_path: &str, tuning: &EngineTuning, port: u
     if let Some(path) = mmproj {
         args.push("--mmproj".into());
         args.push(path.into());
+        // Qwen's image tower takes an image at a resolution of its own
+        // choosing, and by default so small that a button on a full screen
+        // is a handful of pixels. A floor of 1024 tokens per image is what
+        // makes its clicks land (model card, and llama.cpp's own note for
+        // grounding with Qwen). Other families ignore the flag or have a
+        // fixed size, so it is set for Qwen alone.
+        let stem = Path::new(model_path).file_stem().map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
+        if stem.contains("qwen") {
+            args.push("--image-min-tokens".into());
+            args.push("1024".into());
+        }
     }
-    // GH #85 (I-Am-LongXi): enable llama-server's slot save/restore API so the
+    // GH #85: enable llama-server's slot save/restore API so the
     // VRAM handoff can serialize the KV cache to disk before evicting the
     // engine for a render, and restore it after the reload instead of
     // re-processing the whole conversation. The flag only enables the
@@ -684,7 +890,7 @@ impl ScanBudget {
 
 /// The same scan over SEVERAL folders, in priority order.
 ///
-/// GH #122 (zrmdsxa, 2026-08-28): the folder the user names under Model
+/// GH #122 (2026-08-28): the folder the user names under Model
 /// Storage was a download target and nothing else. A GGUF that was already
 /// sitting in `G:\AI\Models`, or one an earlier LU download had put there,
 /// was never looked at, so the Models tab stayed empty and the file could not
@@ -754,7 +960,7 @@ pub(crate) fn scan_gguf_roots(roots: &[ScanRoot]) -> ScanOutcome {
 /// How far below the app models dir the scan walks. 0 alone was the shipped
 /// behaviour and it is still where every model the app writes today lands.
 ///
-/// GH #118 (nayffy, 2026-08-27): before the download-routing fix, a chat model
+/// GH #118 (2026-08-27): before the download-routing fix, a chat model
 /// installed on a fresh box was written to `<models>/<user>/<repo>/x.gguf`,
 /// the LM Studio layout. The routing is fixed, but the boxes that already ran
 /// the broken build have multi-gigabyte files sitting in those folders. Two
@@ -874,6 +1080,103 @@ pub fn builtin_models_dir() -> Result<PathBuf, String> {
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("Create LU Engine models folder: {}", os_error::english(&e)))?;
     Ok(dir)
+}
+
+// ── Sidecars a dead app left behind (macOS) ──────────────────────────────────
+//
+// Fehlerkontrolle Mac 2, Fund 9. On Windows a kill-on-close job object takes
+// every sidecar down with the app, however the app ends. macOS has nothing of
+// the kind: no job object, and no parent-death signal (Linux's
+// `PR_SET_PDEATHSIG` does not exist here). After a crash or a "Force Quit"
+// the llama-server stays, reparented to launchd, holding a whole model in the
+// shared memory until the user finds it in Activity Monitor.
+//
+// The ways to close that, and why this one:
+//
+//   * a watcher thread in the app (kqueue `NOTE_EXIT`) dies with the app, so
+//     it watches nothing in exactly the case that matters;
+//   * the sidecar watching its parent itself needs a flag in the sidecar, and
+//     llama-server has none (no "parent" option among the strings of
+//     `bin/lu-llama-server-aarch64-apple-darwin`);
+//   * a separate guardian process would be one more binary to build, sign and
+//     notarise, for a rare event;
+//   * so the next start cleans up. It cannot free the memory while the app is
+//     gone, and that is the stated limit of it; it does make the leftover end
+//     the moment the user opens the app again, which is what a user does
+//     after a crash, and it needs nothing that could itself be orphaned.
+//
+// What counts as ours to kill is deliberately narrow, because the name alone
+// is not ownership: the process runs the very file this app would start, AND
+// its parent is launchd (pid 1), which is where the kernel puts a process
+// whose parent died. A sidecar of a running app still has that app as parent
+// and is never touched, and neither is a llama-server of another install,
+// another worktree or the user's own.
+
+/// One process, reduced to what the orphan rule reads.
+#[cfg(any(target_os = "macos", test))]
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ProcRow {
+    pub pid: u32,
+    pub parent: Option<u32>,
+    pub exe: Option<PathBuf>,
+}
+
+/// The pids in `rows` that are sidecars of ours without a living app.
+#[cfg(any(target_os = "macos", test))]
+pub(crate) fn orphaned_sidecars(rows: &[ProcRow], ours: &Path) -> Vec<u32> {
+    // A temp or bundle path can be reached under two names (/var and
+    // /private/var), so both sides are resolved before they are compared.
+    let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+    let ours = real(ours);
+    rows.iter()
+        .filter(|row| row.parent == Some(1))
+        .filter(|row| row.exe.as_deref().map(real).as_deref() == Some(ours.as_path()))
+        .map(|row| row.pid)
+        .collect()
+}
+
+/// The process table with executable paths. `refresh_processes` alone leaves
+/// `exe()` empty for processes it has not been asked about, the same trap
+/// `process_util::process_table_with_cmdlines` documents for `cmd()`.
+#[cfg(target_os = "macos")]
+fn process_rows() -> Vec<ProcRow> {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_exe(UpdateKind::Always),
+    );
+    sys.processes()
+        .iter()
+        .map(|(pid, process)| ProcRow {
+            pid: pid.as_u32(),
+            parent: process.parent().map(|p| p.as_u32()),
+            exe: process.exe().map(Path::to_path_buf),
+        })
+        .collect()
+}
+
+/// End every orphaned sidecar that runs `ours` and return their pids.
+#[cfg(target_os = "macos")]
+pub(crate) fn reap_orphaned_sidecars_of(ours: &Path) -> Vec<u32> {
+    let found = orphaned_sidecars(&process_rows(), ours);
+    for pid in &found {
+        // SIGTERM first, SIGKILL after the grace: llama-server unloads on
+        // SIGTERM, and a wedged one must not survive this either.
+        crate::process_util::kill_pid_tree(*pid);
+    }
+    found
+}
+
+/// Called once at app start on a Mac, off the main thread.
+#[cfg(target_os = "macos")]
+pub fn reap_orphaned_sidecars(app: &AppHandle) {
+    let Some(binary) = resolve_engine_binary(app) else { return };
+    let ended = reap_orphaned_sidecars_of(&binary);
+    if !ended.is_empty() {
+        tracing::warn!(target: "engine", pids = ?ended, "ended sidecars orphaned by a previous run");
+    }
 }
 
 // ── Sidecar resolution ───────────────────────────────────────────────────────
@@ -1547,7 +1850,7 @@ pub async fn kv_slot_action(port: u16, action: String) -> Result<serde_json::Val
 
 // ── Port selection ───────────────────────────────────────────────────────────
 //
-// GH #118 (nayffy, 2026-08-27): the engine had exactly one port and no way out
+// GH #118 (2026-08-27): the engine had exactly one port and no way out
 // of it. Whatever held 8127 held the whole chat lane, and the app answered a
 // user with "quit that process or reboot", which is an instruction, not a
 // repair. Windows makes this worse than it sounds: Hyper-V and WSL reserve
@@ -1680,6 +1983,9 @@ enum HealthWait {
     /// causes ["the process asked to exit with no code" vs "a signal killed
     /// it"] used to be indistinguishable from here on).
     ChildExited { code: Option<i32>, signal: Option<i32> },
+    /// The child was taken out of the slot and killed because somebody asked
+    /// for the engine to be stopped. Not a death, and nothing to try again.
+    Stopped,
     TimedOut,
 }
 
@@ -1701,8 +2007,15 @@ fn wait_for_health_or_exit(state: &AppState, port: u16, timeout: Duration) -> He
             let mut guard = state.bundled_engine.lock().unwrap();
             match guard.as_mut() {
                 Some(e) => e.child.try_wait().ok().flatten().map(|s| (s.code(), unix_exit_signal(&s))),
-                // The slot was cleared under us, so there is no child left to
-                // wait on and no exit code or signal to report.
+                // The slot was cleared under us. Two things do that: a stop
+                // somebody asked for, which takes the child out and kills it,
+                // and the sidecar watch or a status read, which reap a child
+                // that died by itself. Only the second one is a death. Reading
+                // the first as one started the model the user had just
+                // unloaded a second time, on the processor.
+                None if stop_was_requested(state) => return HealthWait::Stopped,
+                // Reaped by the watch, so there is no child left to wait on
+                // and no exit code or signal to report.
                 None => Some((None, None)),
             }
         };
@@ -2525,6 +2838,10 @@ fn start_bundled_engine_blocking(
     port: Option<u16>,
 ) -> Result<serde_json::Value, String> {
     let _gate = crate::commands::process::start_gate(&crate::commands::process::ENGINE_START);
+    // A stop that came before this start is history: whoever asks for a model
+    // now wants it. Cleared under the gate, so it is only ever a stop that
+    // arrives DURING this start that the waits below get to see.
+    state.engine_stop_requested.store(false, std::sync::atomic::Ordering::SeqCst);
     let tuning = tuning.unwrap_or_default();
     let port = port.unwrap_or(DEFAULT_ENGINE_PORT);
 
@@ -2565,12 +2882,18 @@ fn start_bundled_engine_blocking(
     {
         let guard = state.bundled_engine.lock().unwrap();
         if let Some(engine) = guard.as_ref() {
+            // An engine that came up without the image part (no room on the
+            // card, or the engine refused the part) is still the answer to
+            // this request. Comparing it against an argv WITH the part would
+            // restart a healthy engine on every single call, to arrive at the
+            // same place each time.
+            let part_it_runs_with = if engine.image_part_note.is_some() { None } else { mmproj.as_deref() };
             let args_on_its_port = build_server_args(
                 &model_path,
                 &tuning,
                 engine.port,
                 slot_dir.as_deref(),
-                mmproj.as_deref(),
+                part_it_runs_with,
                 None,
             );
             // With GPU Layers on auto the layer count is a MEASUREMENT, taken
@@ -2615,22 +2938,57 @@ fn start_bundled_engine_blocking(
             cpu_fallback: e.cpu_fallback,
             port: e.port,
             ctx: e.ctx,
+            image_part_note: e.image_part_note,
         })
     };
 
     // Different model (or dead) → stop the old process before spawning.
     stop_engine_locked(state);
 
-    match start_after_stop(app, state, &model_path, &tuning, port, slot_dir.as_deref(), mmproj.as_deref())
-    {
-        Ok(v) => Ok(v),
-        Err(msg) => Err(match (vorher, resolve_engine_binary(app)) {
-            (Some(p), Some(bin)) if restore_engine(&bin, state, &p, resolve_engine_backend_dir(app).as_deref()) => {
-                with_note_on_top(&msg, RESTORED_NOTE)
-            }
-            _ => msg,
-        }),
+    let outcome = start_after_stop(app, state, &model_path, &tuning, port, slot_dir.as_deref(), mmproj.as_deref());
+    settle_switch(state, port, &model_path, outcome, || match (vorher, resolve_engine_binary(app)) {
+        (Some(p), Some(bin)) => restore_engine(&bin, state, &p, resolve_engine_backend_dir(app).as_deref()),
+        _ => false,
+    })
+}
+
+/// What a switch answers once the start behind it has ended, and whether the
+/// model that served before is brought back first.
+///
+/// A stop on request outranks everything else, whichever way the start ended.
+/// Every exit of the start comes through here, so this one place covers all of
+/// them: the previous model is NOT brought back (the user asked for an empty
+/// engine), and the answer is not an error. An error is what the callers act
+/// on: the resume loop of the app start runs the start again 1.5 s and 5 s
+/// later, and the context raise falls back to a second start with the old
+/// settings. Either one would load the model that was just unloaded.
+///
+/// The stop is asked about twice. The second time is for a stop that arrives
+/// while the previous model is being brought back: that attempt is cut short
+/// by the same mark, and its failure is not the user's news either.
+///
+/// A start that came up and was stopped right behind it answers "stopped" as
+/// well. Nothing serves, and an answer that still carried the notes of the
+/// sanity probe would describe an engine that is gone.
+fn settle_switch(
+    state: &AppState,
+    port: u16,
+    model_path: &str,
+    outcome: Result<serde_json::Value, String>,
+    restore_previous: impl FnOnce() -> bool,
+) -> Result<serde_json::Value, String> {
+    if stop_was_requested(state) {
+        return Ok(stopped_answer(port, model_path));
     }
+    let msg = match outcome {
+        Ok(answer) => return Ok(answer),
+        Err(msg) => msg,
+    };
+    let restored = restore_previous();
+    if stop_was_requested(state) {
+        return Ok(stopped_answer(port, model_path));
+    }
+    Err(if restored { with_note_on_top(&msg, RESTORED_NOTE) } else { msg })
 }
 
 /// Die Engine, die vor einem Wechsel bediente.
@@ -2647,6 +3005,31 @@ struct PreviousEngine {
     /// reason: a restore brings the process back as it was, and a status read
     /// afterwards must not claim the card back for it.
     cpu_fallback: bool,
+    /// Whether that engine ran without its image part, and why. Carried so
+    /// the restored process keeps saying it.
+    image_part_note: Option<&'static str>,
+}
+
+/// What `start_after_stop` hands up when the engine was stopped on request
+/// before the model had finished loading. `settle_switch` turns it into
+/// `stopped_answer`, so this sentence is for the log and never for a user.
+const STOPPED_WHILE_LOADING: &str = "The LU Engine was stopped while it was loading the model.";
+
+/// What a start answers when it was stopped on request. `port` is the port
+/// that was asked for: nothing listens anywhere, and the next start names its
+/// own.
+fn stopped_answer(port: u16, model_path: &str) -> serde_json::Value {
+    serde_json::json!({
+        "status": "stopped",
+        "port": port,
+        "model_path": model_path,
+    })
+}
+
+/// Whether somebody asked for the engine to be stopped since the running start
+/// took the start gate. See `AppState::engine_stop_requested`.
+fn stop_was_requested(state: &AppState) -> bool {
+    state.engine_stop_requested.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 /// Der Satz, der an die Fehlermeldung geht, wenn das alte Modell wieder laeuft.
@@ -2676,6 +3059,8 @@ fn restore_engine(binary: &Path, state: &AppState, vorher: &PreviousEngine, back
     .is_ok();
     if !ok {
         tracing::error!(target: "engine", model = %vorher.model_path, port = vorher.port, "could not bring the previous model back");
+    } else if let Some(live) = state.bundled_engine.lock().unwrap().as_mut() {
+        live.image_part_note = vorher.image_part_note;
     }
     ok
 }
@@ -2693,7 +3078,9 @@ fn start_after_stop(
     tuning: &EngineTuning,
     port: u16,
     slot_dir: Option<&str>,
-    mmproj: Option<&str>,
+    // The image part that lies next to the model, when there is one. Whether
+    // it is LOADED is decided below, against the card.
+    image_part: Option<&str>,
 ) -> Result<serde_json::Value, String> {
 
     // The port must actually be FREE now: our own previous child (if any) was
@@ -2766,7 +3153,7 @@ fn start_after_stop(
 
     // Attempt 1, then exactly one clean retry.
     //
-    // GH #118 (nayffy, 2026-08-27): the only thing a user ever saw when this
+    // GH #118 (2026-08-27): the only thing a user ever saw when this
     // chain failed was a refused connection on 127.0.0.1:8127. Two things were
     // wrong with the old shape. The health wait watched only the port, so a
     // child that died in the first second still burned the whole budget (60 s
@@ -2807,7 +3194,7 @@ fn start_after_stop(
     // too small costs speed while too large costs the start.
     let ctx_size = effective_ctx(tuning);
     let auto_layers = tuning.gpu_layers < 0;
-    let auto_ngl = if auto_layers {
+    let (auto_ngl, part_fits) = if auto_layers {
         let card = crate::commands::gpu::engine_vram_reading();
         let header = crate::commands::gguf::read_header(model_path);
         let plan = plan_offload(&OffloadInputs {
@@ -2816,6 +3203,10 @@ fn start_after_stop(
             vram_bytes: card.as_ref().map(|c| c.bytes),
             ctx: ctx_size,
             free: card.as_ref().map(|c| c.free).unwrap_or(false),
+            image_part_bytes: image_part
+                .and_then(|p| std::fs::metadata(p).ok())
+                .map(|m| m.len())
+                .unwrap_or(0),
         });
         tracing::info!(
             target: "engine",
@@ -2828,10 +3219,16 @@ fn start_after_stop(
             "{}",
             plan.why
         );
-        plan.layers
+        (plan.layers, plan.with_image_part)
     } else {
-        None
+        // A layer count the user typed is the user's answer, and nothing is
+        // measured for it. The image part is loaded as it always was.
+        (None, true)
     };
+    // The image part this start really passes along. A part that would push
+    // the model off the card is left out, and the note says so afterwards.
+    let mmproj = if part_fits { image_part } else { None };
+    let image_note = (image_part.is_some() && !part_fits).then_some(IMAGE_PART_NO_ROOM_NOTE);
     let desired_args =
         build_server_args(model_path, tuning, port, slot_dir, mmproj, auto_ngl);
 
@@ -2850,7 +3247,7 @@ fn start_after_stop(
     let failure = match first {
         Ok(startup) => {
             tracing::info!(target: "engine", port, attempt = 1, "the LU Engine is serving");
-            return Ok(serve_or_heal_garbled(
+            let mut answer = serve_or_heal_garbled(
                 state,
                 &binary,
                 model_path,
@@ -2863,10 +3260,20 @@ fn start_after_stop(
                 auto_layers,
                 &startup,
                 backend_dir.as_deref(),
-            ));
+            );
+            note_image_part(state, &mut answer, image_note);
+            return Ok(answer);
         }
         Err(f) => f,
     };
+
+    if stop_was_requested(state) {
+        // The child did not die, it was stopped while it was loading (the
+        // user switched away, went into Cloud, or closed the app). Every
+        // retry below would start the model that was just unloaded.
+        tracing::info!(target: "engine", port, "the LU Engine was stopped while it was loading, no second attempt");
+        return Err(STOPPED_WHILE_LOADING.to_string());
+    }
 
     if !failure.died {
         // The budget ran out with the child still alive: it is loading slowly,
@@ -2891,6 +3298,48 @@ fn start_after_stop(
             "the LU Engine crashed with an illegal-instruction fault, skipping the pointless second attempt"
         );
         return Err(start_failure_message(&failure, port, deadline, SecondAttempt::SameOffload, backend_dir.as_deref()));
+    }
+
+    // The engine died on the image part, not on the model. Then the second
+    // attempt is the same start without the part: the card keeps its layers,
+    // the model answers, and the note says that it cannot see. Running it on
+    // the processor instead would change the one thing that was not at fault.
+    if mmproj.is_some() && stderr_blames_the_image_part(&failure.stderr) {
+        tracing::warn!(target: "engine", port, "the engine could not load the image part, retrying without it");
+        std::thread::sleep(Duration::from_millis(1500));
+        let args = build_server_args(model_path, tuning, port, slot_dir, None, auto_ngl);
+        return match spawn_engine_attempt(
+            state,
+            &binary,
+            &args,
+            model_path,
+            port,
+            ctx,
+            AttemptFlags { auto_layers, cpu_fallback: false },
+            backend_dir.as_deref(),
+        ) {
+            Ok(startup) => {
+                tracing::warn!(target: "engine", port, "the LU Engine is serving without the image part");
+                let mut answer = serve_or_heal_garbled(
+                    state,
+                    &binary,
+                    model_path,
+                    tuning,
+                    port,
+                    slot_dir,
+                    None,
+                    &args,
+                    ctx,
+                    auto_layers,
+                    &startup,
+                    backend_dir.as_deref(),
+                );
+                answer["retried"] = serde_json::json!(true);
+                note_image_part(state, &mut answer, Some(IMAGE_PART_REFUSED_NOTE));
+                Ok(answer)
+            }
+            Err(second) => Err(start_failure_message(&second, port, deadline, SecondAttempt::SameOffload, backend_dir.as_deref())),
+        };
     }
 
     tracing::warn!(target: "engine", port, "the first start attempt exited before it served, retrying once");
@@ -2990,6 +3439,7 @@ fn start_after_stop(
             );
             answer["retried"] = serde_json::json!(true);
             answer["cpuOnly"] = serde_json::json!(offload_was_tried);
+            note_image_part(state, &mut answer, image_note);
             Ok(answer)
         }
         Err(second) => Err(start_failure_message(&second, retry_port, deadline, second_attempt, backend_dir.as_deref())),
@@ -3170,6 +3620,12 @@ fn serve_or_heal_garbled(
             AttemptFlags { auto_layers: false, cpu_fallback: cpu_rung },
             backend_dir,
         ).is_err() {
+            if stop_was_requested(state) {
+                // The restart did not fail, the engine was stopped on request
+                // while it loaded. Nothing is brought back and nothing is
+                // noted about a restart: `settle_switch` answers "stopped".
+                return answer;
+            }
             // The restart did not come up, and an engine that at least served
             // has just been torn down for it. Put the first one back rather
             // than leave the user with nothing; ONE attempt, for the same
@@ -3218,6 +3674,24 @@ fn serve_or_heal_garbled(
         serving_args = next_args;
     }
     answer
+}
+
+/// Pin "this engine runs without its image part" to the process and to the
+/// answer of the start, after every restart the sanity probe may have made:
+/// each of those spawns a fresh process, and a note set before them would be
+/// gone with the old one. Nothing happens for an ordinary start.
+fn note_image_part(state: &AppState, answer: &mut serde_json::Value, note: Option<&'static str>) {
+    let Some(note) = note else { return };
+    if let Some(live) = state.bundled_engine.lock().unwrap().as_mut() {
+        live.image_part_note = Some(note);
+    }
+    answer["imageNote"] = serde_json::json!(note);
+}
+
+/// The image part a finished argv passes along, when it passes one.
+pub(crate) fn image_part_in(args: &[String]) -> Option<&str> {
+    let at = args.iter().position(|a| a == "--mmproj")?;
+    args.get(at + 1).map(String::as_str)
 }
 
 /// Pin the sanity probe's sentence to the process it is about, so a status
@@ -3286,6 +3760,12 @@ fn spawn_engine_attempt(
     backend_dir: Option<&Path>,
 ) -> Result<String, StartFailure> {
     log_cpu_features_once();
+    // A stop that arrived between two attempts (the settle before a retry, a
+    // restart of the sanity probe) found an empty slot and had nothing to
+    // kill. It still means what it said, so nothing is spawned after it.
+    if stop_was_requested(state) {
+        return Err(stopped_on_request());
+    }
     // The one line a support log has to carry. Everything the start depends on
     // is in the argv: model path, context size, layer count, cache types,
     // thread count, mlock/mmap flags, the vision file and the port.
@@ -3367,16 +3847,30 @@ fn spawn_engine_attempt(
     tie_child_to_app_lifetime(child.id());
     let diagnostics = child.stderr.take().map(super::shell::drain);
 
-    *state.bundled_engine.lock().unwrap() = Some(BundledEngine {
-        child,
-        model_path: model_path.to_string(),
-        port,
-        ctx,
-        args: args.to_vec(),
-        auto_layers: flags.auto_layers,
-        cpu_fallback: flags.cpu_fallback,
-        sanity_note: None,
-    });
+    {
+        let mut slot = state.bundled_engine.lock().unwrap();
+        // Asked again with the slot held. A stop sets its mark BEFORE it takes
+        // this lock, so it either finds the child parked here and kills it, or
+        // its mark is already visible now. There is no order in which a child
+        // is parked after a stop and left running.
+        if stop_was_requested(state) {
+            drop(slot);
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(stopped_on_request());
+        }
+        *slot = Some(BundledEngine {
+            child,
+            model_path: model_path.to_string(),
+            port,
+            ctx,
+            args: args.to_vec(),
+            auto_layers: flags.auto_layers,
+            cpu_fallback: flags.cpu_fallback,
+            sanity_note: None,
+            image_part_note: None,
+        });
+    }
 
     let outcome = wait_for_health_or_exit(state, port, health_timeout_for(model_path));
     match &outcome {
@@ -3390,6 +3884,9 @@ fn spawn_engine_attempt(
             signal = signal.map(|s| s.to_string()).unwrap_or_else(|| "none".into()),
             "the LU Engine exited before it served"
         ),
+        HealthWait::Stopped => {
+            tracing::info!(target: "engine", port, "the LU Engine was stopped on request before it served")
+        }
         HealthWait::TimedOut => tracing::warn!(
             target: "engine",
             port,
@@ -3418,11 +3915,20 @@ fn spawn_engine_attempt(
                 .map(|(buf, _)| super::shell::captured_text(&buf))
                 .unwrap_or_default());
         }
+        if stop_was_requested(state) {
+            // Health answered and the stop came right behind it. Our child is
+            // gone because it was asked to go, not because a stranger holds
+            // the port.
+            return Err(stopped_on_request());
+        }
         let why = diagnostics
             .map(|(buf, _)| tail_lines(&super::shell::captured_text(&buf), 12))
             .unwrap_or_default();
         stop_engine_locked(state);
         return Err(StartFailure { died: true, port_taken: true, stderr: why, exit_code: None, signal: None });
+    }
+    if matches!(outcome, HealthWait::Stopped) {
+        return Err(stopped_on_request());
     }
 
     let why = diagnostics
@@ -3436,13 +3942,19 @@ fn spawn_engine_attempt(
     Err(StartFailure { died, port_taken: false, stderr: why, exit_code, signal })
 }
 
+/// What an attempt reports when it ended because the engine was stopped on
+/// request. Not `died`: a death is what `start_after_stop` retries.
+fn stopped_on_request() -> StartFailure {
+    StartFailure { died: false, port_taken: false, stderr: String::new(), exit_code: None, signal: None }
+}
+
 /// Stop the managed engine, killing the child. Idempotent.
 #[tauri::command]
 pub async fn stop_bundled_engine(app: AppHandle) -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         // kill + wait on a server that is mid-load is not instant.
         let state = app.state::<AppState>();
-        let was_running = stop_engine_locked(&state);
+        let was_running = stop_engine_on_request(&state);
         serde_json::json!({ "status": if was_running { "stopped" } else { "idle" } })
     })
     .await
@@ -3474,7 +3986,8 @@ pub async fn bundled_engine_status(app: AppHandle) -> Result<serde_json::Value, 
                 // Model file size feeds the handoff's fits/doesn't-fit call
                 // (GH #85): a GGUF's on-disk size is a close proxy for its
                 // VRAM footprint at full offload.
-                "modelBytes": std::fs::metadata(&live.model_path).map(|m| m.len()).unwrap_or(0),
+                // The image part is loaded next to the weights, so it counts.
+                "modelBytes": std::fs::metadata(&live.model_path).map(|m| m.len()).unwrap_or(0) + live.image_part_bytes,
                 "model_path": live.model_path,
                 "ctx": live.ctx,
                 // Where this engine computes, and how much of the model the
@@ -3492,6 +4005,10 @@ pub async fn bundled_engine_status(app: AppHandle) -> Result<serde_json::Value, 
                 // standing line can say why the card was taken away, and
                 // why an engine that kept its layers restarted at all.
                 "sanityNote": live.sanity_note,
+                // Why this model came up without its image part: no room on
+                // the card, or the engine refused the part. Null on every
+                // start that loaded it, and on a model that has none.
+                "imageNote": live.image_part_note,
             }),
             None => serde_json::json!({
                 "running": false,
@@ -3502,6 +4019,7 @@ pub async fn bundled_engine_status(app: AppHandle) -> Result<serde_json::Value, 
                 "cpuOnly": false,
                 "gpuLayers": null,
                 "sanityNote": null,
+                "imageNote": null,
             }),
         }
     })
@@ -3618,8 +4136,20 @@ pub(crate) fn gguf_delete_plan(path: &Path, roots: &[PathBuf]) -> Result<Vec<Pat
     }
     let dir = file.parent().ok_or("That model file has no folder.")?.to_path_buf();
     let stem = file.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    // The image part goes with its model. It is named after the model (after
+    // the first part of a split one), it is listed nowhere, and left behind it
+    // would be several hundred megabytes that belong to nothing.
+    let with_part = |mut files: Vec<PathBuf>| {
+        if let Some(first) = files.first() {
+            let part = mmproj_sibling_path(&first.to_string_lossy());
+            if part.is_file() {
+                files.push(part);
+            }
+        }
+        files
+    };
     let Some((base, _, total)) = split_shard_stem(stem) else {
-        return Ok(vec![file]);
+        return Ok(with_part(vec![file]));
     };
     // A split set is one model: every sibling with the same base and total
     // goes along, whichever part the row pointed at, both digit widths.
@@ -3636,7 +4166,7 @@ pub(crate) fn gguf_delete_plan(path: &Path, roots: &[PathBuf]) -> Result<Vec<Pat
         })
         .collect();
     parts.sort();
-    Ok(parts)
+    Ok(with_part(parts))
 }
 
 /// Delete an LU Engine row's file(s). The loaded model is refused: on Windows
@@ -3688,12 +4218,16 @@ fn list_bundled_models_blocking(
     extra_dirs: &[String],
 ) -> Result<serde_json::Value, String> {
     let dir = builtin_models_dir()?;
-    let loaded = state
-        .bundled_engine
-        .lock()
-        .unwrap()
-        .as_ref()
-        .map(|e| e.model_path.clone());
+    // The loaded model, and whether its process was started with the image
+    // part: what the engine can show a picture right now is a fact about the
+    // process, not about the folder.
+    let (loaded, loaded_sees) = {
+        let guard = state.bundled_engine.lock().unwrap();
+        (
+            guard.as_ref().map(|e| e.model_path.clone()),
+            guard.as_ref().is_some_and(|e| image_part_in(&e.args).is_some()),
+        )
+    };
     let dirs = bundled_scan_dirs(&dir, extra_dirs);
     let roots: Vec<ScanRoot> = dirs
         .iter()
@@ -3713,13 +4247,25 @@ fn list_bundled_models_blocking(
             // place it exists; /props and /v1/models don't carry it. None on
             // any parse hiccup so a weird file can never break the listing.
             let ctx_train = crate::commands::gguf::context_length(&m.path);
+            // Asked once: without the part under our own name this reads the
+            // folder, and the list holds one entry per model in it.
+            let image_part = model_can_see_images(&m.path);
             serde_json::json!({
                 "name": m.name,
                 "path": m.path,
                 "size": m.size,
                 "loaded": is_loaded,
                 "ctx_train": ctx_train,
-                "vision": model_can_see_images(&m.path),
+                // Can the engine show this model a picture? For the model that
+                // is loaded: was it started with its image part (it is not
+                // when the card had no room, or when the part arrived after
+                // the start). For every other model: does the part lie next
+                // to it, which is what the next start will pass along.
+                "vision": if is_loaded { loaded_sees } else { image_part },
+                // The part is on disk. Together with `vision` this tells a
+                // model that cannot see from one that only has to be loaded
+                // again, or loaded with a smaller context.
+                "imagePart": image_part,
             })
         })
         .collect();
@@ -3928,40 +4474,10 @@ pub(crate) fn import_model_file(src: &Path, dest_dir: &Path, name: &str) -> Resu
     // like. (Ollama sources are content-addressed blobs with no sibling to
     // find; those import text-only, which is why vision models are worth
     // pulling through Ollama itself.)
-    if let Some(projector) = find_projector_sibling(src) {
+    if let Some(projector) = existing_mmproj(&src.to_string_lossy()) {
         let _ = std::fs::hard_link(&projector, mmproj_sibling_path(&target.to_string_lossy()));
     }
     Ok(target)
-}
-
-/// The projector belonging to a model file in another tool's store. Prefers our
-/// own `<stem>.mmproj.gguf` naming, then falls back to a single upstream
-/// `mmproj*.gguf` in the same folder (LM Studio keeps one repo per folder). Two
-/// or more candidates mean guessing, and a wrong projector is worse than none.
-fn find_projector_sibling(model: &Path) -> Option<PathBuf> {
-    let exact = mmproj_sibling_path(&model.to_string_lossy());
-    if exact.is_file() {
-        return Some(exact);
-    }
-    let dir = model.parent()?;
-    let mut found: Vec<PathBuf> = std::fs::read_dir(dir)
-        .ok()?
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| {
-            p.is_file()
-                && p.file_name()
-                    .and_then(|s| s.to_str())
-                    .map(is_projector_file)
-                    .unwrap_or(false)
-        })
-        .collect();
-    found.sort();
-    if found.len() == 1 {
-        found.pop()
-    } else {
-        None
-    }
 }
 
 /// GGUFs found in local Ollama and LM Studio stores, ready to link into the
@@ -4057,6 +4573,10 @@ pub(crate) struct LiveSidecar {
     pub gpu_layers: Option<u32>,
     /// The sentence the sanity probe left behind (`BundledEngine::sanity_note`).
     pub sanity_note: Option<&'static str>,
+    /// Why this engine runs without its image part, when it does.
+    pub image_part_note: Option<&'static str>,
+    /// Size of the image part this process loaded, 0 without one.
+    pub image_part_bytes: u64,
 }
 
 pub(crate) fn live_sidecar(slot: &mut Option<BundledEngine>) -> Option<LiveSidecar> {
@@ -4068,6 +4588,11 @@ pub(crate) fn live_sidecar(slot: &mut Option<BundledEngine>) -> Option<LiveSidec
         cpu_fallback: e.cpu_fallback,
         gpu_layers: gpu_layers_reported(&e.args),
         sanity_note: e.sanity_note,
+        image_part_note: e.image_part_note,
+        image_part_bytes: image_part_in(&e.args)
+            .and_then(|p| std::fs::metadata(p).ok())
+            .map(|m| m.len())
+            .unwrap_or(0),
     })
 }
 
@@ -4142,7 +4667,21 @@ pub fn spawn_sidecar_watch(app: AppHandle) {
     });
 }
 
-pub(crate) fn stop_engine_locked(state: &AppState) -> bool {
+/// Stop the engine because somebody outside the start asked for it: the
+/// frontend's stop, the switch into Cloud, a render that needs the memory.
+///
+/// The mark is set BEFORE the child is taken, and it is set even when the slot
+/// is empty: a start that is between two attempts has nothing parked, and it
+/// must still not begin the next one.
+pub(crate) fn stop_engine_on_request(state: &AppState) -> bool {
+    state.engine_stop_requested.store(true, std::sync::atomic::Ordering::SeqCst);
+    stop_engine_locked(state)
+}
+
+/// Kill and reap whatever is in the slot. The start's own stops (the old model
+/// before a switch, a failed attempt, a restart of the sanity probe) use this
+/// one, because none of them is a request to leave the engine empty.
+fn stop_engine_locked(state: &AppState) -> bool {
     let mut guard = state.bundled_engine.lock().unwrap();
     if let Some(mut engine) = guard.take() {
         let _ = engine.child.kill();
@@ -4274,6 +4813,7 @@ fn start_bundled_embed_blocking(
         auto_layers: false,
         cpu_fallback: false,
         sanity_note: None,
+        image_part_note: None,
     });
 
     if let Err(e) = wait_for_health(port, health_timeout_for(&model_path)) {
@@ -4416,6 +4956,31 @@ mod tests {
         let _ = std::fs::remove_dir_all(&outside);
     }
 
+    #[test]
+    fn deleting_a_model_takes_its_image_part_along_and_no_other() {
+        let dir = tempfile::tempdir().unwrap();
+        let model = dir.path().join("Qwen3.5-9B.Q4_K_M.gguf");
+        let part = dir.path().join("Qwen3.5-9B.Q4_K_M.mmproj.gguf");
+        let other_part = dir.path().join("Other.Q4_K_M.mmproj.gguf");
+        for f in [&model, &part, &other_part] {
+            std::fs::write(f, b"x").unwrap();
+        }
+        for i in 1..=2 {
+            std::fs::write(dir.path().join(format!("big-0000{i}-of-00002.gguf")), b"x").unwrap();
+        }
+        // A split model names its part after its first file.
+        let split_part = dir.path().join("big-00001-of-00002.mmproj.gguf");
+        std::fs::write(&split_part, b"x").unwrap();
+        let roots = vec![dir.path().to_path_buf()];
+        let canon = |p: &Path| std::fs::canonicalize(p).unwrap();
+
+        assert_eq!(gguf_delete_plan(&model, &roots).unwrap(), vec![canon(&model), canon(&part)]);
+        let split = gguf_delete_plan(&dir.path().join("big-00002-of-00002.gguf"), &roots).unwrap();
+        assert_eq!(split.len(), 3, "{split:?}");
+        assert_eq!(split.last().unwrap(), &canon(&split_part));
+        assert!(!split.contains(&canon(&other_part)));
+    }
+
     use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
@@ -4470,11 +5035,17 @@ mod tests {
         );
         let at = with.iter().position(|a| a == "--mmproj").expect("--mmproj missing");
         assert_eq!(with[at + 1], "/models/qwen3.8.mmproj.gguf");
+        // A Qwen that sees gets a floor for the size of an image.
+        let floor = with.iter().position(|a| a == "--image-min-tokens").expect("--image-min-tokens missing");
+        assert_eq!(with[floor + 1], "1024");
+        let gemma = build_server_args("/models/gemma-4.gguf", &EngineTuning::default(), 8127, None, Some("/models/gemma-4.mmproj.gguf"), None);
+        assert!(gemma.iter().any(|a| a == "--mmproj") && !gemma.iter().any(|a| a == "--image-min-tokens"));
         // Negative control: a model without a projector keeps the legacy argv,
         // so a text-only model can never gain a flag it cannot honour.
         let without = build_server_args("/models/qwen3.8.gguf", &EngineTuning::default(), 8127, None, None, None);
         assert!(!without.iter().any(|a| a == "--mmproj"));
-        assert_eq!(without.len(), with.len() - 2);
+        // The projector and the floor for the size of an image: two flags, two values.
+        assert_eq!(without.len(), with.len() - 4);
     }
 
     #[test]
@@ -4562,21 +5133,156 @@ mod tests {
         assert!(!dest2.path().join("text.mmproj.gguf").exists());
     }
 
+    /// A folder holding these GGUFs. The head is a real one, so the same files
+    /// pass the header check a start runs.
+    fn gguf_folder(names: &[&str]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let mut head = b"GGUF".to_vec();
+        head.extend_from_slice(&3u32.to_le_bytes());
+        for name in names {
+            std::fs::write(dir.path().join(name), &head).unwrap();
+        }
+        dir
+    }
+
+    /// The projector a model in `dir` gets, as a bare file name.
+    fn projector_of(dir: &tempfile::TempDir, model: &str) -> Option<String> {
+        existing_mmproj(&dir.path().join(model).to_string_lossy())
+            .map(|p| Path::new(&p).file_name().unwrap().to_string_lossy().to_string())
+    }
+
+    #[test]
+    fn a_stray_projector_does_not_hang_itself_on_every_model() {
+        // GH discussion 67, and the reason the rule is narrow: the models
+        // folder is flat. One hand-placed mmproj-F16.gguf next to two models
+        // belongs to neither by name, so neither may be called able to see.
+        let dir = gguf_folder(&["gemma-3-4b-it-Q4_K_M.gguf", "Nemo-12B-Q4_K_M.gguf", "mmproj-F16.gguf"]);
+        assert_eq!(projector_of(&dir, "gemma-3-4b-it-Q4_K_M.gguf"), None);
+        assert_eq!(projector_of(&dir, "Nemo-12B-Q4_K_M.gguf"), None);
+        // A file that is not there owns nothing either.
+        assert_eq!(projector_of(&dir, "nothing-here.gguf"), None);
+    }
+
+    #[test]
+    fn one_model_and_one_projector_in_a_folder_belong_together() {
+        // The names the big publishers ship that say nothing about the model.
+        for projector in ["mmproj-F16.gguf", "mmproj-model-f16.gguf", "mmproj-model-f16-4B.gguf", "MMPROJ-BF16.GGUF"] {
+            let dir = gguf_folder(&["gemma-3-4b-it-Q4_K_M.gguf", projector]);
+            assert_eq!(projector_of(&dir, "gemma-3-4b-it-Q4_K_M.gguf").as_deref(), Some(projector));
+        }
+        // Two quants of the one model are still one model.
+        let dir = gguf_folder(&["gemma-3-4b-it-Q4_K_M.gguf", "gemma-3-4b-it-Q8_0.gguf", "mmproj-model-f16.gguf"]);
+        assert_eq!(projector_of(&dir, "gemma-3-4b-it-Q4_K_M.gguf").as_deref(), Some("mmproj-model-f16.gguf"));
+        assert_eq!(projector_of(&dir, "gemma-3-4b-it-Q8_0.gguf").as_deref(), Some("mmproj-model-f16.gguf"));
+        // NEGATIVE CONTROL: a look-alike is another model, and then nobody
+        // gets the projector.
+        let dir = gguf_folder(&["gemma-3-4b-it-Q4_K_M.gguf", "gemma-3-4b-it-abliterated-Q4_K_M.gguf", "mmproj-model-f16.gguf"]);
+        assert_eq!(projector_of(&dir, "gemma-3-4b-it-Q4_K_M.gguf"), None);
+        assert_eq!(projector_of(&dir, "gemma-3-4b-it-abliterated-Q4_K_M.gguf"), None);
+        // NEGATIVE CONTROL: a part in our own naming belongs to the file it
+        // names, also when that file is gone and one other model is left.
+        let dir = gguf_folder(&["Nemo-12B-Q4_K_M.gguf", "gemma-3-4b-it-Q4_K_M.mmproj.gguf"]);
+        assert_eq!(projector_of(&dir, "Nemo-12B-Q4_K_M.gguf"), None);
+    }
+
+    #[test]
+    fn a_projector_that_names_its_model_finds_it_in_a_full_folder() {
+        // The three shapes in use upstream, each next to a model it does not
+        // belong to and a stray projector that names nothing.
+        for (model, projector) in [
+            ("google_gemma-3-4b-it-Q4_K_M.gguf", "mmproj-google_gemma-3-4b-it-f16.gguf"),
+            ("Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf", "mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf"),
+            ("Qwen2-VL-7B-Instruct-abliterated.Q4_K_M.gguf", "Qwen2-VL-7B-Instruct-abliterated.mmproj-fp16.gguf"),
+            ("Qwen2-VL-7B-Instruct-abliterated.i1-Q4_K_M.gguf", "Qwen2-VL-7B-Instruct-abliterated.mmproj-Q8_0.gguf"),
+            ("llava-llama-3-8b-v1_1-int4.gguf", "llava-llama-3-8b-v1_1-mmproj-f16.gguf"),
+            // case of name and extension is the publisher's and the user's
+            ("FOO-BAR-q4_k_m.GGUF", "MMPROJ-foo-bar-F16.Gguf"),
+        ] {
+            let dir = gguf_folder(&[model, projector, "Nemo-12B-Q4_K_M.gguf", "mmproj-F16.gguf"]);
+            assert_eq!(projector_of(&dir, model).as_deref(), Some(projector), "{model}");
+            assert_eq!(projector_of(&dir, "Nemo-12B-Q4_K_M.gguf"), None, "{model}");
+        }
+        // NEGATIVE CONTROL: a longer name is another model, not this one.
+        let dir = gguf_folder(&[
+            "gemma-3-4b-it-abliterated-Q4_K_M.gguf",
+            "gemma-3-4b-it-Q4_K_M.gguf",
+            "mmproj-gemma-3-4b-it-f16.gguf",
+        ]);
+        assert_eq!(projector_of(&dir, "gemma-3-4b-it-abliterated-Q4_K_M.gguf"), None);
+        assert_eq!(projector_of(&dir, "gemma-3-4b-it-Q4_K_M.gguf").as_deref(), Some("mmproj-gemma-3-4b-it-f16.gguf"));
+    }
+
     #[test]
     fn an_ambiguous_projector_is_left_alone() {
         // Two projectors in one folder means guessing; a wrong image tower is
         // worse than a model that is honestly text-only.
-        let src = tempfile::tempdir().unwrap();
-        std::fs::write(src.path().join("m.gguf"), b"weights").unwrap();
-        std::fs::write(src.path().join("mmproj-F16.gguf"), b"a").unwrap();
-        std::fs::write(src.path().join("mmproj-BF16.gguf"), b"b").unwrap();
-        assert!(find_projector_sibling(&src.path().join("m.gguf")).is_none());
-        // The exact-name convention still wins over the ambiguous pair.
-        std::fs::write(src.path().join("m.mmproj.gguf"), b"c").unwrap();
+        let dir = gguf_folder(&["m.gguf", "mmproj-F16.gguf", "mmproj-BF16.gguf"]);
+        assert_eq!(projector_of(&dir, "m.gguf"), None);
+        // Two that both carry the model's name are a choice just the same.
+        let dir = gguf_folder(&["m-Q4_K_M.gguf", "mmproj-m-f16.gguf", "mmproj-m-Q8_0.gguf"]);
+        assert_eq!(projector_of(&dir, "m-Q4_K_M.gguf"), None);
+        // One by name beats one that names nothing.
+        let dir = gguf_folder(&["m-Q4_K_M.gguf", "mmproj-m-f16.gguf", "mmproj-F16.gguf"]);
+        assert_eq!(projector_of(&dir, "m-Q4_K_M.gguf").as_deref(), Some("mmproj-m-f16.gguf"));
+        // And our own naming wins over all of them.
+        let dir = gguf_folder(&["m.gguf", "mmproj-F16.gguf", "mmproj-BF16.gguf", "mmproj-m-f16.gguf", "m.mmproj.gguf"]);
+        assert_eq!(projector_of(&dir, "m.gguf").as_deref(), Some("m.mmproj.gguf"));
+    }
+
+    #[test]
+    fn the_rule_reads_names_the_same_on_every_system() {
+        // No disk in this one: Windows hands over names in whatever case the
+        // user typed, and a case-sensitive disk can hold what Windows cannot.
+        let names = |list: &[&str]| list.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let folder = names(&["Model-Q4_K_M.GGUF", "MODEL-Q4_K_M.MMPROJ.GGUF", "other.gguf"]);
+        assert_eq!(pick_projector("Model-Q4_K_M.GGUF", &folder), Some("MODEL-Q4_K_M.MMPROJ.GGUF"));
+        assert_eq!(pick_projector("other.gguf", &folder), None);
+        // Two spellings of our own part can only exist on a case-sensitive
+        // disk, and then it is a choice again.
+        let twice = names(&["m.gguf", "m.mmproj.gguf", "M.MMPROJ.gguf"]);
+        assert_eq!(pick_projector("m.gguf", &twice), None);
+        // A Windows path goes in whole and the folder part does not matter
+        // to the name rule.
         assert_eq!(
-            find_projector_sibling(&src.path().join("m.gguf")),
-            Some(src.path().join("m.mmproj.gguf"))
+            mmproj_sibling_path("C:\\Models\\a.Gguf").to_string_lossy().replace('\\', "/").rsplit('/').next(),
+            Some("a.mmproj.gguf")
         );
+    }
+
+    #[test]
+    fn what_the_list_calls_seeing_is_what_the_start_passes_along() {
+        // One question, asked twice: the model list reports `vision`, the
+        // start puts --mmproj on the argv. Every folder shape above has to
+        // get the same answer from both, or the app shows a model as seeing
+        // that then starts blind (or the other way round).
+        for (folder, model) in [
+            (vec!["a-Q4_K_M.gguf", "a-Q4_K_M.mmproj.gguf"], "a-Q4_K_M.gguf"),
+            (vec!["a-Q4_K_M.gguf", "mmproj-F16.gguf"], "a-Q4_K_M.gguf"),
+            (vec!["a-Q4_K_M.gguf", "b-Q4_K_M.gguf", "mmproj-a-f16.gguf"], "a-Q4_K_M.gguf"),
+            (vec!["a-Q4_K_M.gguf", "b-Q4_K_M.gguf", "mmproj-a-f16.gguf"], "b-Q4_K_M.gguf"),
+            (vec!["a-Q4_K_M.gguf", "b-Q4_K_M.gguf", "mmproj-F16.gguf"], "a-Q4_K_M.gguf"),
+            (vec!["a-Q4_K_M.gguf", "mmproj-F16.gguf", "mmproj-BF16.gguf"], "a-Q4_K_M.gguf"),
+            (vec!["a-Q4_K_M.gguf"], "a-Q4_K_M.gguf"),
+        ] {
+            let dir = gguf_folder(&folder);
+            let path = dir.path().join(model).to_string_lossy().to_string();
+            let started_with = precheck_model_files(&path).unwrap();
+            assert_eq!(model_can_see_images(&path), started_with.is_some(), "{folder:?} {model}");
+            let args = build_server_args(&path, &EngineTuning::default(), 8127, None, started_with.as_deref(), None);
+            let on_argv = args.iter().position(|a| a == "--mmproj").map(|at| args[at + 1].clone());
+            assert_eq!(on_argv, existing_mmproj(&path), "{folder:?} {model}");
+        }
+    }
+
+    #[test]
+    fn a_hand_placed_projector_gets_the_same_header_check() {
+        // The net under the wider rule: a file picked up under its upstream
+        // name is read before anything is stopped, exactly like our own.
+        let dir = gguf_folder(&["a-Q4_K_M.gguf"]);
+        std::fs::write(dir.path().join("mmproj-a-f16.gguf"), b"<!DOCTYPE html>").unwrap();
+        let reason = precheck_model_files(&dir.path().join("a-Q4_K_M.gguf").to_string_lossy()).unwrap_err();
+        assert!(reason.starts_with("The vision file next to this model "), "{reason}");
+        assert!(reason.contains("mmproj-a-f16"), "{reason}");
     }
 
     #[test]
@@ -4584,6 +5290,10 @@ mod tests {
         assert!(is_projector_file("Qwen3.8-27B-UD-Q4_K_M.mmproj.gguf"));
         assert!(is_projector_file("mmproj-F16.gguf"));
         assert!(is_projector_file("mmproj-model-bf16.gguf"));
+        // upstream names that carry the model in front
+        assert!(is_projector_file("Qwen2-VL-7B-Instruct-abliterated.mmproj-fp16.gguf"));
+        assert!(is_projector_file("llava-llama-3-8b-v1_1-mmproj-f16.gguf"));
+        assert!(is_projector_file("X.MMPROJ.GGUF"));
         assert!(!is_projector_file("Qwen3.8-27B-UD-Q4_K_M.gguf"));
         assert!(!is_projector_file("Huihui-Qwen3.8-27B-abliterated-Q4_K.gguf"));
     }
@@ -4715,7 +5425,133 @@ mod tests {
             vram_bytes: vram,
             ctx,
             free,
+            image_part_bytes: 0,
         })
+    }
+
+    // ── The image part in the plan (October 2026) ───────────────────────────
+
+    /// Qwen 3.5 9B Q4_K_M and its F16 image part, as the catalog states them.
+    const NINE_B: u64 = 5_627_045_216;
+    const NINE_B_PART: u64 = 918_166_080;
+
+    fn plan_with_part(model: u64, part: u64, blocks: Option<u32>, vram: Option<u64>, ctx: u32) -> OffloadPlan {
+        plan_offload(&OffloadInputs {
+            model_bytes: model,
+            block_count: blocks,
+            vram_bytes: vram,
+            ctx,
+            free: true,
+            image_part_bytes: part,
+        })
+    }
+
+    #[test]
+    fn a_model_and_its_image_part_that_fit_are_loaded_whole_and_together() {
+        // The owner's test machine: a 9B with its part on a 12 GB card.
+        let p = plan_with_part(NINE_B, NINE_B_PART, Some(32), Some(CARD_12_GB), 8192);
+        assert_eq!(p.layers, None);
+        assert!(p.with_image_part);
+        assert!(p.why.contains("image part"), "{}", p.why);
+    }
+
+    #[test]
+    fn a_part_that_would_push_the_model_off_the_card_is_left_out_and_the_model_stays_whole() {
+        // The model with a 32k context needs about 9.9 GB and fits a card with
+        // 10.2 GB free. The part needs 0.9 GB more than that leaves.
+        let free = 10_400 * MIB;
+        let alone = plan_with_part(NINE_B, 0, Some(32), Some(free), 32768);
+        assert_eq!(alone.layers, None, "the model alone has to fit for this case: {}", alone.why);
+        let p = plan_with_part(NINE_B, NINE_B_PART, Some(32), Some(free), 32768);
+        // Every layer on the card, exactly as without a part: nothing moves to
+        // the processor because of the image part.
+        assert_eq!(p.layers, None);
+        assert!(!p.with_image_part);
+        assert!(p.why.contains("without image input"), "{}", p.why);
+        // A smaller context makes room again, which is what the note advises.
+        let smaller = plan_with_part(NINE_B, NINE_B_PART, Some(32), Some(free), 8192);
+        assert!(smaller.with_image_part);
+        assert_eq!(smaller.layers, None);
+    }
+
+    #[test]
+    fn a_model_larger_than_the_card_keeps_its_part_and_pays_for_it_in_layers() {
+        // A 27B at 16.5 GB on a 12 GB card is shared with the processor
+        // either way. The part stays and costs layers, it is not dropped.
+        let model = 17_716_740_096_u64;
+        let part = 927_607_488_u64;
+        let without = plan_with_part(model, 0, Some(64), Some(CARD_12_GB), 8192);
+        let with = plan_with_part(model, part, Some(64), Some(CARD_12_GB), 8192);
+        assert!(with.with_image_part);
+        let (a, b) = (without.layers.unwrap(), with.layers.unwrap());
+        assert!(b < a && b > 0, "the part costs layers and leaves some: {a} without, {b} with");
+        assert!(with.why.contains("set aside for the image part"), "{}", with.why);
+    }
+
+    #[test]
+    fn a_card_that_cannot_hold_the_part_at_all_loads_without_it() {
+        // 2 GB card, 512 MiB reserve: 1.5 GB of budget, and the part of the
+        // Qwen3-VL 8B is 1.1 GB. It "fits" the budget, so it stays.
+        let vl = plan_with_part(5_000_000_000, 1_159_030_336, Some(36), Some(CARD_2_GB), 8192);
+        assert!(vl.with_image_part);
+        // A 5.4 GB part (Mistral Medium 3.5) does not.
+        let big = plan_with_part(45_000_000_000, 5_356_846_528, Some(88), Some(CARD_2_GB), 8192);
+        assert!(!big.with_image_part);
+        assert!(big.why.contains("does not fit at all"), "{}", big.why);
+        assert!(big.layers.is_some());
+    }
+
+    #[test]
+    fn a_machine_nothing_measured_loads_the_part_as_before() {
+        let p = plan_with_part(NINE_B, NINE_B_PART, Some(32), None, 8192);
+        assert_eq!(p.layers, None);
+        assert!(p.with_image_part);
+    }
+
+    #[test]
+    fn a_model_without_a_part_plans_exactly_as_it_always_did() {
+        for (vram, ctx) in [(Some(CARD_2_GB), 4096), (Some(CARD_8_GB), 8192), (Some(CARD_12_GB), 32768), (None, 8192)] {
+            let a = plan(NINE_B, Some(32), vram, ctx);
+            assert!(a.with_image_part, "nothing to drop means nothing is dropped");
+            assert_eq!(a.layers, plan_with_part(NINE_B, 0, Some(32), vram, ctx).layers);
+        }
+    }
+
+    #[test]
+    fn a_death_on_the_image_part_is_told_from_a_death_on_the_model() {
+        // What llama.cpp prints when the part is the problem.
+        for line in [
+            "clip_init: failed to load model '/m/x.mmproj.gguf': load_hparams: unknown projector type: gemma9v",
+            "mtmd_init_from_file: error: Failed to load CLIP model from /m/x.mmproj.gguf",
+            "srv    load_model: failed to load multimodal model, '/m/x.mmproj.gguf'",
+        ] {
+            assert!(stderr_blames_the_image_part(line), "{line}");
+        }
+        // The part loaded fine and something else died afterwards.
+        let fine = "srv    load_model: loaded multimodal model, '/m/x.mmproj.gguf'\nggml_backend_cuda_buffer_type_alloc_buffer: allocating 9000.00 MiB on device 0: cudaMalloc failed: out of memory";
+        assert!(!stderr_blames_the_image_part(fine));
+        assert!(!stderr_blames_the_image_part("llama_model_load: error loading model: unknown model architecture: 'foo'"));
+        assert!(!stderr_blames_the_image_part(""));
+    }
+
+    #[test]
+    fn the_two_image_notes_are_english_sentences_that_name_what_happened() {
+        for note in [IMAGE_PART_NO_ROOM_NOTE, IMAGE_PART_REFUSED_NOTE] {
+            assert!(note.starts_with("Loaded without image input: "), "{note}");
+            assert!(note.is_ascii(), "{note}");
+            assert!(!note.contains(" - "), "{note}");
+        }
+        assert_ne!(IMAGE_PART_NO_ROOM_NOTE, IMAGE_PART_REFUSED_NOTE);
+        assert!(IMAGE_PART_NO_ROOM_NOTE.contains("smaller context"));
+    }
+
+    #[test]
+    fn the_image_part_of_a_running_engine_is_read_from_its_argv() {
+        let tuning = EngineTuning::default();
+        let with = build_server_args("/m/a.gguf", &tuning, 8127, None, Some("/m/a.mmproj.gguf"), None);
+        let without = build_server_args("/m/a.gguf", &tuning, 8127, None, None, None);
+        assert_eq!(image_part_in(&with), Some("/m/a.mmproj.gguf"));
+        assert_eq!(image_part_in(&without), None);
     }
 
     #[test]
@@ -5870,7 +6706,7 @@ mod tests {
 
     #[test]
     fn the_bundled_sidecar_name_is_ours_and_not_one_debian_already_owns() {
-        // GitHub #120 (AnnSdf1969, Ubuntu 26.04): Tauri's deb bundler copies
+        // GitHub #120 (Ubuntu 26.04): Tauri's deb bundler copies
         // every externalBin straight into /usr/bin, so the file name IS the
         // system path. Debian's own llama.cpp-tools package owns
         // /usr/bin/llama-server, and dpkg refused the entire LU install over
@@ -5956,7 +6792,7 @@ mod tests {
         // The exact shape a v2.6.6 fresh install produced: no active chat
         // model, so the LM Studio branch wrote the GGUF two levels down and
         // the flat scan reported an empty models folder while a 8 GB file sat
-        // right there (nayffy, 2026-08-27).
+        // right there (2026-08-27).
         let dir = std::env::temp_dir().join(format!("lu-engine-nested-{}", std::process::id()));
         let nested = dir.join("TheDrummer").join("Cydonia-24B-v4.1-GGUF");
         std::fs::create_dir_all(&nested).unwrap();
@@ -6368,6 +7204,7 @@ mod tests {
             auto_layers: false,
             cpu_fallback: false,
             sanity_note: None,
+            image_part_note: None,
         });
     }
 
@@ -6453,6 +7290,7 @@ mod tests {
             cpu_fallback: false,
             port,
             ctx: Some(8192),
+            image_part_note: None,
         };
 
         let zurueck = restore_engine(&binary, &state, &vorher, None);
@@ -6491,6 +7329,7 @@ mod tests {
             cpu_fallback: false,
             port: DEAD_PORT,
             ctx: Some(8192),
+            image_part_note: None,
         };
 
         assert!(!restore_engine(
@@ -6536,8 +7375,16 @@ mod tests {
         assert!(wechsel.contains("start_after_stop("));
         // Die gute Nachricht wird eingesetzt, nicht angehaengt. Ein
         // `format!("{msg}\n\n...")` schoebe sie wieder hinter das Protokoll.
+        let ausgang = src
+            .split("fn settle_switch(")
+            .nth(1)
+            .expect("the one exit of the switch is gone")
+            .split("\nfn ")
+            .next()
+            .unwrap();
+        assert!(wechsel.contains("settle_switch("), "the switch no longer ends in its one exit");
         assert!(
-            wechsel.contains("with_note_on_top(&msg, RESTORED_NOTE)"),
+            ausgang.contains("with_note_on_top(&msg, RESTORED_NOTE)"),
             "the good news is appended again instead of put on top"
         );
     }
@@ -6548,8 +7395,9 @@ mod tests {
         // the sanity probe (bug a) through `serve_or_heal_garbled`, but the
         // SECOND attempt (the one clean retry) used to hand back a bare
         // "started" object instead, a garbled answer on the retry was
-        // never caught or healed. `serve_or_heal_garbled(` must now appear
-        // twice in this function's body: once per attempt.
+        // never caught or healed. `serve_or_heal_garbled(` must appear once
+        // per way this function can come up: the first attempt, the clean
+        // retry, and (since October 2026) the retry without the image part.
         let src = include_str!("engine.rs");
         let body = src
             .split("fn start_after_stop(")
@@ -6559,7 +7407,7 @@ mod tests {
             .next()
             .unwrap();
         let count = body.matches("serve_or_heal_garbled(").count();
-        assert_eq!(count, 2, "expected the sanity probe on both attempts, found it {count} time(s)");
+        assert_eq!(count, 3, "expected the sanity probe on all three ways up, found it {count} time(s)");
     }
 
     #[test]
@@ -6616,6 +7464,7 @@ mod tests {
             auto_layers: false,
             cpu_fallback: false,
             sanity_note: None,
+            image_part_note: None,
         })
     }
 
@@ -7116,6 +7965,308 @@ mod tests {
         }
     }
 
+    // ── A stop that arrives while the model is still loading ──────────────
+    //
+    // The start holds ENGINE_START for the whole load, the stop does not wait
+    // for it: it takes the child out of the slot and kills it. The waiting
+    // start then found an empty slot and read that as "the engine died", and
+    // a death is what earns the second attempt, 1.5 s later, on the processor.
+    // The model somebody had just unloaded came back, slower, and stayed.
+
+    /// Stand in for the frontend: wait until the start has parked its child,
+    /// then stop the engine the way `stop_bundled_engine` does.
+    fn stop_once_loading(state: &Arc<AppState>) -> std::thread::JoinHandle<bool> {
+        let state = Arc::clone(state);
+        std::thread::spawn(move || {
+            let began = Instant::now();
+            while state.bundled_engine.lock().unwrap().is_none() {
+                assert!(began.elapsed() < Duration::from_secs(10), "the start never parked a child");
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            stop_engine_on_request(&state)
+        })
+    }
+
+    #[test]
+    fn a_stop_while_the_model_loads_is_not_read_as_a_death() {
+        let state = Arc::new(AppState::new());
+        let (binary, args) = long_lived_argv(30);
+        let stopper = stop_once_loading(&state);
+
+        let began = Instant::now();
+        let failure = spawn_engine_attempt(
+            &state,
+            &binary,
+            &args,
+            "/tmp/does-not-matter.gguf",
+            DEAD_PORT,
+            Some(8192),
+            AttemptFlags { auto_layers: true, cpu_fallback: false },
+            None,
+        )
+        .expect_err("nothing serves on that port, the attempt cannot have come up");
+        let took = began.elapsed();
+
+        assert!(stopper.join().unwrap(), "the stop found nothing to stop");
+        assert!(took < Duration::from_secs(10), "the stop was only noticed after {took:?}");
+        // `died` is the one thing `start_after_stop` asks before it starts the
+        // model a second time.
+        assert!(!failure.died, "a stop the user asked for was reported as a crash, so the start runs again");
+        assert!(stop_was_requested(&state), "the stop left no mark for the start to read");
+        assert!(state.bundled_engine.lock().unwrap().is_none(), "the stopped engine is back in the slot");
+    }
+
+    #[test]
+    fn an_emptied_slot_is_a_stop_only_when_somebody_asked_for_one() {
+        // Negative control. The sidecar watch and every status read clear the
+        // slot too, for a child that died by itself, and THAT must stay a
+        // death: it is the crash the second attempt exists for.
+        let state = AppState::new();
+        assert_eq!(
+            wait_for_health_or_exit(&state, DEAD_PORT, Duration::from_secs(5)),
+            HealthWait::ChildExited { code: None, signal: None }
+        );
+        assert!(!stop_engine_on_request(&state), "there was nothing to stop");
+        assert_eq!(wait_for_health_or_exit(&state, DEAD_PORT, Duration::from_secs(5)), HealthWait::Stopped);
+    }
+
+    #[test]
+    fn nothing_is_started_after_a_stop_that_found_the_slot_empty() {
+        // The window between two attempts: the first child is reaped, the
+        // start sleeps its 1.5 s settle, and the stop arrives. It has nothing
+        // to kill and answers "idle", and the retry used to start the model
+        // right behind it.
+        let state = AppState::new();
+        assert!(!stop_engine_on_request(&state));
+        let (binary, args) = long_lived_argv(30);
+
+        let began = Instant::now();
+        let failure = spawn_engine_attempt(
+            &state,
+            &binary,
+            &args,
+            "/tmp/does-not-matter.gguf",
+            DEAD_PORT,
+            Some(8192),
+            AttemptFlags { auto_layers: false, cpu_fallback: true },
+            None,
+        )
+        .expect_err("an attempt ran after the engine was stopped");
+
+        assert!(!failure.died);
+        assert!(began.elapsed() < Duration::from_secs(2), "the attempt waited on a child it should never have spawned");
+        assert!(state.bundled_engine.lock().unwrap().is_none(), "a child was parked after the stop");
+    }
+
+    #[test]
+    fn a_stopped_start_answers_without_claiming_an_engine() {
+        let answer = stopped_answer(8127, "/models/hermes.gguf");
+        assert_eq!(answer["status"], "stopped");
+        assert_eq!(answer["port"], 8127);
+        assert_eq!(answer["model_path"], "/models/hermes.gguf");
+        // Nothing a caller could mistake for the processor fallback this used
+        // to end in.
+        assert!(answer.get("cpuOnly").is_none() && answer.get("retried").is_none(), "{answer}");
+    }
+
+    #[test]
+    fn a_stop_at_any_moment_of_the_attempt_ends_it_without_a_death() {
+        // The first test waits until the child is parked. A real stop does not
+        // wait for anything, so this one lets it land wherever it lands:
+        // before the spawn, between the spawn and the slot, during the wait.
+        // Whichever window it hits, the attempt must end at once, must not
+        // report a death, and must leave nothing in the slot.
+        for delay_ms in [0u64, 1, 2, 3, 5, 8, 12, 20, 35, 60, 100, 250] {
+            let state = Arc::new(AppState::new());
+            let (binary, args) = long_lived_argv(30);
+            let stopper = {
+                let state = Arc::clone(&state);
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(delay_ms));
+                    stop_engine_on_request(&state)
+                })
+            };
+
+            let began = Instant::now();
+            let failure = spawn_engine_attempt(
+                &state,
+                &binary,
+                &args,
+                "/tmp/does-not-matter.gguf",
+                DEAD_PORT,
+                Some(8192),
+                AttemptFlags { auto_layers: true, cpu_fallback: false },
+                None,
+            )
+            .expect_err("nothing serves on that port, the attempt cannot have come up");
+            let took = began.elapsed();
+            stopper.join().unwrap();
+
+            assert!(!failure.died, "a stop {delay_ms} ms into the attempt was reported as a crash");
+            assert!(took < Duration::from_secs(10), "a stop {delay_ms} ms into the attempt was only noticed after {took:?}");
+            assert!(
+                state.bundled_engine.lock().unwrap().is_none(),
+                "a stop {delay_ms} ms into the attempt left a child in the slot"
+            );
+        }
+    }
+
+    #[test]
+    fn the_end_of_the_app_while_the_model_loads_is_a_stop_too() {
+        // `shutdown_subprocesses` kills the child itself instead of going
+        // through `stop_engine_on_request`, so it has to leave the same mark.
+        let state = Arc::new(AppState::new());
+        let (binary, args) = long_lived_argv(30);
+        let closer = {
+            let state = Arc::clone(&state);
+            std::thread::spawn(move || {
+                let began = Instant::now();
+                while state.bundled_engine.lock().unwrap().is_none() {
+                    assert!(began.elapsed() < Duration::from_secs(10), "the start never parked a child");
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                state.shutdown_subprocesses();
+            })
+        };
+
+        let failure = spawn_engine_attempt(
+            &state,
+            &binary,
+            &args,
+            "/tmp/does-not-matter.gguf",
+            DEAD_PORT,
+            Some(8192),
+            AttemptFlags { auto_layers: true, cpu_fallback: false },
+            None,
+        )
+        .expect_err("nothing serves on that port, the attempt cannot have come up");
+        closer.join().unwrap();
+
+        assert!(!failure.died, "the end of the app was reported as a crash, so the start runs again");
+        assert!(state.bundled_engine.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn a_child_that_dies_by_itself_is_still_a_death_after_the_fix() {
+        // Negative control on the whole attempt: the crash the second attempt
+        // exists for must keep earning it.
+        let state = AppState::new();
+        let (binary, args) = long_lived_argv(0);
+        let failure = spawn_engine_attempt(
+            &state,
+            &binary,
+            &args,
+            "/tmp/does-not-matter.gguf",
+            DEAD_PORT,
+            Some(8192),
+            AttemptFlags { auto_layers: true, cpu_fallback: false },
+            None,
+        )
+        .expect_err("nothing serves on that port, the attempt cannot have come up");
+        assert!(failure.died, "a child that exited by itself is no longer a death, so a real crash gets no retry");
+        assert!(!stop_was_requested(&state));
+    }
+
+    #[test]
+    fn settle_switch_answers_stopped_and_brings_nothing_back_after_a_stop() {
+        // The start failed BECAUSE it was stopped. An error here is what the
+        // resume loop and the context raise answer with another start.
+        let state = AppState::new();
+        stop_engine_on_request(&state);
+        let restores = std::cell::Cell::new(0);
+        let answer = settle_switch(&state, 8127, "/models/hermes.gguf", Err(STOPPED_WHILE_LOADING.into()), || {
+            restores.set(restores.get() + 1);
+            true
+        })
+        .expect("a stop the user asked for was reported as a failed start");
+        assert_eq!(answer["status"], "stopped");
+        assert_eq!(restores.get(), 0, "the previous model was started again after the user stopped the engine");
+
+        // The start came up and the stop landed right behind it. Whatever the
+        // start had to say describes an engine that is gone.
+        let mut served = started_answer(8127, "/models/hermes.gguf", Some(8192));
+        served["cpuOnly"] = serde_json::json!(true);
+        let answer = settle_switch(&state, 8127, "/models/hermes.gguf", Ok(served), || unreachable!()).unwrap();
+        assert_eq!(answer["status"], "stopped");
+        assert!(answer.get("cpuOnly").is_none(), "{answer}");
+    }
+
+    #[test]
+    fn settle_switch_reads_a_stop_that_arrives_while_the_previous_model_comes_back() {
+        let state = AppState::new();
+        let answer = settle_switch(&state, 8127, "/models/hermes.gguf", Err("it broke".into()), || {
+            stop_engine_on_request(&state);
+            false
+        })
+        .expect("the stop that cut the restore short was reported as a failed start");
+        assert_eq!(answer["status"], "stopped");
+    }
+
+    #[test]
+    fn settle_switch_without_a_stop_is_the_switch_it_always_was() {
+        // Negative control: a start that fails for a reason of its own still
+        // brings the previous model back and still says so on top.
+        let state = AppState::new();
+        let served = started_answer(8127, "/models/hermes.gguf", Some(8192));
+        assert_eq!(
+            settle_switch(&state, 8127, "/models/hermes.gguf", Ok(served.clone()), || unreachable!()),
+            Ok(served)
+        );
+        let restored = settle_switch(&state, 8127, "/models/hermes.gguf", Err("it broke".into()), || true).unwrap_err();
+        assert!(restored.contains(RESTORED_NOTE) && restored.contains("it broke"), "{restored}");
+        assert_eq!(
+            settle_switch(&state, 8127, "/models/hermes.gguf", Err("it broke".into()), || false),
+            Err("it broke".to_string())
+        );
+    }
+
+    #[test]
+    fn a_stopped_start_neither_retries_nor_brings_the_previous_model_back() {
+        // Source anchors, in the manner of `every_failed_switch_runs_through_
+        // the_fallback`: the two functions below need an AppHandle and cannot
+        // be run here, so the order of their exits is pinned instead.
+        let src = include_str!("engine.rs");
+        let body_of = |name: &str| {
+            src.split(name).nth(1).expect("the function is gone").split("\nfn ").next().unwrap().to_string()
+        };
+
+        let start = body_of("fn start_after_stop(");
+        let asked = start.find("if stop_was_requested(state) {").expect("start_after_stop no longer asks whether it was stopped");
+        for later in ["if !failure.died {", "retrying without it", "retrying once", "the retry drops GPU offload"] {
+            let at = start.find(later).unwrap_or_else(|| panic!("`{later}` is gone from start_after_stop"));
+            assert!(asked < at, "the stop is asked about after `{later}`");
+        }
+
+        let switch = body_of("fn start_bundled_engine_blocking(");
+        let cleared = switch.find("engine_stop_requested.store(false").expect("a start no longer clears an old stop");
+        let gate = switch.find("start_gate(").expect("the start gate is gone");
+        let first_stop = switch.find("stop_engine_locked(state);").expect("no stop");
+        assert!(gate < cleared && cleared < first_stop, "an old stop is not cleared under the gate, before the work begins");
+        // Whether the previous model comes back is decided in one place, and
+        // `settle_switch_*` below run that place.
+        let handed_over = switch.find("settle_switch(").expect("the switch no longer ends in settle_switch");
+        assert!(
+            handed_over < switch.find("restore_engine(").unwrap(),
+            "the previous model is brought back outside settle_switch, where no stop is asked about"
+        );
+
+        // The restart of the sanity probe puts the first engine back when it
+        // does not come up. Not after a stop.
+        let heal = body_of("fn serve_or_heal_garbled(");
+        let asked = heal.find("if stop_was_requested(state) {").expect("the sanity restart no longer asks whether it was stopped");
+        let back = heal.find("bringing the first LU Engine back").expect("the sanity restart no longer puts the first engine back");
+        assert!(asked < back, "the first engine is put back before the stop is asked about");
+
+        // The requests from outside set the mark, the start's own stops do not.
+        let command = body_of("pub async fn stop_bundled_engine(");
+        assert!(command.contains("stop_engine_on_request(&state)"), "the frontend's stop no longer says that it is one");
+        let cloud = include_str!("process.rs");
+        assert!(cloud.contains("commands::engine::stop_engine_on_request(state)"), "the switch into Cloud no longer says that it is a stop");
+        for own in ["fn start_after_stop(", "fn serve_or_heal_garbled(", "fn spawn_engine_attempt("] {
+            assert!(!body_of(own).contains("stop_engine_on_request("), "`{own}` marks its own stop as a request");
+        }
+    }
+
     #[test]
     fn an_illegal_instruction_exit_code_is_recognised_and_nothing_else_is() {
         // K1: -1073741795 is 0xC000001D (STATUS_ILLEGAL_INSTRUCTION)
@@ -7476,7 +8627,7 @@ srv    llama_server: exiting due to model loading error";
     /// `gguf_init_from_reader`: sie traegt den Namen der lesenden Routine, die
     /// alte Marke suchte nach der Huelle `gguf_init_from_file` darum herum.
     const KAPUTTE_VERSION_STDERR: &str = r#"0.00.262.272 E gguf_init_from_reader: failed to read header
-0.00.262.420 E llama_model_load: error loading model: llama_model_loader: failed to load model from C:\Users\ddrob\AppData\Roaming\Locally Uncensored\models\P5-Kaputt-Test-Q4_K_M.gguf
+0.00.262.420 E llama_model_load: error loading model: llama_model_loader: failed to load model from C:\Users\alice\AppData\Roaming\Locally Uncensored\models\P5-Kaputt-Test-Q4_K_M.gguf
 0.00.262.483 E llama_model_load_from_file_impl: failed to load model
 0.00.262.556 E common_fit_params: encountered an error while trying to fit params to free device memory: failed to load model
 0.00.262.723 E gguf_init_from_reader: this GGUF file is version 684680038 but this software only supports up to version 3
@@ -7974,6 +9125,111 @@ srv    llama_server: exiting due to model loading error";
         assert!(dupe.unwrap_err().contains("already exists"));
         let missing = import_model_file(&store.path().join("nope"), dest.path(), "x");
         assert!(missing.unwrap_err().contains("not found"));
+    }
+}
+
+#[cfg(test)]
+mod orphaned_sidecar_tests {
+    use super::*;
+
+    fn row(pid: u32, parent: Option<u32>, exe: &str) -> ProcRow {
+        ProcRow { pid, parent, exe: Some(PathBuf::from(exe)) }
+    }
+
+    const OURS: &str = "/Applications/LU.app/Contents/MacOS/lu-llama-server";
+
+    /// Fehlerkontrolle Mac 2, Fund 9: only a sidecar of ours whose app is gone.
+    #[test]
+    fn only_our_own_binary_under_launchd_counts_as_orphaned() {
+        let rows = vec![
+            row(100, Some(1), OURS),                                   // the orphan
+            row(101, Some(4242), OURS),                                // a running app's sidecar
+            row(102, Some(1), "/opt/homebrew/bin/llama-server"),       // the user's own
+            row(103, Some(1), "/Users/x/dev/lu/src-tauri/bin/lu-llama-server-aarch64-apple-darwin"),
+            row(104, None, OURS),                                      // parent unknown: not proven
+            ProcRow { pid: 105, parent: Some(1), exe: None },          // unreadable: not proven
+        ];
+        assert_eq!(orphaned_sidecars(&rows, Path::new(OURS)), vec![100]);
+        assert!(orphaned_sidecars(&[], Path::new(OURS)).is_empty());
+    }
+
+    /// Against real processes, on the one platform the sweep runs on. Linux
+    /// hands an orphan to the nearest subreaper (often `systemd --user`), not
+    /// to pid 1, so the same test there would measure the session manager.
+    #[cfg(target_os = "macos")]
+    mod real {
+        use super::*;
+        use std::process::{Command, Stdio};
+
+        /// A stand-in sidecar: the compiled `park` under the sidecar's name, in a
+        /// folder of its own so no real sidecar on this machine can match it.
+        fn stand_in(dir: &Path) -> PathBuf {
+            let path = dir.join(sidecar_binary_name());
+            std::fs::copy(crate::test_support::park_binary(), &path).expect("copy park");
+            path
+        }
+
+        /// Start `binary` so that its parent exits at once and the kernel hands
+        /// it to pid 1, which is what a crashed app leaves behind. It reads from a
+        /// fifo it holds open itself, so it lives until it is killed.
+        fn spawn_orphan(binary: &Path, dir: &Path) -> u32 {
+            let fifo = dir.join("stdin.fifo");
+            let out = Command::new("sh")
+                .arg("-c")
+                .arg(r#"mkfifo "$1"; exec 3<>"$1"; "$0" <&3 >/dev/null 2>&1 & echo $!"#)
+                .arg(binary)
+                .arg(&fifo)
+                .stdin(Stdio::null())
+                .stderr(Stdio::null())
+                .output()
+                .expect("sh ran");
+            String::from_utf8_lossy(&out.stdout).trim().parse().expect("a pid")
+        }
+
+        fn wait_until(what: impl Fn() -> bool) -> bool {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+            while std::time::Instant::now() < deadline {
+                if what() {
+                    return true;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            what()
+        }
+
+        /// The whole way against real processes: an orphan and a child that still
+        /// has its parent run the same file; the sweep ends the first and leaves
+        /// the second alone.
+        #[test]
+        fn the_sweep_ends_a_real_orphan_and_spares_a_child_with_a_living_parent() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let binary = stand_in(dir.path());
+
+            let orphan = spawn_orphan(&binary, dir.path());
+            let mut kept = Command::new(&binary)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .spawn()
+                .expect("spawn the child with a living parent");
+
+            // The subshell has to be gone before the orphan shows pid 1 as parent.
+            let seen = wait_until(|| orphaned_sidecars(&process_rows(), &binary).contains(&orphan));
+            let ended = if seen { reap_orphaned_sidecars_of(&binary) } else { Vec::new() };
+            let gone = seen && wait_until(|| !crate::test_support::is_alive(orphan));
+            let kept_alive = crate::test_support::is_alive(kept.id());
+
+            // Clean up before any assertion can leave a process behind.
+            unsafe {
+                libc::kill(orphan as i32, libc::SIGKILL);
+            }
+            let _ = kept.kill();
+            let _ = kept.wait();
+
+            assert!(seen, "the orphan {orphan} was never seen as a child of pid 1");
+            assert_eq!(ended, vec![orphan], "exactly the orphan is ended, never the child of a living parent");
+            assert!(gone, "the orphan {orphan} survived the sweep");
+            assert!(kept_alive, "the sweep killed a sidecar whose app is still running");
+        }
     }
 }
 

@@ -5,7 +5,9 @@ mod app_identity;
 mod cancel_registry;
 mod commands;
 mod crash_report;
+mod finder_path;
 mod install_state;
+mod media_store;
 // Assembles the mobile client page from mobile-client/ — the same code
 // build.rs runs, compiled in again here so `cargo test` can re-derive the
 // page and compare it with the embedded one. Nothing at runtime needs it:
@@ -15,6 +17,7 @@ mod mobile_page;
 mod onboarding_window;
 mod os_error;
 mod os_paths;
+mod private_python;
 mod private_tmp;
 mod process_util;
 mod python;
@@ -82,7 +85,7 @@ pub(crate) struct LinuxSession {
     pub(crate) shadow_bundled_wayland: Option<String>,
 }
 
-/// Bug D (v2.4.5, emilmjt Discord 2026-05-11) and Bug g (mallic Discord
+/// Bug D (v2.4.5, Discord 2026-05-11) and Bug g (Discord
 /// 2026-09-04): what to set before the webview exists.
 ///
 /// Bug D was a window that opened and never painted, on Arch and Wayland, and
@@ -94,7 +97,7 @@ pub(crate) struct LinuxSession {
 /// fast buffer-sharing path, and Tauri's own page says not to ship it
 /// unconditionally (https://v2.tauri.app/develop/debug/linux-graphics/).
 ///
-/// Bug g is the harder one and the reason the third variable is here. mallic
+/// Bug g is the harder one and the reason the third variable is here. A user
 /// ran 2.6.7, which already set both WEBKIT_ variables, and still got no
 /// window at all under Wayland on CachyOS. "No window" is a different symptom
 /// from "a window that will not paint", and it has a different known cause:
@@ -190,7 +193,7 @@ fn apply_linux_webview_env() {
 /// Bug g, the other half: what the console says when the window never came.
 ///
 /// The force-show fallback in `onboarding_window` fires when the frontend
-/// never asked for its window, which on Linux is the same event mallic
+/// never asked for its window, which on Linux is the same event a user
 /// reported: the process is up, the taskbar has an entry, there is nothing on
 /// screen. 2.6.7 said nothing at all in that moment. The reporter's own
 /// workaround is in here, plus the one thing that separates the two known
@@ -251,6 +254,50 @@ const HIDE_OFFLOAD_GRACE: std::time::Duration = std::time::Duration::from_secs(3
 /// decision is. See `tests::hidden_offload_*`.
 fn should_offload_after_hide(visible_now: bool, hide_generation: u64, current_generation: u64) -> bool {
     !visible_now && hide_generation == current_generation
+}
+
+/// Does a click on the Dock icon have to bring a window back?
+///
+/// Fehlerkontrolle Mac 2, Fund 1: the red traffic light hides the window
+/// (`CloseRequested` below) and the app stays in the Dock. A click on the Dock
+/// icon, or Cmd+Tab to the app, is the way every Mac user gets a window back,
+/// and macOS reports it as `RunEvent::Reopen`. Nobody handled it, so the app
+/// sat in the Dock without a window and looked hung; the only way back was the
+/// "Show" item of the menu bar icon.
+///
+/// With a window on screen macOS already does the right thing by itself
+/// (it activates the app and raises that window), so only the case without
+/// one is ours. During the onboarding the small onboarding window is the
+/// visible one and the hidden main window must stay hidden; that case arrives
+/// here as `true` and is left alone.
+#[cfg(any(target_os = "macos", test))]
+fn reopen_needs_a_window(has_visible_windows: bool) -> bool {
+    !has_visible_windows
+}
+
+/// A menu bar template image out of the app icon.
+///
+/// Fehlerkontrolle Mac 2, Fund 11. macOS draws a template image from its
+/// alpha channel alone and colours it itself: black on a light menu bar,
+/// white on a dark one, dimmed on an inactive display. The app icon is white
+/// lettering on an opaque black plate, so used as it is the menu bar showed a
+/// black tile that no other menu bar item looks like, and marking that same
+/// picture as a template would have drawn the whole plate as one solid
+/// square. The lettering is what has to stay: brightness becomes opacity, the
+/// plate falls away, the colour is left to the system.
+///
+/// `PLATE_FLOOR` cuts the near-black of the plate and its antialiased edge to
+/// nothing, so no faint square remains around the letters.
+#[cfg(any(target_os = "macos", test))]
+fn menu_bar_template_rgba(rgba: &[u8]) -> Vec<u8> {
+    const PLATE_FLOOR: u32 = 48;
+    let mut out = Vec::with_capacity(rgba.len());
+    for px in rgba.as_chunks::<4>().0 {
+        let brightness = (px[0] as u32 + px[1] as u32 + px[2] as u32) / 3;
+        let alpha = if brightness < PLATE_FLOOR { 0 } else { px[3] as u32 * brightness / 255 };
+        out.extend_from_slice(&[0, 0, 0, alpha as u8]);
+    }
+    out
 }
 
 /// How many rotated log files survive. The appender prunes on every
@@ -436,6 +483,9 @@ fn main() {
         }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Only the stop shortcut of computer use, registered from Rust while a
+        // session runs. The interface gets no permission for this plugin.
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(app_state)
         .manage(commands::oauth::OauthPending::default())
         .invoke_handler(tauri::generate_handler![
@@ -476,6 +526,7 @@ fn main() {
             commands::install::start_lmstudio_server,
             commands::install::lmstudio_server_status,
             commands::install::lmstudio_list_loaded,
+            commands::install::lmstudio_cancel_load,
             commands::install::lmstudio_load_model,
             commands::install::lmstudio_model_context,
             commands::install::lmstudio_unload_model,
@@ -527,6 +578,8 @@ fn main() {
             commands::filesystem::save_text_file_dialog,
             commands::filesystem::save_binary_file_dialog,
             commands::filesystem::validate_workspace_folder,
+            commands::filesystem::fs_whole_computer,
+            commands::filesystem::fs_whole_computer_forget,
             // System
             commands::system::system_info,
             commands::system::process_list,
@@ -539,6 +592,8 @@ fn main() {
             commands::chat_attachments::write_chat_attachment,
             commands::chat_attachments::read_chat_attachment,
             commands::chat_attachments::save_chat_attachment_dialog,
+            commands::cloud_file::save_cloud_file_dialog,
+            commands::cloud_file::cancel_cloud_file,
             commands::chat_attachments::export_chats_dialog,
             commands::chat_attachments::import_chats_dialog,
             commands::model_sniff::sniff_model_files,
@@ -547,6 +602,7 @@ fn main() {
             commands::system::backup_rag_chunks,
             commands::system::restore_rag_chunks,
             commands::system::exit_app,
+            commands::system::restart_after_update,
             // Who owns this copy of LU (the updater plugin never asks)
             commands::install_method_cmd::install_method,
             commands::self_migrate_cmd::self_migrate_stage,
@@ -562,6 +618,7 @@ fn main() {
             commands::download::check_download_space,
             commands::download::find_orphan_downloads,
             commands::download::delete_orphan_download,
+            commands::download::remove_image_part,
             commands::download::resume_download,
             commands::download::set_download_limit,
             commands::download::detect_model_path,
@@ -590,11 +647,18 @@ fn main() {
             commands::media_cmds::mlx_start,
             commands::media_cmds::mlx_unload,
             commands::media_cmds::mlx_generate,
+            commands::media_cmds::mlx_generate_progress,
+            commands::media_cmds::mlx_generate_cancel,
+            commands::media_cmds::mlx_loras,
+            commands::media_cmds::mlx_loras_open_folder,
+            commands::media_cmds::mlx_lora_delete,
+            commands::media_cmds::mlx_output_trash,
             commands::media_cmds::mlx_image_models,
             commands::media_cmds::set_hf_token,
             commands::media_cmds::hf_token_present,
             commands::media_cmds::mlx_image_install_model,
             commands::media_cmds::mlx_image_install_status,
+            commands::media_cmds::mlx_image_cancel_install,
             commands::media_cmds::mlx_image_delete_model,
             commands::media_cmds::install_mlx_diffusion,
             commands::media_cmds::install_mlx_diffusion_status,
@@ -604,11 +668,47 @@ fn main() {
             commands::media_cmds::video_install_mlx_status,
             commands::media_cmds::video_install_model,
             commands::media_cmds::video_install_model_status,
+            commands::media_cmds::video_cancel_model_install,
             commands::media_cmds::video_delete_model,
             commands::media_cmds::video_generate,
             commands::media_cmds::video_progress,
             commands::media_cmds::video_cancel,
             commands::media_cmds::read_media_file,
+            commands::media_cmds::video_stage_start_image,
+            // Astra voice loop: in-app setup and sidecar lifecycle.
+            commands::voice_loop::voice_loop_requirements,
+            commands::voice_loop::voice_loop_install,
+            commands::voice_loop::voice_loop_install_status,
+            commands::voice_loop::voice_loop_install_cancel,
+            commands::voice_loop::voice_loop_status,
+            commands::voice_loop::voice_loop_start,
+            commands::voice_loop::voice_loop_set_voice,
+            commands::voice_loop::voice_loop_stop,
+            commands::voice_loop::voice_loop_uninstall,
+            // Astra computer use
+            commands::computer::computer_status,
+            commands::computer::computer_permissions,
+            commands::computer::computer_permission_request,
+            commands::computer::computer_permission_reset,
+            commands::computer::computer_session_begin,
+            commands::computer::computer_chat_ask,
+            commands::computer::computer_chat_answer,
+            commands::computer::computer_session_allow_app,
+            commands::computer::computer_session_revoke_app,
+            commands::computer::computer_session_set_autonomous,
+            commands::computer::computer_session_end,
+            commands::computer::computer_stop,
+            commands::computer::computer_request_attention,
+            commands::computer::computer_pause,
+            commands::computer::computer_takeover_answer,
+            commands::computer::computer_watch,
+            commands::computer::computer_surface,
+            commands::computer::computer_surface_corner,
+            commands::computer::computer_guard,
+            commands::computer::computer_windows,
+            commands::computer::computer_screen,
+            commands::computer::computer_action,
+            commands::computer::computer_tree,
             // Provider API-key keychain (H5)
             commands::secret::secret_set,
             commands::secret::secret_get,
@@ -662,14 +762,14 @@ fn main() {
             commands::waitlist::waitlist_submit,
             // The Cloud switch counts its presses anonymously (funnel.rs)
             commands::funnel::funnel_ping,
-            // B7 (uselu Phase 4 inspiration) — one-shot diagnostic probe
+            // B7 (the web app Phase 4 inspiration) — one-shot diagnostic probe
             commands::health::system_health,
             // Audit #01 — the app log file: the frontend mirrors its warn /
             // error lines into it, Settings shows and opens it.
             commands::logging::log_write,
             commands::logging::log_file_path,
             commands::logging::log_reveal,
-            // Bug BB v2.5.0 — BobbyT GPU picker
+            // Bug BB v2.5.0 — a user GPU picker
             commands::gpu::detect_gpus,
             commands::gpu::set_gpu_selection,
             commands::gpu::get_gpu_selection,
@@ -693,6 +793,12 @@ fn main() {
             // inspector now opens in `onboarding_window::reveal`, on
             // whichever window is actually shown, so a debug build behaves
             // like the shipped one.
+
+            // The models an earlier Mac build left under ~/Library/Caches
+            // move to the app's data folder. Here, before a window exists
+            // and before a command can read a model folder: it is a rename,
+            // and it does nothing on a Mac that has nothing to move.
+            media_store::settle_at_start(&app.state::<AppState>());
 
             // Remove Windows DWM shadow/border (the 1mm border around the window)
             #[cfg(target_os = "windows")]
@@ -746,9 +852,21 @@ fn main() {
                 .or_else(|_| Image::from_path("icons/32x32.png"))
                 .unwrap_or_else(|_| Image::from_bytes(include_bytes!("../icons/32x32.png")).expect("embedded icon"));
 
-            TrayIconBuilder::new()
+            // On a Mac the menu bar gets a template image (see
+            // `menu_bar_template_rgba`), built from the embedded icon so it
+            // does not depend on the working directory of a bundled app.
+            #[cfg(target_os = "macos")]
+            let tray_icon = {
+                let source = Image::from_bytes(include_bytes!("../icons/128x128.png")).expect("embedded icon");
+                let _ = tray_icon;
+                Image::new_owned(menu_bar_template_rgba(source.rgba()), source.width(), source.height())
+            };
+            let tray = TrayIconBuilder::new()
                 .icon(tray_icon)
-                .tooltip("LU")
+                .tooltip("LU");
+            #[cfg(target_os = "macos")]
+            let tray = tray.icon_as_template(true);
+            tray
                 .menu(&menu)
                 .on_menu_event(|app, event| {
                     match event.id().as_ref() {
@@ -757,7 +875,7 @@ fn main() {
                             // Tauri's AppState Drop doesn't fire reliably on
                             // Windows after `app.exit(0)` — run the explicit
                             // subprocess shutdown here so tray Quit doesn't
-                            // leak Ollama / ComfyUI (kj103x V/b, v2.4.9).
+                            // leak Ollama / ComfyUI (a user V/b, v2.4.9).
                             let state = app.state::<AppState>();
                             state.shutdown_subprocesses();
                             app.exit(0);
@@ -834,6 +952,15 @@ fn main() {
             {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
+                    // A crash or a Force Quit of the last run leaves its
+                    // llama-server behind on a Mac, with the model loaded.
+                    // Nothing has started a sidecar of this run yet.
+                    #[cfg(target_os = "macos")]
+                    commands::engine::reap_orphaned_sidecars(&handle);
+                    // And the image generation of the second engine, which is
+                    // a process of its own with a whole pack in memory.
+                    #[cfg(target_os = "macos")]
+                    commands::mlx::reap_orphaned_mflux();
                     let state = handle.state::<AppState>();
                     commands::process::auto_start_ollama(&state);
                     commands::process::auto_start_comfyui(&state);
@@ -858,12 +985,74 @@ fn main() {
                     state.shutdown_subprocesses();
                 }
             }
+            // A click on the Dock icon while the window is hidden. Same call
+            // as the menu bar's "Show": the window is shown again, and that is
+            // also what takes back the unload after the hide. Inside
+            // HIDE_OFFLOAD_GRACE the timer finds the window visible and does
+            // nothing (`should_offload_after_hide`); after it, the backends
+            // start again on first use, exactly as after "Show".
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { has_visible_windows, .. } = event {
+                if reopen_needs_a_window(has_visible_windows) {
+                    onboarding_window::bring_to_front(app);
+                }
+            }
         });
 }
 
 #[cfg(test)]
 mod tests {
     use super::{is_wayland_session, linux_no_window_hint, linux_webview_env, shadow_bundled_wayland, LinuxSession, WAYLAND_OPT_OUT};
+
+    /// Fehlerkontrolle Mac 2, Fund 1: the Dock click with no window on screen
+    /// brings one back, and one that is already there is left to macOS.
+    #[test]
+    fn a_dock_click_without_a_window_brings_one_back() {
+        assert!(super::reopen_needs_a_window(false));
+        assert!(!super::reopen_needs_a_window(true));
+    }
+
+    /// The rule above is worth nothing unless the run loop asks it, and the
+    /// way back is the one "Show" takes.
+    #[test]
+    fn the_run_loop_answers_the_dock_click_the_way_show_does() {
+        let src = include_str!("main.rs");
+        let event = ["RunEvent::", "Reopen { has_visible_windows"].concat();
+        let at = src.find(&event).expect("the run loop does not handle the Dock click");
+        let handler = &src[at..at + 400];
+        assert!(handler.contains("reopen_needs_a_window(has_visible_windows)"), "{handler}");
+        assert!(handler.contains("onboarding_window::bring_to_front(app)"), "{handler}");
+    }
+
+    /// Fehlerkontrolle Mac 2, Fund 11: the letters stay, the plate goes, and
+    /// no colour of ours is left for the menu bar to show.
+    #[test]
+    fn the_menu_bar_image_keeps_the_letters_and_drops_the_plate() {
+        let white = [255, 255, 255, 255];
+        let plate = [0, 0, 0, 255];
+        let plate_edge = [20, 20, 20, 255];
+        let outside = [0, 0, 0, 0];
+        let half_white = [255, 255, 255, 128];
+        let px: Vec<u8> = [white, plate, plate_edge, outside, half_white].concat();
+        let out = super::menu_bar_template_rgba(&px);
+        let alpha: Vec<u8> = out.as_chunks::<4>().0.iter().map(|p| p[3]).collect();
+        assert_eq!(alpha, vec![255, 0, 0, 0, 128]);
+        assert!(out.as_chunks::<4>().0.iter().all(|p| p[..3] == [0, 0, 0]), "a template carries no colour");
+    }
+
+    /// The real icon: a template of it has both clear and solid parts. An
+    /// image that came out all solid would be the black square again, one
+    /// that came out empty would be an invisible menu bar item.
+    #[test]
+    fn the_embedded_icon_makes_a_usable_template() {
+        let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png")).expect("embedded icon");
+        let out = super::menu_bar_template_rgba(icon.rgba());
+        let total = out.len() / 4;
+        let solid = out.as_chunks::<4>().0.iter().filter(|p| p[3] > 200).count();
+        let clear = out.as_chunks::<4>().0.iter().filter(|p| p[3] == 0).count();
+        assert!(solid * 20 > total, "only {solid} of {total} pixels are drawn");
+        assert!(clear * 2 > total, "only {clear} of {total} pixels are clear, the plate is still there");
+    }
 
     const DMABUF: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
     const COMPOSITING: &str = "WEBKIT_DISABLE_COMPOSITING_MODE";
@@ -916,7 +1105,7 @@ mod tests {
 
     #[test]
     fn the_escape_hatch_turns_everything_off() {
-        // mallic ran 2.6.7, which already set both WEBKIT_ variables, and had
+        // A user ran 2.6.7, which already set both WEBKIT_ variables, and had
         // no window. Without a way to start WITHOUT them, nobody can tell
         // whether LU's own workaround is the thing in the way.
         let session = LinuxSession {
@@ -1329,8 +1518,8 @@ mod log_file_tests {
     fn the_frontend_can_actually_reach_the_whole_linux_update_path() {
         // updateStore calls install_method BEFORE it downloads anything.
         // Unregistered, the invoke rejects, the store falls back to "unknown"
-        // and the Arch install is back to running pkexec dpkg -i
-        // (UPDATER-LINUX-BEFUND.md). The two migration commands are what the
+        // and the Arch install is back to running pkexec dpkg -i.
+        // The two migration commands are what the
         // update button calls there instead of the plugin.
         for cmd in [
             "commands::install_method_cmd::install_method",
@@ -1339,5 +1528,17 @@ mod log_file_tests {
         ] {
             assert!(SRC.contains(cmd), "{cmd} is not in generate_handler!");
         }
+    }
+
+    #[test]
+    fn the_update_button_can_reach_the_restart() {
+        // updateStore calls this right after the plugin's install() on macOS
+        // and Linux. Unregistered, the invoke rejects and the app falls back
+        // to closing without coming back, which is discussion 150 again.
+        // The comma is added here so that this line cannot be its own match.
+        assert!(
+            SRC.contains(concat!("commands::system::restart_after_update", ",")),
+            "restart_after_update is not in generate_handler!"
+        );
     }
 }

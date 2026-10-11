@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 import type { Conversation } from '../../types/chat'
 
 // A history saved before the attachment store: every image inline. The chat
@@ -31,8 +31,23 @@ const legacy = (images: boolean) => JSON.stringify({
   version: 0,
 })
 
+// Every test loads a fresh chat store, and the first load of that module
+// graph is the one that costs: 4.4 s measured on a loaded machine against
+// 10 ms for each later one. Inside the first test that load ate its five
+// seconds (red three times in full runs on 08.10.2026). It is paid here, once,
+// outside any test, so the tests time the store and not the transform.
+beforeAll(async () => {
+  vi.stubGlobal('indexedDB', {})
+  await import('../chatStore')
+  vi.unstubAllGlobals()
+}, 120_000)
+
 beforeEach(() => {
   vi.resetModules()
+  // The store waits on timers only (coalesced writes), so the tests move the
+  // clock themselves. A real 400 ms wait is not long enough on a loaded
+  // machine and is 400 ms too long on an idle one.
+  vi.useFakeTimers()
   vi.stubGlobal('indexedDB', {})
   storage.setItem.mockClear()
   // Same contract as the real one: the identical array back when nothing moved.
@@ -44,9 +59,12 @@ beforeEach(() => {
     }))
   })
 })
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
-const settle = () => new Promise(r => setTimeout(r, 400))
+const settle = () => vi.advanceTimersByTimeAsync(400)
 const written = () => storage.setItem.mock.calls.map(c => JSON.parse(c[1]).state.conversations as Conversation[])
 
 it('writes nothing while hydration is still reading, whatever the app does meanwhile', async () => {

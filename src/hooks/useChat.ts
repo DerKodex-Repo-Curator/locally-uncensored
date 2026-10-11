@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { frameFlush } from '../lib/frame-flush'
 import { sendWindowFor } from '../lib/send-window'
 import { markCannotThink } from '../lib/model-compatibility'
@@ -18,9 +18,7 @@ import { getModelMaxTokens, capMessageCount } from "../lib/context-compaction"
 import { applyChatSendBudget, chatBudgetApplies } from "../lib/chat-send-budget"
 import { sendsToALanBackend } from "../lib/lan-openai-slot"
 import { isTooManyMessagesError, halveHistory, TOO_MANY_MESSAGES_MAX_HALVINGS } from "../lib/too-many-messages"
-import { getModelContextCached } from "../api/ollama"
 import { requestGenerationCancel } from "../api/vram-handoff"
-import { effectiveContextWindow } from "../lib/context-window"
 import { buildSamplingRequest } from "../lib/sampling"
 import { useAgentChat } from "./useAgentChat"
 import { parseAgentCommand, parseLoopSpec } from '../lib/agent-commands'
@@ -34,6 +32,8 @@ import { useAgentModeStore } from "../stores/agentModeStore"
 import { useGenerationStore } from "../stores/generationStore"
 import { runInLane } from "../lib/run-slot"
 import { laneOf, currentLaneFacts } from "../lib/run-lane-of-model"
+import { yieldSilentRunsTo } from "../lib/silent-runs-yield"
+import { yieldSilentLocalRuns } from "../lib/silent-runs"
 import { resolveChatToolRoute, CHAT_TOOLS, type ChatToolRouteMsg } from "../lib/chat-tool-intent"
 import { asksForLocalFiles, LOCAL_FILES_NOTICE } from "../lib/local-file-intent"
 import { useChatNoticeStore } from "../stores/chatNoticeStore"
@@ -50,12 +50,21 @@ import { isGroupChat, groupSystemPrompt, groupHistory, groupSpeakers, stripImper
 import { explainSendRefusal } from "../lib/template-refusal"
 import { builtinReloadNeeded, ensureBuiltinEngineAlive } from "../api/builtin-ensure"
 import { emptyAnswerExplanation } from "../lib/answer-notes"
+import { beginModelSwitchWatch, cutByModelSwitch, finishReasonAfterSwitch, MODEL_SWITCH_FINISH } from "../lib/model-switch-stop"
 import { log } from "../lib/logger"
 import { CREDITS_EXHAUSTED_MESSAGE } from '../lib/credits-exhausted'
 import { shouldDowngradeThinking, engineDeniedThinking } from './codex/thinking-downgrade'
 import { ProviderError } from '../api/providers/types'
 import { useBackgroundAgentWake } from './useBackgroundAgentWake'
 import { buildChatSystemPrompt } from '../lib/system-prompt'
+import { toolRegistry } from '../api/mcp'
+import { syncCreateTools } from '../api/mcp/create-tools'
+import { CREATE_TOOL_NAMES, createActive, createChatLive, createSystemText, withCreateText } from '../lib/create/chat-switch'
+import { decideCreateReply, ordersInView } from '../lib/create/chat-control'
+import { applyCreateReply, setCreateFollowUp, type FollowUpMode } from '../lib/create/chat-run'
+import { useCreateOrderStore } from '../stores/createOrderStore'
+import { pendingMediaOf, type PendingMedia } from '../lib/create/chat-attachments'
+import { watchOrderResults } from '../lib/create/chat-gallery'
 
 /**
  * Pull the most recent media generation (image/video) out of an assistant
@@ -100,7 +109,7 @@ async function runGroupTurn(convId: string, model: string, allModels: string[], 
   // entscheidet ueber die PERSON, nicht darueber, ob ueberhaupt ein Systemtext
   // rausgeht. Siehe lib/system-prompt.ts.
   //
-  // 3.0.5 (samvenice, Discord): a participant can have a persona of its own.
+  // 3.0.5 (Discord): a participant can have a persona of its own.
   // Then ITS prompt is that persona and the others are named to it, so two
   // models no longer answer as the same character. A participant without one
   // gets the chat's persona setting, exactly as before.
@@ -196,17 +205,11 @@ async function runGroupTurn(convId: string, model: string, allModels: string[], 
     }
 
     const { provider, modelId } = getProviderForModel(model)
-    let effectiveCtx: number | undefined = settings.contextWindowOverride || undefined
-    if (providerId === 'ollama') {
-      try {
-        effectiveCtx = effectiveContextWindow(await getModelContextCached(modelId), settings.contextWindowOverride)
-      } catch { /* keep override-or-undefined */ }
-    }
 
     const stream = provider.chatStream(modelId, messages, {
       ...buildSamplingRequest(settings, conv?.sampling),
       topK: settings.topK,
-      contextWindow: effectiveCtx,
+      window: 'chat',
       thinking: useThinking,
       signal: abort.signal,
     })
@@ -340,7 +343,7 @@ interface ChatRun {
  * on a cloud conversation from firing two real, simultaneous requests, each
  * writing into its OWN fresh assistant message. That is the exact live money
  * bug this house has already paid for once (one prompt, two Enters,
- * `video_generate` four times, David 2026-06-16). Blocker A closed the
+ * `video_generate` four times, 2026-06-16). Blocker A closed the
  * local half of it and left the cloud half open, because a cloud send was
  * never anyone's re-entry guard's job before.
  *
@@ -371,6 +374,41 @@ export function useChat() {
   // Dasselbe gilt fuer `stopAgent`, das `stopGeneration` unten immer ruft.
   const { sendAgentMessage, stopAgent } = agentChat
   const { extractAndSave } = useMemory()
+
+  // Create in chat: after a run the model gets a short report as a hidden
+  // message and comments on the result. Only for the open conversation.
+  // 'note' (a click on "Not now"): the message is only laid into the history,
+  // hidden, without a call. The model reads it with the customer's next
+  // message, on both paths and also when Create has been switched off since.
+  const sendCreateReport = useCallback((conversationId: string, report: string, mode: FollowUpMode = 'answer') => {
+    if (mode === 'note') {
+      useChatStore.getState().addMessage(conversationId, {
+        id: uuid(), role: "user", content: report, hidden: true, timestamp: Date.now(),
+      })
+      return
+    }
+    if (useChatStore.getState().activeConversationId !== conversationId) return
+    const { activeModel } = useModelStore.getState()
+    const { settings } = useSettingsStore.getState()
+    if (!createActive(settings, activeModel)) return
+    syncCreateTools(toolRegistry, true)
+    void sendAgentMessage(report, undefined, {
+      curatedTools: CREATE_TOOL_NAMES,
+      chatToolsMode: true,
+      createTools: true,
+      hiddenUser: true,
+    })
+  }, [sendAgentMessage])
+
+  useEffect(() => {
+    setCreateFollowUp(sendCreateReport)
+    // A finished item of an order goes onto the Create tab's shelf.
+    const unwatch = watchOrderResults()
+    return () => {
+      setCreateFollowUp(null)
+      unwatch()
+    }
+  }, [sendCreateReport])
 
 
   // G29: a run outlives this hook instance when the chat view unmounts on a
@@ -455,6 +493,8 @@ export function useChat() {
       // exists to prevent.
       const facts = currentLaneFacts()
       const lane = models.some((model) => laneOf(model, facts) === 'local') ? 'local' : 'cloud'
+      // A round with a local speaker in it, whatever the picker stands on.
+      if (lane === 'local') yieldSilentLocalRuns()
       const abort = new AbortController()
       // Runs this hook-global `isGenerating` boolean unconditionally down to
       // (see Ghost-Stop-Fix note above `activeChatRuns`): registered/removed by
@@ -528,7 +568,7 @@ export function useChat() {
     }
   }, [])
 
-  const sendMessage = useCallback(async (content: string, images?: ImageAttachment[], files?: ChatFileInput[]) => {
+  const sendMessage = useCallback(async (content: string, images?: ImageAttachment[], files?: ChatFileInput[], media?: PendingMedia[]) => {
     const { activeModel } = useModelStore.getState()
     const { settings } = useSettingsStore.getState()
     const store = useChatStore.getState()
@@ -538,13 +578,18 @@ export function useChat() {
     // instead of trusting the AppShell reselect effect: when that effect found
     // no in-mode fallback (Ollama down, engine off), the old mode's model
     // silently stayed active and every chat kept billing cloud credits with
-    // the switch on Local (Discord bug-reports 2026-08-09, helpslowlydying).
+    // the switch on Local (Discord bug-reports 2026-08-09).
     // A model from the wrong mode never reaches a provider: clear it and let
     // the picker's empty state ask for a real selection.
     if (modelOutOfMode(activeModel, settings.appMode)) {
       useModelStore.getState().setActiveModel(null)
       return
     }
+
+    // What the person just sent outranks what the app runs on its own: a
+    // memory extraction that still holds the local model steps aside, for a
+    // plain turn, an agent turn and /compact alike (lib/silent-runs-yield.ts).
+    yieldSilentRunsTo(activeModel)
 
     // /compact — BEFORE the agent delegation, because this one command is not
     // an agent task. It belongs to the conversation, and both surfaces this
@@ -662,6 +707,39 @@ export function useChat() {
       }
     }
 
+    // Create in chat (the switch under Plugins; Cloud mode only, and only for
+    // an account the server has released: createLive). The registry follows
+    // the switch with every message: off means the two tools are in no
+    // catalogue and every call is refused. Without the release this chat is
+    // the one that shipped before. A group round is a conversation between
+    // models and never carries the tools.
+    const createLive = createChatLive()
+    const inGroup = isGroupChat(store.conversations.find((c) => c.id === store.activeConversationId)?.groupModels)
+    const createOn = !inGroup && createActive(settings, activeModel, createLive)
+    syncCreateTools(toolRegistry, createOn)
+
+    // The short answer to an order on the table: "yes", "ja", "go" approves
+    // it, "stop" halts it. Only a short message of the customer's own, and
+    // only for the order laid out last in this conversation; everything else
+    // goes to the model below as an ordinary message.
+    if (createOn && store.activeConversationId) {
+      // Only an order whose card is still in the thread: after Edit or
+      // Regenerate it is gone, and an "ok" no longer means it.
+      const shownConv = store.conversations.find((c) => c.id === store.activeConversationId)
+      const decision = decideCreateReply(
+        content,
+        ordersInView(shownConv?.messages ?? [], useCreateOrderStore.getState().ordersFor(store.activeConversationId)),
+        !!images?.length || !!media?.length || !!files?.length,
+      )
+      if (decision) {
+        useChatStore.getState().addMessage(store.activeConversationId, {
+          id: uuid(), role: "user", content, timestamp: Date.now(),
+        })
+        applyCreateReply(decision)
+        return
+      }
+    }
+
     // Agent mode delegation: if active for this conversation, use agent chat.
     //
     // 2.5.9: slash commands work here too. They were Code-only, which meant the
@@ -696,14 +774,16 @@ export function useChat() {
           readOnly: slash.command.readOnly === true,
           ...(loop ? { loop } : {}),
           files,
+          createTools: createOn && slash.command.readOnly !== true,
         })
       }
       // Agent mode: an attached file is also copied into this chat's working
       // folder, where the file tools can open it (useAgentChat).
+      if (createOn) return sendAgentMessage(content, images, { files, createTools: true, media })
       return sendAgentMessage(content, images, { files })
     }
 
-    // Discord 28.09.2026 (xambran): im normalen Chat liest kein Werkzeug die
+    // Discord 28.09.2026: im normalen Chat liest kein Werkzeug die
     // Dateien dieses Rechners, auch nicht mit Chat Tools, und das Modell sagt
     // dann nur "I cannot access files". Die Zeile ueber dem Verlauf nennt den
     // Weg dorthin (lib/local-file-intent.ts). Gesendet wird trotzdem, die Zeile
@@ -712,7 +792,7 @@ export function useChat() {
       useChatNoticeStore.getState().show('agent-for-local-files', LOCAL_FILES_NOTICE)
     }
 
-    // Group chat v1 (Nurse KillJoy): two to four models answer in turn in
+    // Group chat v1 (a user): two to four models answer in turn in
     // ONE conversation. Runs BEFORE the chat-tools router on purpose: a
     // group round is a conversation, never a tool run, and the agent path
     // has already delegated above.
@@ -723,11 +803,11 @@ export function useChat() {
       }
     }
 
-    // Chat-Tools routing (David 2026-06-11): web/file/image/video should work
+    // Chat-Tools routing (2026-06-11): web/file/image/video should work
     // in PLAIN chat without flipping to full Agent mode. We route a turn through
     // the chat-tools executor when it needs one of those capabilities — either
     // DIRECTLY (verb+noun in this message) or as a CONTINUATION of a recent
-    // image/video task (David 2026-06-20: "ok go" / "2 seconds zoom" / "nochmal
+    // image/video task (2026-06-20: "ok go" / "2 seconds zoom" / "nochmal
     // neu" / "ok generiere jetzt" used to miss and drop to plain chat, where the
     // tool is absent → the model planned in circles or faked "(generating…)" and
     // the token counter halved as the prompt lost its tools+image). For a
@@ -750,14 +830,32 @@ export function useChat() {
       const cloudMode = settings.appMode === 'cloud'
       if (route && !(cloudMode && route.mediaHint)) {
         return sendAgentMessage(content, images, {
+          // Create on (Cloud mode only): its two tools ride along with web
+          // and file.
           curatedTools: cloudMode
-            ? CHAT_TOOLS.filter((t) => t !== 'image_generate' && t !== 'video_generate')
+            ? [...CHAT_TOOLS.filter((t) => t !== 'image_generate' && t !== 'video_generate'), ...(createOn ? CREATE_TOOL_NAMES : [])]
             : CHAT_TOOLS,
           chatToolsMode: true,
           mediaHint: route.mediaHint,
           files,
+          createTools: createOn,
+          media: createOn ? media : undefined,
         })
       }
+    }
+
+    // Create on: every message goes through the tool loop with the two Create
+    // tools, without a word filter. The model decides in context; an
+    // overeager one costs nothing, because every order needs the customer's
+    // approval.
+    if (activeModel && createOn) {
+      return sendAgentMessage(content, images, {
+        curatedTools: CREATE_TOOL_NAMES,
+        chatToolsMode: true,
+        createTools: true,
+        files,
+        media,
+      })
     }
 
     if (!activeModel) return
@@ -839,6 +937,12 @@ export function useChat() {
     // apply. Undefined / unset → suppress, so a globally selected
     // persona never silently hijacks a new chat.
     let systemPrompt = buildChatSystemPrompt(conv, settings.personasEnabled !== false)
+    // Create: this plain path only runs with Create off (or with a model it
+    // does not work with). The system prompt then stays character for
+    // character what it was; only when this message plainly asks for a medium
+    // does a note point at the switch, for this one turn. Empty outside Cloud
+    // mode and for an account that is not released.
+    systemPrompt = withCreateText(systemPrompt, createSystemText(settings, activeModel, createLive, content))
     const ragState = useRAGStore.getState()
     const ragEnabled = ragState.ragEnabled[convId] ?? false
     let ragSuffix = ''
@@ -911,7 +1015,7 @@ export function useChat() {
     // native reasoning template/parser (reasoning_content channel), and a
     // second, conflicting "write <think> tags, answer outside them"
     // instruction can trap the model in a reasoning loop until the budget is
-    // gone — David's cloud Qwen3.6 burned 40k chars of thinking on "6×9" and
+    // gone — the owner's cloud Qwen3.6 burned 40k chars of thinking on "6×9" and
     // never answered (2026-07-12). 'always' reasoners use their native
     // channel untouched; 'never' instruct models get nothing (the blanket
     // injection made them burn billed tokens on reasoning we then discard);
@@ -959,7 +1063,7 @@ export function useChat() {
     // history verbatim, and a long chat of many short turns stays under every
     // token budget while the count climbs past the LU Cloud proxy's
     // 400-message gate — after which EVERY send 400s and the chat is a
-    // permanent dead end (yaserrieh, 2026-08-21).
+    // permanent dead end (2026-08-21).
     // Token budget (plan A4), on top of the count cap. Plain chat rebuilt the
     // ENTIRE history on every send, so turn 60 of a long chat paid for turns 1
     // to 59 again just to ask "and shorter please", and every attachment ever
@@ -1079,11 +1183,12 @@ export function useChat() {
     // so Stop in one chat could kill an image/video another chat's agent
     // was still producing.
     const myAborter = () => { abort.abort(); requestGenerationCancel(convId) }
+    beginModelSwitchWatch(convId)
     useGenerationStore.getState().registerAborter(convId, myAborter)
     setIsGenerating(true)
     // Bind the generating flag to THIS conversation so the typing indicator
     // only shows in the chat whose turn is in flight — not in every other chat
-    // the user switches to (David 2026-06-12). Cleared in finally.
+    // the user switches to (2026-06-12). Cleared in finally.
     useGenerationStore.getState().setGenerating(convId, true)
     // Only a local model is loaded before it answers. A cloud model read
     // "Loading model" under every reply and spun the picker as if it were
@@ -1132,22 +1237,13 @@ export function useChat() {
             ? undefined
             : settings.thinkingEnabled === true)
         : undefined
-      // num_ctx must always be a real value (David: "kontext window muss immer
-      // stimmen"). For Ollama, default to the model's REAL context length
-      // (capped for VRAM safety) when there's no explicit override — otherwise
-      // Ollama silently runs at 2048 and truncates real chats/RAG. Cloud and
-      // LM-Studio ignore contextWindow (load-time config there).
-      let effectiveCtx: number | undefined = settings.contextWindowOverride || undefined
-      if (providerId === 'ollama') {
-        try {
-          effectiveCtx = effectiveContextWindow(await getModelContextCached(modelId), settings.contextWindowOverride)
-        } catch { /* keep override-or-undefined on failure */ }
-      }
       const chatOpts = {
         ...buildSamplingRequest(settings, conv.sampling),
         topK: settings.topK,
-        // num_ctx: real model context (capped) for Ollama, else override-or-none.
-        contextWindow: effectiveCtx,
+        // An Ollama model runs this turn in its chat window. The number is
+        // resolved where the request is built (api/ollama.ts), the same place
+        // every other call to this model gets its window from.
+        window: 'chat' as const,
         thinking: useThinking,
         // The rung, and the rungs this model has. Sent on every turn so Chat,
         // Agent mode and the Coding Agent cannot drift apart; the provider
@@ -1161,7 +1257,7 @@ export function useChat() {
       // Helper: create stream, retrying without the think field if the
       // provider rejects it (old Ollama builds, edge-case models), and
       // retrying with a halved history when the hosted backend refuses the
-      // message COUNT ("HTTP 400 too many messages", yaserrieh 2026-08-21).
+      // message COUNT ("HTTP 400 too many messages", a user 2026-08-21).
       // Plain chat sends the whole conversation, so without this a long
       // hosted chat is stuck forever: every further turn only grows the
       // payload the server just refused. The 400 fires on request
@@ -1192,7 +1288,7 @@ export function useChat() {
           // turn.
           //
           // The 422 this line used to carry alone is IN there now, not lost:
-          // it is DeepInfra's bad-parameter status coming through the LU Cloud
+          // it is the upstream's bad-parameter status coming through the LU Cloud
           // proxy, and it arrives on `provider.chatStream` — the very call
           // below, and the one `streamProviderTurn` makes for the agent and
           // codex paths. So it was never a peculiarity of this transport, it
@@ -1311,8 +1407,10 @@ export function useChat() {
         if (chunk.done) {
           frames.close()
           if (chunk.finishReason) {
-            finishReason = chunk.finishReason
-            useChatStore.getState().updateMessageFinishReason(run.convId, assistantMessage.id, chunk.finishReason)
+            // A stream that closed because the person picked another model
+            // says that, not "connection dropped" (lib/model-switch-stop.ts).
+            finishReason = finishReasonAfterSwitch(chunk.finishReason, run.convId)
+            useChatStore.getState().updateMessageFinishReason(run.convId, assistantMessage.id, finishReason)
           }
           // Final settlement, the shared one, so plain chat catches the same
           // orphan shapes the agent loops do. Before this the char-by-char
@@ -1365,7 +1463,7 @@ export function useChat() {
         // Honest, reason-specific note for the empty bubble. Before this, a
         // thought-only turn with Thinking ON stored the reasoning but left
         // content EMPTY — the user saw a collapsed Thinking pill and nothing
-        // else, which reads as a hang/crash (David, cloud Qwen3.6 2026-07-12:
+        // else, which reads as a hang/crash (the owner, cloud Qwen3.6 2026-07-12:
         // 40k chars of looped reasoning, token budget gone, zero answer).
         const explanation = emptyAnswerExplanation({ finishReason, captured: !!captured, keepThinking })
         if (captured && keepThinking) {
@@ -1379,7 +1477,7 @@ export function useChat() {
             .updateMessageContent(run.convId, assistantMessage.id, explanation)
         } else if (captured) {
           // Thinking OFF but the model still reasoned (Gemma keeps reasoning when
-          // we pass `think:undefined`) and produced no visible answer. David
+          // we pass `think:undefined`) and produced no visible answer. The owner
           // 2026-06-20: OFF must mean NO reasoning shown — never leak the hidden
           // thinking into the bubble. Leave a short honest note so it isn't
           // silent dead air. (Media follow-ups now route to the tool path and
@@ -1387,7 +1485,7 @@ export function useChat() {
           useChatStore
             .getState()
             .updateMessageContent(run.convId, assistantMessage.id, explanation)
-        } else if (finishReason === 'length' || finishReason === 'disconnect') {
+        } else if (finishReason === 'length' || finishReason === 'disconnect' || finishReason === MODEL_SWITCH_FINISH) {
           // No reasoning captured either — the turn produced literally
           // nothing because the budget ran out / the stream was cut. Still
           // explain instead of leaving dead air.
@@ -1424,9 +1522,22 @@ export function useChat() {
         // English sentence, not the template's raw Jinja trace.
         const sendRefusal = explainSendRefusal(err)
 
+        // The engine was taken away by the person's own pick of another
+        // model. That is the reason, and the raw transport error is not: what
+        // was written stays, with the marker under it, and an answer that had
+        // not started says so in a sentence.
+        if (cutByModelSwitch(run.convId)) {
+          useChatStore.getState().updateMessageFinishReason(run.convId, assistantMessage.id, MODEL_SWITCH_FINISH)
+          if (!run.content.trim()) {
+            useChatStore.getState().updateMessageContent(
+              run.convId,
+              assistantMessage.id,
+              emptyAnswerExplanation({ finishReason: MODEL_SWITCH_FINISH, captured: false, keepThinking: false }),
+            )
+          }
         // Image attached to a non-vision model → friendly guidance instead of
         // the raw 400 JSON (gthvidsten, GH Discussion #67).
-        if (isMultimodalUnsupportedError(errorMsg)) {
+        } else if (isMultimodalUnsupportedError(errorMsg)) {
           useChatStore.getState().updateMessageContent(
             run.convId,
             assistantMessage.id,
@@ -1528,7 +1639,7 @@ export function useChat() {
         }
       })
 
-      // Auto-read the finished response when the user opted in (#77, ElBiggus).
+      // Auto-read the finished response when the user opted in (#77).
       // Default OFF and additionally gated on ttsEnabled; getState() (not the
       // hook) so this callback never subscribes to the voice store's isSpeaking
       // churn during playback.
@@ -1587,7 +1698,7 @@ export function useChat() {
    * Stop. Der brach einen AbortController ab, den es nicht gab, und der
    * Zeitgeber des naechsten Passes lief unberuehrt weiter. Der Nutzer sah die
    * Schleifenleiste mit ihrem Stopp-Knopf, drueckte ihn, und der naechste Pass
-   * ging trotzdem in die Wolke — jedes Mal, beliebig lange. helpslowlydying am
+   * ging trotzdem in die Wolke — jedes Mal, beliebig lange. A user am
    * 03.09.2026: "i stopped it but that boy is still working and ready for the
    * next prompt", "its not even doing anything jus eating away".
    *
@@ -1636,13 +1747,30 @@ export function useChat() {
     const { activeModel } = useModelStore.getState()
     if (!activeModel || modelOutOfMode(activeModel, useSettingsStore.getState().settings.appMode)) return
     if (activeChatRuns.has(conversationId)) return
+    // While an order of this chat is rendering, its card must stay: Regenerate
+    // and Edit delete messages, and a deleted card would leave a run that
+    // still books credits with nothing on screen to stop it.
+    if (useCreateOrderStore.getState().ordersFor(conversationId).some((o) => o.state === 'running')) return
     const conv = useChatStore.getState().conversations.find(c => c.id === conversationId)
     if (!conv) return
     const plan = planResend(conv.messages, targetId, override)
     if (!plan) return
+    if (plan.createReport) {
+      // The comment after a Create run answers a hidden report. It goes out
+      // hidden again; sent as an ordinary message it would stand in the chat
+      // as something the customer wrote.
+      if (!createActive(useSettingsStore.getState().settings, activeModel)) return
+      useChatStore.getState().deleteMessagesAfter(conversationId, plan.deleteFromId)
+      sendCreateReport(conversationId, plan.content)
+      return
+    }
+    // Clips and sound tracks of the question, as far as the session still
+    // holds their bytes.
+    const anchor = conv.messages.find((m) => m.id === plan.deleteFromId)
+    const media = anchor ? pendingMediaOf(anchor) : []
     useChatStore.getState().deleteMessagesAfter(conversationId, plan.deleteFromId)
-    sendMessage(plan.content, plan.images, plan.files?.map((attachment) => ({ attachment })))
-  }, [sendMessage])
+    sendMessage(plan.content, plan.images, plan.files?.map((attachment) => ({ attachment })), media.length ? media : undefined)
+  }, [sendMessage, sendCreateReport])
 
   const regenerateMessage = useCallback((conversationId: string, assistantMessageId: string) => {
     resend(conversationId, assistantMessageId)

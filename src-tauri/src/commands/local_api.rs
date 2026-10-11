@@ -19,7 +19,7 @@
 //! remote.rs bindet auf 0.0.0.0:11435 — mit Absicht, denn das Handy soll sich
 //! im WLAN verbinden koennen, und davor steht ein Paarungsablauf mit QR-Code
 //! und JWT. Haengte man `/v1` dort an, waere die Modell-API vom ersten Tag an
-//! im ganzen Netz sichtbar. Davids Entscheidung war das Gegenteil: "Localhost ab
+//! im ganzen Netz sichtbar. Die Entscheidung des Inhabers war das Gegenteil: "Localhost ab
 //! Werk, LAN einstellbar". Ein eigener Lauscher haelt beide Sicherheitsmodelle
 //! auseinander, statt sie zu vermischen.
 //!
@@ -557,7 +557,7 @@ impl Default for LocalApiConfig {
     }
 }
 
-// ── Was ueber die API gelaufen ist (GH Discussion #4, kreake 2026-09-22) ──
+// ── Was ueber die API gelaufen ist (GH Discussion #4 2026-09-22) ──
 //
 // "If I connect an IDE with the Local API, I really would appreciate some
 // statistics like connections or context (tokens, etc.)." Gezaehlt wird seit
@@ -2002,7 +2002,7 @@ mod local_api_echt {
 mod tests {
     use super::*;
 
-    /// GH Discussion #4 (kreake): what went through the API, counted per start.
+    /// GH Discussion #4: what went through the API, counted per start.
     /// A stand-in model server answers once plainly, once as a stream, once
     /// without `usage`; a fourth request names a model nobody has.
     #[tokio::test]

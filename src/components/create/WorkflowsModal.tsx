@@ -44,7 +44,7 @@ const INPUT =
   'outline-none focus:border-white/20 transition-colors'
 
 /** Workflow manager popup, opened from the Create composer. A centered
- *  dialog over the Create surface (David 2026-08-02: a window, not a page),
+ *  dialog over the Create surface (2026-08-02: a window, not a page),
  *  on the same house Modal the VHS install prompt uses. */
 export function WorkflowsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   // Der eigene Escape-Listener ist entfallen: Modal schließt seit Welle 2 selbst
@@ -199,7 +199,7 @@ function WorkflowsModalInner() {
             <span className="t-title text-gray-900 dark:text-gray-200">How it works</span>
           </button>
         </div>
-        <div className="max-h-[62vh] overflow-y-auto scrollbar-thin px-5 py-4">
+        <div className="max-h-[calc(62vh/var(--ui-scale))] overflow-y-auto scrollbar-thin px-5 py-4">
           <HowItWorks />
         </div>
       </div>
@@ -236,7 +236,7 @@ function WorkflowsModalInner() {
         </div>
       </div>
 
-      <div className="max-h-[62vh] overflow-y-auto scrollbar-thin">
+      <div className="max-h-[calc(62vh/var(--ui-scale))] overflow-y-auto scrollbar-thin">
         <div className="px-5 py-4">
           {tab === 'workflows' && (
             <div className="space-y-4">

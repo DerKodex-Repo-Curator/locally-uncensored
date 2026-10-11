@@ -1,5 +1,5 @@
 /**
- * K7 (GH #135, eloieloie): "Unknown backend command: install_mlx_diffusion"
+ * K7 (GH #135): "Unknown backend command: install_mlx_diffusion"
  * in `npm run dev` without Tauri. Root cause: the MLX image/video Rust
  * module (`commands::media_cmds`) had no dev-server route, and unlike
  * Remote Access (remote-stubs.ts) no frontend pre-guard either, so every
@@ -96,11 +96,13 @@ describe('endpointMap covers every backendCall/invokeMedia site the frontend can
   it('the MLX/video commands from K7 (GH #135) are mapped', () => {
     const mlxCommands = [
       'mlx_status', 'mlx_start', 'mlx_unload', 'mlx_generate', 'mlx_image_models',
-      'mlx_image_install_model', 'mlx_image_install_status', 'mlx_image_delete_model',
+      'mlx_image_install_model', 'mlx_image_install_status', 'mlx_image_cancel_install', 'mlx_image_delete_model',
       'install_mlx_diffusion', 'install_mlx_diffusion_status', 'set_hf_token', 'hf_token_present',
       'video_status', 'video_list_models', 'video_install_mlx', 'video_install_mlx_status',
-      'video_install_model', 'video_install_model_status', 'video_delete_model',
-      'video_generate', 'video_progress', 'video_cancel', 'read_media_file',
+      'video_install_model', 'video_install_model_status', 'video_cancel_model_install', 'video_delete_model',
+      'video_generate', 'video_stage_start_image', 'video_progress', 'video_cancel', 'read_media_file',
+      // Delete in the gallery of a Mac (commands/mlx_outputs.rs).
+      'mlx_output_trash',
     ]
     for (const cmd of mlxCommands) {
       expect(rust.has(cmd), `${cmd} should still be a registered Tauri command`).toBe(true)
@@ -123,7 +125,7 @@ describe('endpointMap covers every backendCall/invokeMedia site the frontend can
   //
   // This list is the exact remaining measured gap as of this fix (K7,
   // 2026-09-18), kept explicit, not silently ignored, so a maintainer can
-  // pick individual ones off it later (David/orchestrator to prioritize; a
+  // pick individual ones off it later (the owner/orchestrator to prioritize; a
   // few look like real drift worth a closer look on their own, e.g.
   // local_api_status/restart_remote_server/revoke_remote_memory landed in
   // main.rs after remote-stubs.ts's list was last updated). The test still
@@ -139,6 +141,11 @@ describe('endpointMap covers every backendCall/invokeMedia site the frontend can
     // shell_execute_cancel below, same reasoning, same Tauri-only shape
     // (Rust kills the process tree by callId, no HTTP route makes sense).
     'execute_code_cancel',
+    // Image part of a cancelled model download (October 2026): removes the
+    // finished part next to a GGUF in the built-in engine's models folder.
+    // Same Tauri-only shape as clear_download_entry and delete_bundled_model
+    // above: the built-in engine does not exist under `npm run dev`.
+    'remove_image_part',
     // Chat attachments (OOM fix, 2026-09-26): files beside store_backup.json
     // and native Save As / Open dialogs. Every call site sits behind isTauri()
     // (lib/chat-attachments.ts, ChatAttachment.tsx, chat-export.ts,
@@ -154,10 +161,18 @@ describe('endpointMap covers every backendCall/invokeMedia site the frontend can
     // Gallery delete to the Recycle Bin (lib/gallery-trash.ts), behind
     // isTauri(): the browser build has no filesystem to clean.
     'trash_comfy_output',
+    // Starts the app again after the updater plugin has installed (GitHub
+    // discussion 150, stores/updateStore.ts). Only reachable with an Update
+    // handle from the plugin, which the dev server never hands out.
+    'restart_after_update',
     // Where ComfyUI models land when ComfyUI runs on another machine (GH
     // #143, api/discover.ts comfyModelTarget). A missing route answers
     // "local", which is what the dev server always is.
     'comfy_model_target',
+    // Ends a running `lmstudio_load_model` (api/lmstudio.ts). The load itself
+    // has no dev route (it is in the list below), so there is nothing a dev
+    // route for its cancel could end.
+    'lmstudio_cancel_load',
     'exit_app', 'file_read', 'find_orphan_downloads', 'fix_comfyui_cors', 'funnel_ping',
     'get_comfy_gpu_status', 'get_current_time', 'import_local_model', 'install_character_trainer',
     'install_lmstudio', 'install_lmstudio_status', 'install_method', 'install_python',

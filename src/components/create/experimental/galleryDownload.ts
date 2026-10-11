@@ -1,13 +1,14 @@
 // Saving a gallery item, one path for every surface that offers Download
 // (the result view and the gallery strip). The strip had its own copy built on
 // fetch plus an <a download> blob, which WebView2 does not save, so it did
-// nothing on Windows (Discord 2026-10-01, theitalianstallion92).
+// nothing on Windows (Discord 2026-10-01).
 import { useCreateStore, type GalleryItem } from '../../../stores/createStore'
 import { backendCall, downloadComfyFile, isTauri } from '../../../api/backend'
 import { isMlxImageHost } from '../../../api/mlx-image'
 import { refreshResultUrl } from '../../../api/cloud/jobs'
+import { blobFromUrl } from '../../../lib/render/data-url'
 
-function extFor(contentType: string, kind: 'image' | 'video' | 'audio'): string {
+export function extFor(contentType: string, kind: 'image' | 'video' | 'audio'): string {
   if (contentType.includes('png')) return 'png'
   if (contentType.includes('jpeg') || contentType.includes('jpg')) return 'jpg'
   if (contentType.includes('webp')) return 'webp'
@@ -27,7 +28,7 @@ function extFor(contentType: string, kind: 'image' | 'video' | 'audio'): string 
 // setError instead of a silent no-op.
 /** Hand bytes to the user. Tauri gets the native Save-As dialog (WebView2
  *  blob-anchors are unreliable); the browser build gets an anchor click. */
-async function saveBytes(bytes: Uint8Array, name: string, ext: string): Promise<void> {
+export async function saveBytes(bytes: Uint8Array, name: string, ext: string): Promise<void> {
   if (!isTauri()) {
     const blobUrl = URL.createObjectURL(new Blob([bytes as BlobPart]))
     const a = document.createElement('a')
@@ -93,10 +94,9 @@ export async function downloadGalleryItem(item: GalleryItem): Promise<void> {
       url = (await refreshResultUrl(item.jobId)) ?? url
     }
     if (!url) throw new Error('no source available for this item')
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`fetch failed (${res.status})`)
-    const ext = extFor(res.headers.get('content-type') ?? '', item.type)
-    const bytes = new Uint8Array(await res.arrayBuffer())
+    const blob = await blobFromUrl(url)
+    const ext = extFor(blob.type, item.type)
+    const bytes = new Uint8Array(await blob.arrayBuffer())
     await saveBytes(bytes, `lu-${item.id}.${ext}`, ext)
   } catch (err) {
     useCreateStore

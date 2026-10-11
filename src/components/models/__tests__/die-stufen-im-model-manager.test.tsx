@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  *
  * Der Model Manager ordnet seine Bild- und Video-Bundles nach Stufe
- * (02.10.2026, David): "Best" steht oben und traegt eine kleine Marke, die
+ * (02.10.2026): "Best" steht oben und traegt eine kleine Marke, die
  * aelteren Modelle stehen gesammelt unten unter "Older models", nichts wird
  * versteckt. Dieselbe Regel und dieselbe Optik wie in den Cloud-Waehlern
  * (lib/render/model-tier.ts).

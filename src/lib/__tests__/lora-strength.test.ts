@@ -1,5 +1,5 @@
 /**
- * The strength of a LoRA in the stack (Discord 2026-10-02, throwaway050558).
+ * The strength of a LoRA in the stack (Discord 2026-10-02).
  * The stack stopped at 0 to 2; slider LoRAs, the Krea 2 ones above all, are
  * made for about -10 to 10. ComfyUI itself takes -100 to 100 on LoraLoader
  * and LoraLoaderModelOnly (nodes.py, strength_model and strength_clip).

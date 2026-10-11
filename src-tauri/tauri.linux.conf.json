@@ -19,6 +19,10 @@
   "bundle": {
     "resources": {
       "resources/whisper_server.py": "resources/whisper_server.py",
+      "resources/voice_loop/lu_voice_loop/*.py": "resources/voice_loop/lu_voice_loop/",
+      "resources/voice_loop/requirements.txt": "resources/voice_loop/requirements.txt",
+      "resources/voice_loop/models.json": "resources/voice_loop/models.json",
+      "resources/voice_loop/python.json": "resources/voice_loop/python.json",
       "resources/llama/x86_64-unknown-linux-gnu/*": "llama/"
     }
   }

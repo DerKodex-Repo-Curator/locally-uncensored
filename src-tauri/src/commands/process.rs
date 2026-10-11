@@ -118,6 +118,11 @@ pub(crate) fn assign_pid_to_kill_on_close_job(pid: u32) {
 /// a dead parent are reparented, and the graceful shutdown path plus the
 /// process-group kill in `process_util` cover what matters there).
 ///
+/// macOS has no job object and no parent-death signal, so nothing can be done
+/// at spawn time there. The llama-server sidecars a dead app leaves behind
+/// are ended at the next start instead, see
+/// `engine::reap_orphaned_sidecars` (Fehlerkontrolle Mac 2, Fund 9).
+///
 /// Every long lived child goes through here: the bundled llama-server (chat
 /// and embeddings), Ollama, the whisper server, the trainer, ComfyUI. Before
 /// 2.6.7 only ComfyUI, Ollama-by-Drop and the background-task runner were
@@ -345,7 +350,7 @@ pub fn comfy_broken_venv_message(venv_dir: &Path, interpreter: &Path) -> String 
 }
 
 /// Whether a startup crash reads as a broken Python environment (GH #98,
-/// joelnewswanger 2026-08-14). His torch lived in the shared system Python
+/// A user 2026-08-14). His torch lived in the shared system Python
 /// and died inside `infer_schema.py` on import, so the tail shows a traceback
 /// running through site-packages with no ModuleNotFoundError anywhere;
 /// kryptoxide's variant was a shadowing `comfy` package ("No module named
@@ -383,7 +388,7 @@ pub(crate) struct ComfyCrashVerdict {
 /// `pip_failure_kind` und `pip_failure_hint` wissen seit 2.6.7, was WinError
 /// 1114 bedeutet, sie wurden auf diesem Weg nur nie gefragt.
 ///
-/// falcon bob (Ticket 007, 01.09. bis 02.09.): sein torch starb an einem
+/// a user (Ticket 007, 01.09. bis 02.09.): sein torch starb an einem
 /// c10.dll im venv, LU nannte das eine kaputte Umgebung und baute das venv
 /// automatisch neu. Ein nativer Ladefehler hat seine Ursache AUSSERHALB des
 /// venv, in der Visual-C++-Laufzeit oder im Grafiktreiber, also endet der
@@ -397,7 +402,7 @@ pub(crate) fn comfy_crash_verdict(lines: &[String], exited: bool) -> ComfyCrashV
     // diese vier Saetze beschreiben die Maschine selbst und stimmen deshalb
     // auch, wenn nicht pip sie gedruckt hat, sondern ComfyUI beim Start. Die
     // uebrigen Saetze reden von pip und vom Paketindex, die hier gar nicht
-    // gelaufen sind. Der schlimmste davon ist PipBroken: anglefires fehlendes
+    // gelaufen sind. Der schlimmste davon ist PipBroken: ein fehlendes
     // sqlalchemy wuerde damit ein "Reinstall Python 3.10+ from python.org"
     // bekommen, obwohl sein Python heil ist und die Reparatur der Weg ist.
     let hint = match kind {
@@ -462,7 +467,7 @@ pub fn decide_comfy_cpu_flag(
 /// `--cpu` and ComfyUI then asks torch for a device. On a venv holding
 /// CUDA-only wheels and an AMD card that ends in
 /// "Torch not compiled with CUDA enabled" and nothing else, which is what
-/// numbrain, lapbo, petermanmancusso and sancora all saw. The flag still
+/// A user all saw. The flag still
 /// wins, the user asked for it, but the reason is in the output panel before
 /// the traceback is.
 ///
@@ -925,7 +930,7 @@ pub fn find_comfyui_path() -> Option<String> {
         // Stability Matrix stores ComfyUI in AppData
         if let Ok(appdata) = std::env::var("APPDATA") {
             fixed.push(PathBuf::from(&appdata).join("StabilityMatrix").join("Packages").join("ComfyUI"));
-            // Comfy-Org/desktop app working dir (GH #47, levoy1 2026-05-24)
+            // Comfy-Org/desktop app working dir (GH #47 2026-05-24)
             fixed.push(PathBuf::from(&appdata).join("ComfyUI"));
         }
         if let Ok(localappdata) = std::env::var("LOCALAPPDATA") {
@@ -949,7 +954,7 @@ pub fn find_comfyui_path() -> Option<String> {
     // FIRST candidate its directory-walk order could pick a stale second copy
     // over the standard install — LU then downloads/checks models in a folder
     // the running ComfyUI never scans ("installed but not recognized",
-    // pnwpdr4519 Discord 2026-07-27). Same lesson as d9146e3 ("deep home scan
+    // Discord 2026-07-27). Same lesson as d9146e3 ("deep home scan
     // last").
     if let Some(found) = scan_for_comfyui(&home, 7) {
         println!("[ComfyUI] Found via deep home scan: {}", found.display());
@@ -985,7 +990,7 @@ pub fn find_comfyui_path() -> Option<String> {
 /// Information about a discovered ComfyUI install — surfaced to the
 /// frontend so the user picks the right one when multiple coexist.
 ///
-/// Background (Bug #3 — ninjastic2008 v2.4.3): a user with both a manual
+/// Background (Bug #3 — v2.4.3): a user with both a manual
 /// `C:\Users\admin\ComfyUI` install (complete, with its own python_embeded)
 /// AND an empty `C:\ComfyUI-ai` directory hit `find_comfyui_path()` which
 /// returned only the first hit (their manual install). LU then tried to
@@ -1004,7 +1009,7 @@ pub struct ComfyUIInstall {
     /// Portable ComfyUI builds (and Stability Matrix packages) ship one;
     /// from-source clones don't. We start ComfyUI with this Python when
     /// present — using the system Python on a portable install was the
-    /// exact failure mode ninjastic2008 hit.
+    /// exact failure mode a user hit.
     pub has_embedded_python: bool,
     /// Where we found this install. Helps the user disambiguate.
     pub source: String,
@@ -1209,7 +1214,7 @@ pub(crate) fn is_comfyui_running_on_port(port: u16) -> bool {
         .unwrap_or(false)
 }
 
-/// Kill whatever process listens on `port` (David 2026-07-17, "Let me do it
+/// Kill whatever process listens on `port` (2026-07-17, "Let me do it
 /// for you" CORS-fix button). Only ever called with the user-configured
 /// ComfyUI port, on an explicit button press — LU is about to relaunch that
 /// ComfyUI under its own management with the CORS flag. Best effort: a port
@@ -1260,7 +1265,7 @@ fn kill_port_owner(port: u16) {
 }
 
 /// One-click fix for the ComfyUI 0.19+ cross-origin block banner (#75/#82
-/// follow-up, David 2026-07-17): stop the user-managed ComfyUI on the
+/// follow-up, 2026-07-17): stop the user-managed ComfyUI on the
 /// configured port and relaunch it under LU's management — LU-started
 /// ComfyUI always carries `--enable-cors-header`, so direct media loads and
 /// the native progress feed work again. Requires a known install path; on a
@@ -1386,6 +1391,50 @@ fn ollama_port_open() -> bool {
     TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(300)).is_ok()
 }
 
+/// The Ollama CLI inside the app bundle, for a Mac where Ollama.app is
+/// installed but its command line link was never created: system-wide first,
+/// then the per-user Applications folder.
+#[cfg(any(target_os = "macos", test))]
+pub(crate) fn ollama_bundle_candidates(home: &std::path::Path) -> Vec<PathBuf> {
+    const INSIDE: &str = "Ollama.app/Contents/Resources/ollama";
+    vec![
+        PathBuf::from("/Applications").join(INSIDE),
+        home.join("Applications").join(INSIDE),
+    ]
+}
+
+/// Where the Ollama CLI is on this Mac, or `None` when it is not installed.
+///
+/// Fehlerkontrolle Mac 2, Fund 2: every start went through a bare
+/// `Command::new("ollama")`. An app opened from the Finder has the launchd
+/// PATH (`/usr/bin:/bin:/usr/sbin:/sbin`), Ollama.app puts its CLI into
+/// `/usr/local/bin` and Homebrew into `/opt/homebrew/bin`, so the start
+/// failed with "No such file or directory" and the onboarding told a user
+/// with Ollama installed to go and download it. PATH is still asked first.
+///
+/// `open -a Ollama` was the other way to start it and is not used: it starts
+/// the menu bar app, which this app would neither hold as a child nor stop on
+/// quit, while `serve` from the same bundle is the process `ollama_process`
+/// already tracks and reaps.
+#[cfg(target_os = "macos")]
+pub(crate) fn find_ollama() -> Option<PathBuf> {
+    crate::finder_path::resolve_tool(
+        "ollama",
+        &ollama_bundle_candidates(&crate::os_paths::home()),
+    )
+}
+
+/// The program every `ollama serve` is started with: the resolved full path
+/// on a Mac, the bare name everywhere else (and on a Mac without Ollama, so
+/// the spawn fails with the same "not found" it always did).
+pub(crate) fn ollama_program() -> std::ffi::OsString {
+    #[cfg(target_os = "macos")]
+    if let Some(found) = find_ollama() {
+        return found.into_os_string();
+    }
+    "ollama".into()
+}
+
 fn start_ollama_blocking(state: &AppState) -> Result<serde_json::Value, String> {
     let _gate = start_gate(&OLLAMA_START);
     if ollama_port_open() {
@@ -1395,12 +1444,12 @@ fn start_ollama_blocking(state: &AppState) -> Result<serde_json::Value, String> 
 
     println!("[Ollama] Starting...");
     // K14: a foreign program, never something LU bundles.
-    let mut cmd = crate::process_util::foreign_system_command("ollama");
+    let mut cmd = crate::process_util::foreign_system_command(ollama_program());
     cmd.arg("serve")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    // Bug BB v2.5.0 — BobbyT. Forward the user's GPU pick as
+    // Bug BB v2.5.0 — a user. Forward the user's GPU pick as
     // CUDA_VISIBLE_DEVICES / HIP_VISIBLE_DEVICES / ONEAPI_DEVICE_SELECTOR
     // so Ollama uses the pinned card on multi-vendor / multi-GPU machines.
     // No-op when the pick is "auto" (default).
@@ -1421,7 +1470,7 @@ fn start_ollama_blocking(state: &AppState) -> Result<serde_json::Value, String> 
     match result {
         Ok(child) => {
             // Store the Child so AppState::Drop kills our spawned ollama on
-            // shutdown (kj103x — Discord 2026-05-23 #help-chat 1507756765612216411).
+            // shutdown (a user — Discord 2026-05-23 #help-chat 1507756765612216411).
             // Note: tasklist check above means we only get here if WE start it,
             // so we never kill a user-managed ollama serve.
             //
@@ -1702,7 +1751,7 @@ pub(crate) fn start_comfyui_blocking(state: &AppState) -> Result<serde_json::Val
     // the DirectML / ROCm bindings the portable installer prepared. Layout:
     //   <ComfyUI>/python_embeded/python.exe   ← what we want
     //   <ComfyUI>/main.py
-    // Fixed Discord report from reload__: AMD Portable launchte nicht.
+    // Fixed Discord report from: AMD Portable launchte nicht.
     let portable_python = std::path::Path::new(&comfy_path)
         .parent()
         .and_then(|p| {
@@ -1715,7 +1764,7 @@ pub(crate) fn start_comfyui_blocking(state: &AppState) -> Result<serde_json::Val
         let candidate = std::path::Path::new(&comfy_path).join("python_embeded").join("python.exe");
         if candidate.exists() { Some(candidate.to_string_lossy().to_string()) } else { None }
     });
-    // Bug E (rzgrozt — Arch PEP 668): when the installer detected an
+    // Bug E (a user — Arch PEP 668): when the installer detected an
     // externally-managed Python it created a venv at <ComfyUI>/venv and
     // installed PyTorch + deps into it. Launch from the venv so we don't
     // crash with `ModuleNotFoundError: torch` because the system Python
@@ -1771,7 +1820,7 @@ pub(crate) fn start_comfyui_blocking(state: &AppState) -> Result<serde_json::Val
     let gpu_mode = ComfyGpuMode::parse(&state.comfy_gpu_mode.lock().unwrap());
     let cpu_decision = comfy_needs_cpu(&python, gpu_mode, Some(&state.comfy_gpu_cache));
     let needs_cpu_fallback = cpu_decision.needs_cpu;
-    // shd_scorpion (RX 7900 XTX): remember what we actually launched with so
+    // A user (RX 7900 XTX): remember what we actually launched with so
     // the Create tab can warn instead of letting a CPU gen time out silently.
     *state.comfy_started_cpu.lock().unwrap() = Some(needs_cpu_fallback);
     // Force GPU skips the probe above on purpose, so ask separately and only
@@ -1804,7 +1853,7 @@ pub(crate) fn start_comfyui_blocking(state: &AppState) -> Result<serde_json::Val
         }
     }
     // Auto-enable Flash Attention when the package actually imports in THIS
-    // python (David 2026-06-11: measured 4-5x faster WAN video sampling vs
+    // python (2026-06-11: measured 4-5x faster WAN video sampling vs
     // pytorch SDPA on a 12 GB 3060). ComfyUI only uses FA2 with the flag, so
     // an installed wheel does nothing without this. The real-import probe
     // guarantees we never pass the flag on a broken install (ComfyUI would
@@ -1837,7 +1886,7 @@ pub(crate) fn start_comfyui_blocking(state: &AppState) -> Result<serde_json::Val
         .env("TQDM_DISABLE", "1")
         .env("PYTHONUNBUFFERED", "1")
         // Die UTF-8-Umgebung fuer dieses Kind setzt python_command oben, nicht
-        // diese Kette. Warum sie hier lebensnotwendig ist (plum133, Discord
+        // diese Kette. Warum sie hier lebensnotwendig ist (Discord
         // 07.06.2026): ComfyUI und seine Knoten drucken Unicode-Zeichen fuer den
         // Fortschritt nach stdout. Auf einer Windows-Konsole ohne UTF-8 nimmt
         // Pythons umgeleitetes stdout den Codec der Systemsprache und wirft
@@ -2476,7 +2525,7 @@ pub fn set_comfy_gpu_mode(mode: String, state: State<'_, AppState>) -> Result<se
     Ok(serde_json::json!({ "mode": normalized }))
 }
 
-/// shd_scorpion (Discord 2026-07-03, RX 7900 XTX): a forced-CPU ComfyUI showed
+/// A user (Discord 2026-07-03, RX 7900 XTX): a forced-CPU ComfyUI showed
 /// "Ready to generate" and then died with "timed out after 20 minutes" — no
 /// hint it never used the GPU. Lets the Create tab render an honest warning.
 /// `startedCpu` is None until LU itself has (re)started ComfyUI this session
@@ -2497,7 +2546,7 @@ pub fn get_comfy_gpu_status(state: State<'_, AppState>) -> Result<serde_json::Va
 pub fn set_comfyui_path(path: String, state: State<'_, AppState>) -> Result<serde_json::Value, String> {
     // Resolve the path the user gave us to a directory that actually contains
     // `main.py`. Direct hit short-circuits; otherwise we look at the ComfyUI
-    // Desktop App layout (Comfy-Org/desktop, GH #47, levoy1 2026-05-24): the
+    // Desktop App layout (Comfy-Org/desktop, GH #47 2026-05-24): the
     // user typically points at `%LOCALAPPDATA%\Programs\ComfyUI` (the binary
     // dir with `ComfyUI.exe` next to no `main.py`) because that's what their
     // shortcut targets, but the actual Working Directory with `main.py` +
@@ -2750,7 +2799,7 @@ pub fn auto_start_ollama(state: &AppState) {
 
     println!("[Ollama] Starting...");
     // K14: a foreign program, never something LU bundles.
-    let mut cmd = crate::process_util::foreign_system_command("ollama");
+    let mut cmd = crate::process_util::foreign_system_command(ollama_program());
     cmd.arg("serve")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -2912,7 +2961,7 @@ pub fn auto_start_comfyui(state: &AppState) {
                 // UTF-8 kommt aus python_command, siehe start_comfyui. Ohne
                 // das stirbt ComfyUI auf einer Windows-Konsole ohne UTF-8 an
                 // einem UnicodeEncodeError, sobald es Fortschrittszeichen
-                // druckt (plum133, 07.06.2026).
+                // druckt (07.06.2026).
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
@@ -2958,7 +3007,7 @@ pub fn auto_start_comfyui(state: &AppState) {
 mod utf8_start_waechter {
     /// Dieselbe Regel wie in install.rs, eine Datei weiter.
     ///
-    /// Ticket 003 (anglefire, 03.09.) hat gezeigt, wie teuer eine halb
+    /// Ticket 003 (03.09.) hat gezeigt, wie teuer eine halb
     /// durchgezogene Regel ist: ein Windows-Benutzername ausserhalb von ASCII
     /// laesst jedes Python-Kind mit umgeleiteter Ausgabe auf einen
     /// UnicodeEncodeError laufen, sobald es einen Pfad druckt. install.rs ist
@@ -2966,7 +3015,7 @@ mod utf8_start_waechter {
     /// startet, dessen Ausgabe der Kunde tatsaechlich zu sehen bekommt.
     ///
     /// Die beiden ComfyUI-Starts hatten die Variablen schon seit dem Bericht
-    /// von plum133 (07.06.), aber von Hand und an zwei Stellen. Genau das ist
+    /// von einem Nutzer (07.06.), aber von Hand und an zwei Stellen. Genau das ist
     /// "zwei Pfade, einer gepflegt": die eine Stelle wuchs mit, die andere
     /// haette es nicht muessen. Jetzt fuehrt eine Hilfsfunktion die Regel.
     #[test]
@@ -3080,7 +3129,7 @@ mod tests {
     #[test]
     fn a_dot_venv_counts_like_a_venv() {
         // `uv` and a modern `python -m venv .venv`: same install, other name
-        // (issue #51, adhney; `resolve_comfyui_venv_python` already knows it).
+        // (issue #51; `resolve_comfyui_venv_python` already knows it).
         let (_tmp, comfy) = comfy_fixture();
         touch_torch(&comfy, ".venv/lib/python3.11/site-packages");
         assert!(is_comfyui_install_complete_with(&comfy, &[]));
@@ -3407,7 +3456,7 @@ mod tests {
         assert!(!comfy_env_failure(&sauber));
     }
 
-    // ── Ticket 007 (falcon bob, 01.09. bis 02.09.) ─────────────────────────
+    // ── Ticket 007 (a user, 01.09. bis 02.09.) ─────────────────────────
     //
     // Windows 10 Home 20H2, Radeon R9 200 mit 3 GB. Er bekam den allgemeinen
     // Satz ueber die kaputte Umgebung, drueckte Repair, wartete den Neubau ab
@@ -3489,7 +3538,7 @@ mod tests {
     fn the_self_healing_from_gh_98_still_fires_for_everything_else() {
         // Die Faehigkeit darf nicht versehentlich verschwinden: beide Faelle,
         // die sie ueberhaupt erst gebaut haben, muessen weiter heilen, und
-        // anglefires fehlendes sqlalchemy (Ticket 003) auch.
+        // ein fehlendes sqlalchemy (Ticket 003) auch.
         for (was, tail) in [
             ("joels torch-import", zeilen(&[
                 "Traceback (most recent call last):",
@@ -3501,7 +3550,7 @@ mod tests {
                 r#"  File "I:\comfyui\main.py", line 1, in <module>"#,
                 "ModuleNotFoundError: No module named 'comfy.options'",
             ])),
-            ("anglefires sqlalchemy", zeilen(&[
+            ("missing sqlalchemy", zeilen(&[
                 "Traceback (most recent call last):",
                 r#"  File "C:\Users\1 בוגר\ComfyUI\app\database\db.py", line 3, in <module>"#,
                 "ModuleNotFoundError: No module named 'sqlalchemy'",
@@ -3656,7 +3705,7 @@ mod tests {
 }
 
 /// Cloud mode = cloud-only inference: release every LOCAL model backend so
-/// nothing sits in RAM/VRAM while the app talks to the cloud (David 2026-07-11).
+/// nothing sits in RAM/VRAM while the app talks to the cloud (2026-07-11).
 /// Best-effort per backend — one failing step never blocks the others. Local
 /// mode reloads everything LAZILY on first use, so this is safe to run on every
 /// switch into cloud and on launch-in-cloud. (LM Studio is offloaded separately
@@ -3696,7 +3745,7 @@ pub(crate) fn offload_local_models_blocking(state: &AppState, include_comfyui: O
     //    Both are graceful no-ops when not running, and lazy-start on next use.
     // Call the lifecycle helpers directly — the #[command] wrappers are async
     // now (they moved off the Tauri main thread) and this caller is sync.
-    if crate::commands::engine::stop_engine_locked(state) {
+    if crate::commands::engine::stop_engine_on_request(state) {
         freed.push("bundled-engine");
     }
     if crate::commands::engine::stop_embed_locked(state) {
@@ -4025,6 +4074,51 @@ mod start_gate_tests {
 mod ollama_probe_tests {
     use super::*;
 
+    /// Fehlerkontrolle Mac 2, Fund 2: no start of Ollama may go through the
+    /// bare name again. From the Finder the name resolves against the launchd
+    /// PATH, which has neither /usr/local/bin nor /opt/homebrew/bin.
+    #[test]
+    fn no_ollama_start_uses_the_bare_name() {
+        let bare = ["foreign_system_command(", "\"ollama\")"].concat();
+        for (name, src) in [
+            ("process.rs", include_str!("process.rs")),
+            ("install/ollama.rs", include_str!("install/ollama.rs")),
+        ] {
+            assert!(!src.contains(&bare), "{name} starts Ollama off the bare PATH again");
+        }
+        let which = ["foreign_system_command(\"which\")", ".arg(\"ollama\")"].concat();
+        assert!(
+            !include_str!("install/ollama.rs").contains(&which),
+            "the Mac installer asks `which ollama` again, which a Finder-started app cannot answer"
+        );
+    }
+
+    #[test]
+    fn the_cli_inside_ollama_app_is_looked_for_system_wide_and_per_user() {
+        let found = super::ollama_bundle_candidates(std::path::Path::new("/Users/someone"));
+        assert_eq!(
+            found,
+            vec![
+                std::path::PathBuf::from("/Applications/Ollama.app/Contents/Resources/ollama"),
+                std::path::PathBuf::from("/Users/someone/Applications/Ollama.app/Contents/Resources/ollama"),
+            ]
+        );
+    }
+
+    /// Whatever is found is handed to the spawn as a full path, so the PATH of
+    /// the process no longer decides whether Ollama starts.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_found_ollama_is_started_by_its_full_path() {
+        match super::find_ollama() {
+            Some(found) => {
+                assert!(found.is_absolute() && found.is_file(), "{found:?}");
+                assert_eq!(super::ollama_program(), found.into_os_string());
+            }
+            None => assert_eq!(super::ollama_program(), std::ffi::OsString::from("ollama")),
+        }
+    }
+
     /// Observed on macOS 2026-07-28: the "is Ollama already running?" check
     /// shelled out to `tasklist`, which does not exist outside Windows, so the
     /// check was skipped and a second server was spawned on every launch. The
@@ -4240,13 +4334,6 @@ mod vram_release_tests {
         (format!("http://127.0.0.1:{port}"), rx)
     }
 
-    /// A port with nothing behind it. Bind it, read the port, drop the
-    /// listener — the OS will not hand it out again immediately.
-    fn dead_port() -> u16 {
-        let l = TcpListener::bind("127.0.0.1:0").expect("bind");
-        l.local_addr().unwrap().port()
-    }
-
     #[test]
     fn comfyui_is_asked_on_the_configured_port_not_8188() {
         let (base, rx) = one_shot("200 OK", "{}");
@@ -4278,7 +4365,8 @@ mod vram_release_tests {
         let (base, _rx) = one_shot("200 OK", r#"{"models":[]}"#);
         assert_eq!(offload_ollama_loaded_models_at(&base), VramRelease::NothingLoaded);
 
-        let dead = format!("http://127.0.0.1:{}", dead_port());
+        let (dead_port, _held) = crate::test_support::refusing_port();
+        let dead = format!("http://127.0.0.1:{dead_port}");
         let verdict = offload_ollama_loaded_models_at(&dead);
         let (target, why) = verdict
             .not_responsible()
@@ -4308,8 +4396,8 @@ mod vram_release_tests {
         assert_eq!(target, "http://192.168.1.50:8188");
         assert!(why.contains("another host"), "{why}");
 
-        let (target, why) = ollama_vram_target_for("http://192.168.0.54:11434").unwrap_err();
-        assert_eq!(target, "http://192.168.0.54:11434");
+        let (target, why) = ollama_vram_target_for("http://192.168.1.54:11434").unwrap_err();
+        assert_eq!(target, "http://192.168.1.54:11434");
         assert!(why.contains("another host"), "{why}");
     }
 
@@ -4335,7 +4423,7 @@ mod vram_release_tests {
         assert!(base_url_is_local("http://localhost:11434"));
         assert!(base_url_is_local("http://127.0.0.1:11434"));
         assert!(base_url_is_local("http://[::1]:11434"));
-        assert!(!base_url_is_local("http://192.168.0.54:11434"));
+        assert!(!base_url_is_local("http://192.168.1.54:11434"));
         assert!(!base_url_is_local("http://ollama.example.com"));
         // A host that merely CONTAINS a local name is not local.
         assert!(!base_url_is_local("http://localhost.evil.example"));
@@ -4632,7 +4720,7 @@ mod comfy_adoption_tests {
 
     #[test]
     fn die_meldung_nennt_den_interpreter_und_den_weg_hinaus() {
-        let venv = std::path::Path::new("C:\\Users\\ddrob\\ComfyUI\\venv");
+        let venv = std::path::Path::new("C:\\Users\\alice\\ComfyUI\\venv");
         let py = venv.join("Scripts").join("python.exe");
         let msg = comfy_broken_venv_message(venv, &py);
 

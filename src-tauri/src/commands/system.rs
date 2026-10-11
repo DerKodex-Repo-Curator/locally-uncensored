@@ -5,16 +5,76 @@ use sysinfo::System;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
-/// Disk-space preflight shim for `commands::video::video_install_model`
-/// (originally the bridge's statvfs-based free/total/used probe). Not wired up
-/// to a real disk-usage check here — returning `None` makes the preflight a
-/// no-op (video installs proceed without a disk-space guard, same as every
-/// other model-download path in this codebase, none of which check free space
-/// today). Signature (`Option<(free, total, used)>` in bytes) matches the call
-/// site's `if let Some((free, _, _)) = ...` destructure.
-#[allow(dead_code)]
-pub fn volume_space_for(_path: &std::path::Path) -> Option<(u64, u64, u64)> {
+/// Free, total and used bytes of the volume that holds `path`.
+///
+/// `path` does not have to exist yet: an install asks before it creates its
+/// folder, so the nearest ancestor that is there answers for it. `None` means
+/// "could not be measured", and callers then let the install go ahead.
+///
+/// Only the Mac measures. The callers are the MLX installers, which run
+/// nowhere else, and `libc` is a dependency of the Mac build alone.
+pub fn volume_space_for(path: &std::path::Path) -> Option<(u64, u64, u64)> {
+    let existing = path.ancestors().find(|p| p.exists())?;
+    volume_space_of_existing(existing)
+}
+
+#[cfg(target_os = "macos")]
+fn volume_space_of_existing(path: &std::path::Path) -> Option<(u64, u64, u64)> {
+    use std::os::unix::ffi::OsStrExt;
+    let c_path = std::ffi::CString::new(path.as_os_str().as_bytes()).ok()?;
+    // statfs and not statvfs: on macOS the block counts of statvfs are 32 bit.
+    let mut stat = std::mem::MaybeUninit::<libc::statfs>::zeroed();
+    // SAFETY: `c_path` is a NUL terminated string that outlives the call, and
+    // `stat` points at writable memory of the size the call fills.
+    if unsafe { libc::statfs(c_path.as_ptr(), stat.as_mut_ptr()) } != 0 {
+        return None;
+    }
+    // SAFETY: statfs returned 0, so it filled the struct.
+    let stat = unsafe { stat.assume_init() };
+    let block = u64::from(stat.f_bsize);
+    // f_bavail is what this user may still write, f_bfree would count the
+    // blocks the system keeps for itself.
+    let free = stat.f_bavail.saturating_mul(block);
+    let total = stat.f_blocks.saturating_mul(block);
+    Some((free, total, total.saturating_sub(stat.f_bfree.saturating_mul(block))))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn volume_space_of_existing(_path: &std::path::Path) -> Option<(u64, u64, u64)> {
     None
+}
+
+/// The sentence an install stops with when `need` bytes do not fit, or `None`
+/// when they do. `what` names the thing being installed, `note` is an optional
+/// reason for the size ("incl. the one-time convert").
+pub fn disk_shortfall(what: &str, need: u64, free: u64, note: &str) -> Option<String> {
+    if free >= need {
+        return None;
+    }
+    let note = if note.is_empty() { String::new() } else { format!(" ({note})") };
+    Some(format!(
+        "Not enough disk space: {what} needs about {:.0} GB{note}, and only {:.0} GB are free. Free up space and try again.",
+        (need as f64 / 1e9).ceil(),
+        (free as f64 / 1e9).floor(),
+    ))
+}
+
+/// The disk check every MLX model install runs before it downloads anything:
+/// measure the volume that holds `target` and refuse with one sentence when
+/// `need` bytes do not fit. A volume that cannot be measured lets it through.
+pub fn ensure_free_space(target: &std::path::Path, what: &str, need: u64, note: &str) -> Result<(), String> {
+    match volume_space_for(target) {
+        Some((free, _, _)) => disk_shortfall(what, need, free, note).map_or(Ok(()), Err),
+        None => Ok(()),
+    }
+}
+
+/// Installed memory in bytes. On Apple Silicon this is the one pool the
+/// models, the system and every other app share.
+pub fn total_memory_bytes() -> u64 {
+    let mut sys = System::new();
+    sys.refresh_memory();
+    sys.total_memory()
 }
 
 #[tauri::command]
@@ -253,7 +313,7 @@ fn capture_screen_to(_tmp: &std::path::Path) -> Result<(), String> {
 ///
 /// `as_workspace` is for the callers that ARE choosing a workspace, and it turns
 /// the refusal into this command's error instead of dropping it (bug D,
-/// aldrich_ironhart, Discord 2026-09-08). Without it the picker answered
+/// Discord 2026-09-08). Without it the picker answered
 /// `Ok(Some(path))` for a folder it had just refused to record: the Code tab put
 /// that path in its header as the working directory, and every file op after it
 /// answered "pick it again to allow it", which the user had just done. The
@@ -278,14 +338,15 @@ pub async fn pick_folder(
     Ok(picked.map(|p| p.to_string_lossy().to_string()))
 }
 
-/// Exit the app — used by the auto-updater to let the NSIS installer swap
-/// the binary, and by any future "full quit" UI affordance.
+/// Exit the app. Used by the "full quit" of the command palette and by the
+/// update lane where LU installs itself, which has started the new version
+/// before it calls this. The plugin's lane ends in `restart_after_update`.
 ///
 /// Live-tested on 2026-05-25: Tauri v2's `app.exit(0)` returns from the run
 /// loop without dropping the managed `AppState` on Windows, so subprocess
 /// children (Ollama, ComfyUI, Claude Code) survived every "graceful" quit
 /// path. We work around it by explicitly running the shutdown chain BEFORE
-/// asking Tauri to exit. This is what makes kj103x's Ollama-orphan fix
+/// asking Tauri to exit. This is what makes a user's Ollama-orphan fix
 /// (v2.4.9, Discord 2026-05-23) actually deliver on the tray-Quit + auto-
 /// updater paths in the released binary.
 #[tauri::command]
@@ -295,6 +356,57 @@ pub fn exit_app(app: tauri::AppHandle) {
         state.shutdown_subprocesses();
     }
     app.exit(0);
+}
+
+/// Start the app again after the updater plugin has replaced it, then leave.
+///
+/// The update button says "Restart Now", and only Windows used to keep that
+/// promise, because there the NSIS installer starts the app itself (the
+/// plugin passes it `/R`) and this process never gets past `install()`. On
+/// macOS and Linux `install()` returns into the old process, and all that
+/// followed was `exit_app`: the window closed and the user had to find the
+/// icon again (GitHub discussion 150).
+///
+/// macOS takes Tauri's own restart. It runs the exit event first, so single
+/// instance has let go of its socket before the new process asks for it.
+///
+/// Linux cannot: the restart would start `current_exe()`, which after a deb
+/// or rpm update is a name the kernel has marked as deleted, and it would
+/// hand the new AppImage the environment of the old mount. So the helper that
+/// already starts the new file after LU has installed itself does it here
+/// too. It waits for this process to be gone and cleans that environment.
+///
+/// Whatever goes wrong with the start, the app still exits: the update is
+/// installed at this point, and a window that stays open on the old build
+/// would be worse than one the user has to open again.
+#[tauri::command]
+pub fn restart_after_update(app: tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(state) = app.try_state::<crate::state::AppState>() {
+        state.shutdown_subprocesses();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        use super::self_migrate;
+        let target = self_migrate::relaunch_target(
+            std::env::var("APPIMAGE").ok(),
+            std::env::current_exe().ok(),
+        )
+        .filter(|exe| exe.is_file());
+        match target {
+            Some(exe) => {
+                if let Err(why) = self_migrate::launch_after_exit(&exe, std::process::id()) {
+                    tracing::warn!("[update] the updated app was not started again: {why}");
+                }
+            }
+            None => tracing::warn!("[update] no file to start the updated app from, exiting only"),
+        }
+        app.exit(0);
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    app.request_restart();
 }
 
 /// Get the persistent settings dir — outside the (NSIS) install dir so it
@@ -357,7 +469,7 @@ pub(crate) fn keys_lost(previous: &str, incoming: &str) -> Vec<String> {
 /// The snapshot that actually goes to disk: the incoming one, plus every key
 /// it lost carried over from the backup that is already there.
 ///
-/// aldrich_ironhart, 2.6.5, Discord #general 18.08.: "My code chats are
+/// A user, 2.6.5, Discord #general 18.08.: "My code chats are
 /// vaporised". chat-conversations lives in IndexedDB, localStorage does not,
 /// and they are different storage layers with different lifetimes. A hard
 /// process kill during a self update can leave Chromium discarding the whole
@@ -582,7 +694,7 @@ pub async fn restore_stores() -> Result<Option<String>, String> {
 /// metadata but the IndexedDB chunks were silently lost — every "RAG enabled"
 /// chat would show the document name + remain non-searchable.
 ///
-/// kj103x report (Discord 2026-05-23, #help-chat thread 1507756765612216411,
+/// A user report (Discord 2026-05-23, #help-chat thread 1507756765612216411,
 /// running v2.4.8): "is there a way to keep chats with the plugins and the
 /// attached documents via RAG when i close the app and reopen it?" References
 /// Discussion #26 as "'fixed' but not really fixed" — the v2.3.4 fix was the
@@ -710,7 +822,45 @@ pub fn get_current_time() -> Result<serde_json::Value, String> {
 mod tests {
     use super::*;
 
-    /// aldrich_ironhart, 2.6.5, Discord #general 18.08. 12:59 "has anyone lost
+    /// Fund 5: die Vorpruefung war am Mac ein Platzhalter, der immer `None`
+    /// gab. Sie misst jetzt das Volume, auch fuer einen Ordner, den es noch
+    /// nicht gibt.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn volume_space_measures_the_volume_of_a_folder_that_does_not_exist_yet() {
+        let dir = tempfile::tempdir().unwrap();
+        let (free, total, used) = volume_space_for(dir.path()).expect("the Mac measures its volume");
+        assert!(total > 0 && free > 0 && free <= total, "free {free} of {total}");
+        assert!(used <= total);
+        // An install asks before it creates its folder.
+        let later = dir.path().join("mlx-video").join("some-model").join("src");
+        assert!(!later.exists());
+        let (free_later, total_later, _) = volume_space_for(&later).expect("the nearest folder answers");
+        assert_eq!(total_later, total, "the same volume");
+        // Other processes write while this runs, so the two readings may differ a little.
+        assert!(free_later.abs_diff(free) < 5_000_000_000, "{free_later} vs {free}");
+    }
+
+    #[test]
+    fn disk_shortfall_is_one_sentence_with_both_numbers() {
+        assert_eq!(disk_shortfall("Wan 2.1 T2V 14B", 100, 100, ""), None, "it fits exactly");
+        assert_eq!(disk_shortfall("Wan 2.1 T2V 14B", 100, 101, "x"), None);
+        let msg = disk_shortfall("LTX-2 Distilled", 111_000_000_000, 60_400_000_000, "").unwrap();
+        assert_eq!(
+            msg,
+            "Not enough disk space: LTX-2 Distilled needs about 111 GB, and only 60 GB are free. Free up space and try again."
+        );
+        let msg = disk_shortfall("Wan 2.1 T2V 14B", 142_000_000_000, 60_000_000_000, "incl. the one-time convert").unwrap();
+        assert!(msg.contains("needs about 142 GB (incl. the one-time convert), and only 60 GB are free"), "{msg}");
+        assert!(!msg.contains('\u{2014}') && !msg.contains('\u{2013}'));
+    }
+
+    #[test]
+    fn total_memory_is_measured() {
+        assert!(total_memory_bytes() >= 1_073_741_824, "{}", total_memory_bytes());
+    }
+
+    /// A user, 2.6.5, Discord #general 18.08. 12:59 "has anyone lost
     /// their chats after a restart??" and 16:12 "My code chats are vaporised".
     ///
     /// chat-conversations lives in IndexedDB and the rest of the stores live
@@ -856,7 +1006,7 @@ mod tests {
             r"C:\Users\O''Brien\AppData\Local\Temp\a.png"
         );
         // A plain path is passed through untouched — no backslash doubling.
-        assert_eq!(ps_single_quoted(r"C:\Users\dave\a.png"), r"C:\Users\dave\a.png");
+        assert_eq!(ps_single_quoted(r"C:\Users\alex\a.png"), r"C:\Users\alex\a.png");
     }
 
     #[test]
@@ -985,7 +1135,7 @@ mod tests {
         dir
     }
 
-    /// aldrich_ironhart lost the chats to a boot that came back with the
+    /// A user lost the chats to a boot that came back with the
     /// IndexedDB gone. The file on disk was fine that time. It does not have
     /// to be: the rename that publishes store_backup.json is atomic in name
     /// only, the bytes are not on the platter until they are synced, and a

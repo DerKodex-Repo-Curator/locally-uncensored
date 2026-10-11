@@ -13,6 +13,8 @@
 import { Layers, Trash2 } from 'lucide-react'
 import { parseLocalCharacterLora } from '../../api/trainer'
 import { formatBytes } from '../../lib/formatters'
+import { ModelEmptyState, SectionHead } from './ModelPageParts'
+import { ICON_SM } from '../ui/icon-size'
 
 export interface LoraRow {
   name: string
@@ -20,7 +22,7 @@ export interface LoraRow {
   size: number
 }
 
-interface Props {
+export interface LoraManagerProps {
   /** The rows to draw, already narrowed by the header search. */
   rows: LoraRow[]
   /** How many LoRAs are installed in total, search or no search. The empty
@@ -42,38 +44,27 @@ interface Props {
  *  the list "LoRA stack" (ParamGroups.tsx). */
 export const LORA_USE_HINT = 'Use them in Create, Advanced settings, Expert, LoRA stack.'
 
-export function LoraManager({ rows, total, searchQuery, onDelete, onGetNew }: Props) {
+export function LoraManager({ rows, total, searchQuery, onDelete, onGetNew }: LoraManagerProps) {
   if (total === 0) {
     return (
-      <div className="flex flex-col items-center justify-center text-center py-16 px-6 gap-3">
-        <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.06] flex items-center justify-center">
-          <Layers size={28} className="text-gray-400 dark:text-gray-500" />
-        </div>
-        <div className="space-y-1">
-          <p className="t-control text-gray-800 dark:text-gray-200">No LoRAs installed yet</p>
-          <p className="t-micro text-gray-500 max-w-[300px] leading-relaxed">
-            Get new has ready-made LoRAs and a CivitAI search. What you pick lands in ComfyUI&apos;s models/loras folder. {LORA_USE_HINT}
-          </p>
-        </div>
-        <button
-          onClick={onGetNew}
-          className="flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-md bg-gray-900 dark:bg-white/10 hover:bg-gray-800 dark:hover:bg-white/15 text-white t-micro font-medium transition-colors"
-        >
-          <Layers size={11} /> Get new LoRAs
-        </button>
-      </div>
+      <ModelEmptyState
+        icon={<Layers size={28} />}
+        title="No LoRAs installed yet"
+        action={(
+          <button onClick={onGetNew} className="lu-primary lu-control">
+            <Layers size={ICON_SM} /> Get new LoRAs
+          </button>
+        )}
+      >
+        Get new has ready-made LoRAs and a CivitAI search. What you pick lands in ComfyUI&apos;s models/loras folder. {LORA_USE_HINT}
+      </ModelEmptyState>
     )
   }
 
   return (
-    <section className="space-y-1.5">
-      <div className="flex items-center gap-2 px-1">
-        <Layers size={11} />
-        <h2 className="t-micro font-semibold uppercase tracking-[0.12em] text-gray-700 dark:text-gray-300">LoRAs</h2>
-        <span className="text-[0.55rem] text-gray-400 dark:text-gray-500 tabular-nums">{rows.length}</span>
-        <div className="flex-1 h-px bg-gray-200 dark:bg-white/[0.06]" />
-      </div>
-      <p className="px-1 text-[0.55rem] text-gray-500 dark:text-gray-500">{LORA_USE_HINT}</p>
+    <section className="space-y-2">
+      <SectionHead level="h2" icon={<Layers size={ICON_SM} />} title="Installed LoRAs" count={rows.length} />
+      <p className="t-micro text-gray-500 dark:text-gray-400">{LORA_USE_HINT}</p>
       <div className="space-y-1.5">
         {rows.map((row) => {
           const character = parseLocalCharacterLora(row.name)
@@ -81,18 +72,21 @@ export function LoraManager({ rows, total, searchQuery, onDelete, onGetNew }: Pr
             <div
               key={row.name}
               data-testid="lora-row"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02]"
+              className="lu-tile flex items-center gap-3 px-3.5 py-2.5"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate t-control text-gray-900 dark:text-gray-100">{row.name}</span>
+                  <span className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">{row.name}</span>
                   {character && (
-                    <span className="shrink-0 px-1.5 py-0.5 rounded t-micro border border-lu-accent/30 bg-lu-accent-soft text-lu-accent-edge dark:text-lu-accent">
+                    // The ink in the light: the edge colour that stood here
+                    // reaches 3.37:1 on a light row, enough for a border and
+                    // not for a word.
+                    <span className="shrink-0 px-1.5 py-0.5 rounded t-micro border border-lu-accent/30 bg-lu-accent-soft text-lu-accent-ink dark:text-lu-accent">
                       Character
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-0.5 t-micro text-gray-500 dark:text-gray-500">
+                <div className="flex items-center gap-2 mt-1 t-micro text-gray-500 dark:text-gray-400">
                   {row.size > 0 && <span className="tabular-nums">{formatBytes(row.size)}</span>}
                   {character && <span className="font-mono">Trigger word: {character.trigger}</span>}
                 </div>
@@ -101,9 +95,9 @@ export function LoraManager({ rows, total, searchQuery, onDelete, onGetNew }: Pr
                 onClick={() => onDelete(row.name)}
                 title="Delete"
                 aria-label={`Delete ${row.name}`}
-                className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                className="lu-control lu-control--icon lu-control--outline shrink-0"
               >
-                <Trash2 size={13} />
+                <Trash2 size={ICON_SM} />
               </button>
             </div>
           )
@@ -112,7 +106,7 @@ export function LoraManager({ rows, total, searchQuery, onDelete, onGetNew }: Pr
             stay, and the filtered-away list says so instead of claiming
             anything about what is installed. */}
         {rows.length === 0 && (
-          <p className="text-center t-micro text-gray-500 py-6">No installed LoRAs match "{searchQuery}"</p>
+          <p className="text-center text-xs text-gray-500 dark:text-gray-400 py-6">No installed LoRAs match "{searchQuery}"</p>
         )}
       </div>
     </section>

@@ -1,7 +1,7 @@
 /**
- * Discord 28.09.2026 (xambran, Windows 11, Ollama mit Qwen und DeepSeek): "I
+ * Discord 28.09.2026 (Windows 11, Ollama mit Qwen und DeepSeek): "I
  * still can't get my models to access the files", jede Agent-Berechtigung auf
- * Auto. Nachgestellt am installierten 3.0.3 auf lu-box: im normalen Chat fuehrt
+ * Auto. Nachgestellt am installierten 3.0.3 auf der Windows-Testmaschine: im normalen Chat fuehrt
  * "Read the file C:\Windows\win.ini and tell me its first line." zu keinem
  * einzigen Werkzeugaufruf. Das ist Absicht, Chat Tools haben kein file_read
  * (`CHAT_TOOLS` in chat-tool-intent.ts: Web, Datei SCHREIBEN als Anhang, Bild,

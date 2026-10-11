@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { yieldSilentLocalRuns } from '../../lib/silent-runs'
 import { usePopoverPlatz } from '../../hooks/usePopoverPlatz'
 import { useDismissOnEscape } from '../../hooks/useDismissOnEscape'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -8,7 +9,21 @@ import { useModelStore } from '../../stores/modelStore'
 import { useProviderStore } from '../../stores/providerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useUIStore } from '../../stores/uiStore'
-import { unloadAllModels, loadModel, unloadModel, listRunningModels } from '../../api/ollama'
+import {
+  unloadAllModels, loadModel, unloadModelAndLook, readLoadedModels, readRunningModels, modelsAheadOfLoad,
+} from '../../api/ollama'
+import {
+  ollamaSwitchState, waitingForSentence, stillBusySentence, switchFailedSentence,
+  type OllamaSwitchRun,
+} from '../../lib/ollama-switch'
+import type { LoadSwitchState } from '../../lib/load-switch'
+import {
+  lmStudioSwitchState, lmStudioSwitchFailedSentence, LM_STUDIO_STILL_LISTED,
+  type LmStudioSwitchRun,
+} from '../../lib/lmstudio-switch'
+import { CallTimeoutError } from '../../lib/call-limit'
+import { loadedOnCpuLabel, loadedOnCpuTitle } from '../../lib/ollama-window-fit'
+import { ModelLoadError } from '../../lib/ollama-errors'
 import { displayModelName, getProviderIdFromModel } from '../../api/providers'
 import { splitForMiddleEllipsis, modelDisplayLabel } from '../../lib/model-label'
 import { formatContextWindow } from '../../lib/formatters'
@@ -16,7 +31,14 @@ import { activateBuiltinModel, isManagedBuiltinActive } from '../../api/engine'
 import { diagnoseBuiltinEngine } from '../../api/builtin-ensure'
 import { canUseTools, resolveToolSupport, type ToolSupport } from '../../lib/tool-support'
 import { backendCall } from '../../api/backend'
-import { listLoadedLmStudioModels, loadLmStudioModel, unloadLmStudioModel } from '../../api/lmstudio'
+import {
+  listLoadedLmStudioModels, readLoadedLmStudioModels, loadLmStudioModel, unloadLmStudioModelAndLook,
+  LmStudioSwitchError,
+} from '../../api/lmstudio'
+import {
+  useEndedLmStudioLoads, dismissUnconfirmedLmStudioLoads, lmStudioUnconfirmedSentence,
+  lmStudioGoneMark, lmStudioWentAfter,
+} from '../../lib/lmstudio-ended-loads'
 import { isLmStudioProvider } from '../../lib/hf-to-provider'
 import { detailOf } from '../../lib/error-text'
 import { lmStudioSlotUpdate, adoptionReplacesBuiltinEngine } from '../../lib/lmstudio-backend-adopt'
@@ -47,6 +69,7 @@ import { ModelRowMarks } from './ModelRowMarks'
 import { CloudModelPicker, CLOUD_PICKER_MAX_HEIGHT, CLOUD_PICKER_WIDTH, type PickerNote } from './CloudModelPicker'
 import { modelFamily, OTHER_FAMILY } from '../../lib/model-family'
 import type { CloudModel as CloudModelMarks } from '../../types/models'
+import { cloudPickerLine, hostIsMac } from '../../lib/mac-pc-words'
 
 // ── Local-mode cloud discovery (2.5.8): an "LU Cloud" section at the list's
 // tail. Signed-in accounts show their real hosted chat models (the appMode
@@ -124,7 +147,7 @@ function CloudTeaserSection({ onOpen }: { onOpen: () => void }) {
         >
           <Cloud size={10} className="text-violet-500 dark:text-violet-200 shrink-0" />
           <span className="t-micro text-gray-400">
-            Frontier chat models, no GPU needed
+            {cloudPickerLine(hostIsMac())}
           </span>
           <span className="ml-auto text-[0.5rem] text-violet-500 dark:text-violet-200">Cloud</span>
         </button>
@@ -137,14 +160,14 @@ function CloudTeaserSection({ onOpen }: { onOpen: () => void }) {
 // loaded-state poll bail out of a state update (return the SAME Set ref) when
 // nothing changed, so React skips the re-render instead of reconciling the whole
 // dropdown every tick, the common case once the user has stopped loading models
-// (vedaiorobotics GH #70: "interface laggy, even when loading models").
+// (GH #70: "interface laggy, even when loading models").
 function sameStringSet(prev: Set<string>, next: string[]): boolean {
   if (prev.size !== next.length) return false
   for (const n of next) if (!prev.has(n)) return false
   return true
 }
 
-// ── Bug Q (v2.4.7, wakeywakeynow GH #41) ─────────────────────
+// ── Bug Q (v2.4.7, GH #41) ─────────────────────
 //
 // Symptom: user has LM Studio installed with models on disk, opens LU's
 // chat model picker, sees only Ollama models, no hint about LM Studio.
@@ -183,7 +206,7 @@ const LMSTUDIO_STATUS_POLL_MS = 1500
 /** How long "starting" stands before the Start button comes back. */
 const LMSTUDIO_START_WAIT_MS = 30_000
 
-// One line with a state dot, a short sentence and a text button (David,
+// One line with a state dot, a short sentence and a text button (the owner,
 // 05.10.2026). It used to be a box of three text blocks and a full-width
 // button, about as tall as five model rows. What the click does is unchanged.
 //
@@ -386,7 +409,7 @@ function getProviderBadge(model: AIModel) {
 // routing exactly as before.
 //
 // This is the LOCAL list. It keeps its own order and its own head per family,
-// also over a single row (David, 05.10.2026: the local list stays as it is).
+// also over a single row (05.10.2026: the local list stays as it is).
 // Which family a name belongs to is asked in lib/model-family, the same table
 // the Cloud picker groups by.
 
@@ -626,18 +649,35 @@ export function lmsAutoLoadContext(model: AIModel): number {
 // This REPLACED the old active-row blue checkmark. The active/selected
 // model is still shown by the row highlight; the dropdown now shows a
 // single, unambiguous on/off LOAD state per model instead of a checkmark
-// (active) competing with a separate loaded indicator. (David 2026-06-06:
+// (active) competing with a separate loaded indicator. (2026-06-06:
 // "keine haken mehr, nur on/off load sichtbar im dropdown".)
-function LoadToggle({ loaded, busy, disabled, onClick }: {
-  loaded: boolean; busy: boolean; disabled: boolean; onClick: () => void
-}) {
+//
+// The switch follows the rule in lib/load-switch.ts: while it loads it is its
+// own Cancel, while it unloads there is nothing to click, and while another
+// row's switch runs it is off. A cancelled load the backend has not let go of
+// is "Cancelling": not off yet, and never on.
+function LoadToggle({ loaded: listed, state, onClick }: { loaded: boolean; state: LoadSwitchState; onClick: () => void }) {
+  const cancels = state === 'cancel'
+  const cancelling = state === 'cancelling'
+  const busy = cancels || cancelling || state === 'busy'
+  const loaded = listed && !cancelling
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick() }}
-      disabled={disabled}
-      title={loaded
-        ? 'Loaded in VRAM. Click to unload (Off)'
-        : 'Not loaded. Click to load into VRAM (On)'}
+      disabled={state === 'busy' || state === 'off' || cancelling}
+      // A row that is switched off for a running load (`pickInFlight`) hands
+      // its `aria-disabled` down to everything in it. The Cancel of that load
+      // is the one thing in the row that works, and says so.
+      aria-disabled={cancels ? false : undefined}
+      data-testid="load-toggle"
+      data-state={cancels ? 'cancel' : cancelling ? 'cancelling' : busy ? 'busy' : loaded ? 'on' : 'off'}
+      title={cancels
+        ? 'Loading. Click to cancel'
+        : cancelling
+          ? 'Cancelling. Waiting until the model has left memory'
+          : loaded
+            ? 'Loaded in VRAM. Click to unload (Off)'
+            : 'Not loaded. Click to load into VRAM (On)'}
       className={`flex items-center gap-0.5 pl-1 pr-1.5 py-0.5 rounded text-[0.5rem] font-semibold uppercase tracking-wide transition-colors disabled:opacity-40 ${
         loaded
           ? 'text-emerald-400 bg-emerald-500/[0.12] hover:bg-emerald-500/20'
@@ -645,10 +685,39 @@ function LoadToggle({ loaded, busy, disabled, onClick }: {
       }`}
     >
       {busy ? <Loader2 size={9} className="animate-spin" /> : <Power size={9} />}
-      <span>{busy ? '…' : loaded ? 'On' : 'Off'}</span>
+      <span>{cancels ? 'Cancel' : cancelling ? 'Cancelling' : busy ? '…' : loaded ? 'On' : 'Off'}</span>
     </button>
   )
 }
+
+/** What a load switch has to say after it ran, with its own way to close it. */
+type SwitchNote = { text: string; tone: 'info' | 'error' }
+
+function SwitchNoteLine({ testId, note, onDismiss }: { testId: string; note: SwitchNote; onDismiss: () => void }) {
+  return (
+    <div
+      data-testid={testId}
+      data-tone={note.tone}
+      className={`flex items-start gap-1.5 px-2.5 py-1.5 border-b border-black/5 dark:border-white/[0.06] t-micro ${
+        note.tone === 'error' ? HINWEIS_TEXT.fehler : HINWEIS_TEXT.ruhig
+      }`}
+    >
+      <span className="flex-1 min-w-0 leading-snug">{note.text}</span>
+      <button
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        title="Dismiss"
+        className="shrink-0 rounded p-[1px] opacity-70 hover:opacity-100 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+      >
+        <X size={10} />
+      </button>
+    </div>
+  )
+}
+
+/** How soon a pending Ollama load is first asked what it waits for, and how often after. */
+const OLLAMA_WAIT_FIRST_LOOK_MS = 1500
+const OLLAMA_WAIT_LOOK_EVERY_MS = 2000
 
 // ── Component ─────────────────────────────────────────────────
 
@@ -658,7 +727,7 @@ export interface ModelSelectorProps {
    * Which surface is asking. 'code' is the coding agent, which cannot do
    * anything at all without tool calls, so hosted models that have told us
    * they do not support tools are left out of the list entirely rather than
-   * offered with a warning icon (David 2026-07-25: "Modelle ohne Tool-Support
+   * offered with a warning icon (2026-07-25: "Modelle ohne Tool-Support
    * z.B. nicht im Code-Bereich anzeigen"). Local models stay listed on every
    * surface, there the fallback XML path often still works, and when it does
    * not the run says so.
@@ -667,7 +736,7 @@ export interface ModelSelectorProps {
   /**
    * The model that wrote the answers of the open chat, when that is not the
    * model picked here (Meldung 4 of the R5 re-measure). It used to be a chip
-   * of its own beside the picker; David wanted it out of the row on
+   * of its own beside the picker; the owner wanted it out of the row on
    * 2026-09-02, so the picker carries it: a 4 px dot on the corner and the
    * full sentence in the tooltip. `null`/undefined is the normal case and
    * changes nothing about the trigger, not even its width.
@@ -744,7 +813,7 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
   /**
    * Die stehende Zeile ueber das Modell, jetzt HIER statt ueber der Eingabe.
    *
-   * David, 21.09.2026, am echten Windows-Bau: „NICHTS im prompt fenster!"
+   * 21.09.2026, am echten Windows-Bau: „NICHTS im prompt fenster!"
    * Gemessen an Bild B3 stand ihr Satz („…is gone from the model list, so the
    * chat switched to…") mitsamt x IM Kasten des Composers, direkt ueber der
    * Zeile, in die er tippen wollte.
@@ -807,13 +876,40 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
   const [unloading, setUnloading] = useState(false)
   const [unloadDone, setUnloadDone] = useState(false)
   // B3, per-model LM Studio load/unload state. `lmsLoaded` is the set
-  // of LM Studio model identifiers currently loaded in the server;
-  // `togglingLms` is the one we're flipping right now (drives the
-  // spinner on the row). LM Studio's HTTP server doesn't have load /
-  // unload endpoints, so we route through the `lms` CLI via the
-  // bridge's `lmstudio_load_model` / `lmstudio_unload_model` commands.
-  const [lmsLoaded, setLmsLoaded] = useState<Set<string>>(new Set())
-  const [togglingLms, setTogglingLms] = useState<string | null>(null)
+  // of LM Studio model identifiers currently loaded in the server.
+  // LM Studio's HTTP server doesn't have load / unload endpoints, so we
+  // route through the `lms` CLI via the bridge's `lmstudio_load_model` /
+  // `lmstudio_unload_model` commands.
+  //
+  // The list is kept with the mark that was taken before LM Studio was asked
+  // for it (lib/lmstudio-ended-loads.ts). A model that was seen to be gone
+  // after that is left out: the list may be from the second the model sat in
+  // memory before the unload of a cancelled load took it, and the row read
+  // "On" for a second after "Cancelling" (hand test, 11.10.2026).
+  const [lmsListed, setLmsListed] = useState<{ ids: Set<string>; asked: number }>({ ids: new Set(), asked: 0 })
+  const setLmsLoaded = useCallback((list: Iterable<string>, asked: number) => {
+    const ids = [...list]
+    setLmsListed((prev) => {
+      const same = sameStringSet(prev.ids, ids)
+      return same && prev.asked === asked ? prev : { ids: same ? prev.ids : new Set(ids), asked }
+    })
+  }, [])
+  // The one LM Studio load or unload that is running, the handle that ends
+  // its load, and what the last switch has to say. The rule is written down
+  // in lib/lmstudio-switch.ts. `togglingLms` is the row whose On/Off switch
+  // started it (a pick that loads is `selectingLms` below).
+  const [lmsRun, setLmsRun] = useState<LmStudioSwitchRun | null>(null)
+  const lmsRunAbort = useRef<AbortController | null>(null)
+  const [lmsNote, setLmsNote] = useState<SwitchNote | null>(null)
+  const togglingLms = lmsRun?.via === 'switch' ? lmsRun.name : null
+  // The loads that were ended and that LM Studio has not let go of yet, and
+  // the ones the watch could not confirm (lib/lmstudio-ended-loads.ts).
+  const { ending: lmsEnding, unconfirmed: lmsUnconfirmed, goneMark: lmsGoneMark } = useEndedLmStudioLoads()
+  const lmsLoaded = useMemo(
+    () => new Set([...lmsListed.ids].filter((id) => !lmStudioWentAfter(id, lmsListed.asked))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lmsGoneMark is what lmStudioWentAfter reads
+    [lmsListed, lmsGoneMark],
+  )
   // B3/§18, the LM Studio model we're auto-loading as part of *selecting* it
   // (distinct from `togglingLms`, the explicit power-button flow). Drives the
   // inline "loading…" state on the row and blocks a second click.
@@ -841,7 +937,17 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
   // every LOCAL model shows a clear on/off load toggle (not just LM Studio).
   // Sourced from /api/ps on dropdown open.
   const [ollamaLoaded, setOllamaLoaded] = useState<Set<string>>(new Set())
-  const [togglingOllama, setTogglingOllama] = useState<string | null>(null)
+  // What Ollama reports about each loaded model: how much of it sits in
+  // graphics memory. A row says so when part of its model runs on the CPU
+  // (lib/ollama-window-fit.ts). Measured after the load, never predicted.
+  const [ollamaOnCpu, setOllamaOnCpu] = useState<Record<string, { label: string; title: string }>>({})
+  // The one Ollama switch that is running, the handle that ends its load, the
+  // models that load is waiting behind, and what the last switch has to say.
+  // The rule is written down in lib/ollama-switch.ts.
+  const [ollamaRun, setOllamaRun] = useState<OllamaSwitchRun | null>(null)
+  const ollamaRunAbort = useRef<AbortController | null>(null)
+  const [ollamaWaitingFor, setOllamaWaitingFor] = useState<string[]>([])
+  const [ollamaNote, setOllamaNote] = useState<SwitchNote | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   /**
    * Wie hoch das Aufklappmenue hoechstens werden darf, in Pixeln.
@@ -885,7 +991,7 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
   }, [open, cloudPicker])
 
   // Keep the per-row On/Off LOAD state LIVE while the dropdown is open
-  // (David 2026-06-12: "on und offload button sehr delayed und nicht immer
+  // (2026-06-12: "on und offload button sehr delayed und nicht immer
   // akkurat, gemma4b ist geladen laut ollama aber in LU steht off"). The old
   // code fetched the loaded set ONCE on open, so a model that loaded after the
   // open, or a slow/transiently-failed first fetch, showed the wrong state
@@ -924,16 +1030,27 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
         isLmStudioProvider(m.providerName),
       )
       if (hasLmsRows) {
-        void listLoadedLmStudioModels().then((list) => { if (!cancelled) setLmsLoaded((prev) => sameStringSet(prev, list) ? prev : new Set(list)) }).catch(() => {})
+        const asked = lmStudioGoneMark()
+        void listLoadedLmStudioModels().then((list) => { if (!cancelled) setLmsLoaded(list, asked) }).catch(() => {})
       } else if (!cancelled) {
-        setLmsLoaded((prev) => (prev.size ? new Set() : prev))
+        setLmsLoaded([], lmStudioGoneMark())
       }
       try {
-        const list = await listRunningModels()
+        const loaded = await readLoadedModels()
         misses = 0
-        if (!cancelled) setOllamaLoaded((prev) => sameStringSet(prev, list) ? prev : new Set(list))
+        if (cancelled) return
+        const list = loaded.map((m) => m.name)
+        setOllamaLoaded((prev) => sameStringSet(prev, list) ? prev : new Set(list))
+        const onCpu: Record<string, { label: string; title: string }> = {}
+        for (const m of loaded) {
+          const label = loadedOnCpuLabel(m)
+          if (label) onCpu[m.name] = { label, title: loadedOnCpuTitle(m) ?? '' }
+        }
+        setOllamaOnCpu((prev) => (JSON.stringify(prev) === JSON.stringify(onCpu) ? prev : onCpu))
       } catch {
+        // Ollama did not answer: nothing is known, so nothing is called loaded.
         misses += 1
+        if (!cancelled) setOllamaLoaded((prev) => (prev.size ? new Set() : prev))
       }
     }
 
@@ -963,60 +1080,191 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
       if (timer) clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [open])
+  }, [open, setLmsLoaded])
+
+  // While an Ollama load is pending: ask what it is waiting behind, so the
+  // picker can say it. Starts a moment after the load, because a load that
+  // simply goes through needs no sentence.
+  const loadingOllama = ollamaRun?.kind === 'load' ? ollamaRun.name : null
+  useEffect(() => {
+    if (!loadingOllama) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const look = async () => {
+      let ahead: string[] = []
+      try {
+        ahead = await modelsAheadOfLoad(loadingOllama)
+      } catch {
+        // /api/ps did not answer. Then nothing is known, and nothing is said.
+      }
+      if (cancelled) return
+      setOllamaWaitingFor((prev) => (prev.length === ahead.length && prev.every((n, i) => n === ahead[i]) ? prev : ahead))
+      timer = setTimeout(() => void look(), OLLAMA_WAIT_LOOK_EVERY_MS)
+    }
+    timer = setTimeout(() => void look(), OLLAMA_WAIT_FIRST_LOOK_MS)
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [loadingOllama])
+
+  /** What LM Studio says is loaded right now. An unreadable list keeps the last one. */
+  const rereadLmsLoaded = async (): Promise<Set<string> | null> => {
+    try {
+      const asked = lmStudioGoneMark()
+      const loaded = new Set(await readLoadedLmStudioModels())
+      setLmsLoaded(loaded, asked)
+      return loaded
+    } catch (e) {
+      log.warn('[picker] could not read the loaded LM Studio models after a switch', { err: e })
+      return null
+    }
+  }
+
+  /** The sentence for an LM Studio load or unload that did not do what was asked. */
+  const lmsFailure = (kind: LmStudioSwitchRun['kind'], label: string, e: unknown): string =>
+    lmStudioSwitchFailedSentence(kind, label, {
+      timedOut: e instanceof CallTimeoutError,
+      reason: e instanceof LmStudioSwitchError ? e.reason : undefined,
+    })
 
   /**
-   * Flip a LM Studio model between loaded / unloaded via the bridge.
-   * Refreshes the loaded set on success so the toggle reflects reality
-   * (the user might have multiple LM Studio models loaded already).
+   * Flip a LM Studio model between loaded / unloaded via the bridge. A click
+   * on the switch of the model that is loading ends that load, whether the
+   * switch or a pick of the row started it. Afterwards the switch shows what
+   * LM Studio's loaded list says, never what was asked for, and a switch that
+   * did not do what was asked says why.
    */
   const toggleLmStudioLoad = async (model: AIModel) => {
-    // Use lmsIdOf so LU's `openai::` routing prefix is stripped. Re-deriving the
-    // id inline (as this did) passed "openai::<key>" to `lms load`, which
-    // matches no model → silent failure; and the loaded-set / spinner checks
-    // below compare against the BARE lmsIdOf, so they never matched the prefixed
-    // id either (no spinner, green state never reflected reality). The same
-    // prefix strip is already applied to handleSelectModel + rowId.
+    // lmsIdOf, never the row's name: `lms` and the loaded list know the bare
+    // key, without LU's `openai::` routing prefix.
     const id = lmsIdOf(model)
-    if (!id || togglingLms) return
-    setTogglingLms(id)
+    if (!id) return
+    if (lmsRun) {
+      if (lmStudioSwitchState(id, lmsRun, false, lmsEnding) === 'cancel') lmsRunAbort.current?.abort()
+      return
+    }
+    if (selectingLms || lmsEnding.has(id)) return
+    const kind: LmStudioSwitchRun['kind'] = lmsLoaded.has(id) ? 'unload' : 'load'
+    const label = modelDisplayLabel(models, model.name)
+    const cancel = new AbortController()
+    lmsRunAbort.current = cancel
+    setLmsRun({ name: id, kind, via: 'switch' })
+    setLmsNote(null)
+    // A backend cannot swap a model that is still computing (lib/silent-runs.ts).
+    yieldSilentLocalRuns()
+    let note: SwitchNote | null = null
     try {
-      if (lmsLoaded.has(id)) {
-        await unloadLmStudioModel(id)
-      } else {
-        await loadLmStudioModel(id, lmsAutoLoadContext(model))
+      if (kind === 'load') {
+        await loadLmStudioModel(id, lmsAutoLoadContext(model), { signal: cancel.signal })
+      } else if (await unloadLmStudioModelAndLook(id) === 'still-loaded') {
+        note = { text: lmStudioSwitchFailedSentence('unload', label, { timedOut: false, reason: LM_STUDIO_STILL_LISTED }), tone: 'error' }
       }
-      const list = await listLoadedLmStudioModels()
-      setLmsLoaded(new Set(list))
-    } catch {
-      // Best-effort: leave the previous snapshot in place; the user
-      // can re-open the dropdown to retry.
+    } catch (e) {
+      // The person's own Cancel needs no sentence. Everything else does.
+      if (!cancel.signal.aborted) {
+        log.warn(`[picker] the LM Studio switch could not ${kind} the model`, { model: id, err: e })
+        note = { text: lmsFailure(kind, label, e), tone: 'error' }
+      }
     } finally {
-      setTogglingLms(null)
+      await rereadLmsLoaded()
+      if (lmsRunAbort.current === cancel) lmsRunAbort.current = null
+      if (note) setLmsNote(note)
+      setLmsRun(null)
+    }
+  }
+
+  /** The name a row shows for an Ollama model, for the sentences about it. */
+  const ollamaLabel = (name: string) => modelDisplayLabel(models, name)
+
+  /** What Ollama says is loaded right now. An unreadable list keeps the last one. */
+  const rereadOllamaLoaded = async () => {
+    try {
+      setOllamaLoaded(new Set(await readRunningModels()))
+    } catch (e) {
+      log.warn('[picker] could not read the loaded Ollama models after a switch', { err: e })
     }
   }
 
   /**
    * Flip an Ollama model between loaded / unloaded in VRAM (parity with
    * toggleLmStudioLoad). Load = warm it into VRAM; unload = free VRAM
-   * (keep_alive:0). Refreshes /api/ps after so the toggle reflects reality.
+   * (keep_alive:0). A click on the switch of the model that is loading ends
+   * that load. Afterwards the switch shows what /api/ps says, never what was
+   * asked for, and a switch that did not do what was asked says why.
    */
   const toggleOllamaLoad = async (model: AIModel) => {
     const name = model.name
-    if (!name || togglingOllama) return
-    setTogglingOllama(name)
+    if (!name) return
+    if (ollamaRun) {
+      if (ollamaSwitchState(name, ollamaRun) === 'cancel') ollamaRunAbort.current?.abort()
+      return
+    }
+    const kind: OllamaSwitchRun['kind'] = ollamaLoaded.has(name) ? 'unload' : 'load'
+    const cancel = new AbortController()
+    ollamaRunAbort.current = cancel
+    setOllamaRun({ name, kind })
+    setOllamaNote(null)
+    // A backend cannot swap a model that is still computing (lib/silent-runs.ts).
+    yieldSilentLocalRuns()
+    let note: SwitchNote | null = null
     try {
-      if (ollamaLoaded.has(name)) {
-        await unloadModel(name)
-      } else {
-        await loadModel(name)
+      if (kind === 'load') {
+        await loadModel(name, { signal: cancel.signal })
+      } else if (await unloadModelAndLook(name) === 'busy') {
+        note = { text: stillBusySentence([ollamaLabel(name)]), tone: 'info' }
       }
-      const list = await listRunningModels()
-      setOllamaLoaded(new Set(list))
-    } catch {
-      // best-effort; reopen the dropdown to retry
+    } catch (e) {
+      // The person's own Cancel needs no sentence. Everything else does.
+      if (!cancel.signal.aborted) {
+        log.warn(`[picker] the Ollama switch could not ${kind} the model`, { model: name, err: e })
+        note = {
+          text: switchFailedSentence(kind, ollamaLabel(name), {
+            timedOut: e instanceof CallTimeoutError,
+            reason: e instanceof ModelLoadError ? e.message : undefined,
+          }),
+          tone: 'error',
+        }
+      }
     } finally {
-      setTogglingOllama(null)
+      await rereadOllamaLoaded()
+      if (ollamaRunAbort.current === cancel) ollamaRunAbort.current = null
+      setOllamaWaitingFor([])
+      // Only its own sentence: "Unload all models" may have ended this load
+      // and be about to say something itself.
+      if (note) setOllamaNote(note)
+      setOllamaRun(null)
+    }
+  }
+
+  /**
+   * "Unload all models". It stays available while a load is pending and ends
+   * that load first: the load would bring its model in right after the unload.
+   * It says "Unloaded" only when /api/ps is empty of what was loaded.
+   */
+  const unloadAllOllama = async () => {
+    if (unloading) return
+    setUnloading(true)
+    setUnloadDone(false)
+    setOllamaNote(null)
+    ollamaRunAbort.current?.abort()
+    yieldSilentLocalRuns()
+    try {
+      const result = await unloadAllModels()
+      setOllamaLoaded(new Set([...result.stillBusy, ...result.failed]))
+      if (result.failed.length > 0) {
+        setOllamaNote({ text: switchFailedSentence('unload', result.failed.map(ollamaLabel).join(', '), { timedOut: false }), tone: 'error' })
+      } else if (result.stillBusy.length > 0) {
+        setOllamaNote({ text: stillBusySentence(result.stillBusy.map(ollamaLabel)), tone: 'info' })
+      } else {
+        setUnloadDone(true)
+        setTimeout(() => setUnloadDone(false), 2000)
+      }
+    } catch (e) {
+      log.warn('[picker] "Unload all models" did not go through', { err: e })
+      setOllamaNote({ text: 'Could not unload the models. Ollama did not answer.', tone: 'error' })
+    } finally {
+      setUnloading(false)
     }
   }
 
@@ -1035,6 +1283,8 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
   const handleSelectModel = async (model: AIModel) => {
     const id = lmsIdOf(model)
     setImWechselZu(model.name)
+    // The pick outranks what the app runs on its own (lib/silent-runs.ts).
+    yieldSilentLocalRuns()
     try {
       await selectModelInner(model, id)
     } finally {
@@ -1052,26 +1302,42 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
     const handedBackTo = handBackChatProviderForRow(model as unknown as InstalledModelLike)
     if (handedBackTo) announceChatProviderSwitch(handedBackTo, model.name)
 
-    if (shouldAutoLoadForSelect(model, lmsLoaded)) {
+    // A model whose cancelled load LM Studio is still finishing may be listed
+    // as loaded for a moment before it is unloaded. Picking it is asking for
+    // it again, which goes through the load and keeps it.
+    const stillEnding = lmsEnding.has(id) && isLmStudioProvider(model.providerName)
+    if (stillEnding || shouldAutoLoadForSelect(model, lmsLoaded)) {
       if (selectingLms || togglingLms) return // a load is already in flight
+      const label = modelDisplayLabel(models, model.name)
+      // The load this pick starts is ended on the switch of its row, like
+      // every load (lib/lmstudio-switch.ts).
+      const cancel = new AbortController()
+      lmsRunAbort.current = cancel
       setSelectError(null)
+      setLmsNote(null)
       setSelectingLms(id)
+      setLmsRun({ name: id, kind: 'load', via: 'pick' })
       try {
-        await loadLmStudioModel(id, lmsAutoLoadContext(model))
+        await loadLmStudioModel(id, lmsAutoLoadContext(model), { signal: cancel.signal })
         // Confirm it actually loaded before we route chat at it.
-        const list = await listLoadedLmStudioModels()
-        const loaded = new Set(list)
-        setLmsLoaded(loaded)
-        if (!loaded.has(id)) {
+        const loaded = await rereadLmsLoaded()
+        if (!loaded?.has(id)) {
           setSelectError(`Couldn't load "${displayModelName(model.name)}" into LM Studio. Try the On/Off button on the model's row, or load it in LM Studio directly.`)
           return // keep dropdown open; don't activate an unloaded model
         }
         setActiveModel(model.name)
         clearEngineErrorAfterSuccess()
         setOpen(false)
-      } catch {
-        setSelectError(`Couldn't load "${displayModelName(model.name)}" into LM Studio. Is the LM Studio server running?`)
+      } catch (e) {
+        // The person's own Cancel needs no sentence: the pick is simply not made.
+        if (!cancel.signal.aborted) {
+          log.warn('[picker] picking the LM Studio model could not load it', { model: id, err: e })
+          setSelectError(lmsFailure('load', label, e))
+        }
+        await rereadLmsLoaded()
       } finally {
+        if (lmsRunAbort.current === cancel) lmsRunAbort.current = null
+        setLmsRun(null)
         setSelectingLms(null)
       }
       return
@@ -1361,6 +1627,8 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
   // `blockedPickWait`, which is what keeps any future second reason silent
   // (A17).
   const pickInFlight = selectingLms !== null || togglingLms !== null
+  // An Ollama switch is deliberately not part of it (lib/ollama-switch.ts).
+  const ollamaWaitLine = loadingOllama ? waitingForSentence(ollamaWaitingFor.map(ollamaLabel)) : null
 
   // What an empty list says, in both modes. An empty picker after the user
   // switched the last backend off in Settings used to say only "No models
@@ -1610,7 +1878,7 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
             )}
 
             {/* Bug Q v2.4.7: LM Studio is on disk but its server is off.
-                wakeywakeynow's "can't choose any models i have installed"
+                a user's "can't choose any models i have installed"
                 symptom. One line with a "Start" button. Local mode only: in
                 Cloud the list shows hosted models, and what the line promises
                 (pick LM Studio models here) would not come true there. */}
@@ -1667,6 +1935,27 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
               </div>
             )}
 
+            {/* The Ollama switches: why a load is not moving, and what the
+                last switch has to say (lib/ollama-switch.ts). */}
+            {ollamaWaitLine && (
+              <div
+                data-testid="picker-ollama-waiting"
+                className={`px-2.5 py-1.5 border-b border-black/5 dark:border-white/[0.06] t-micro leading-snug ${HINWEIS_TEXT.ruhig}`}
+              >
+                {ollamaWaitLine}
+              </div>
+            )}
+            {ollamaNote && <SwitchNoteLine testId="picker-ollama-note" note={ollamaNote} onDismiss={() => setOllamaNote(null)} />}
+            {/* The LM Studio switches: what the last one has to say
+                (lib/lmstudio-switch.ts). */}
+            {lmsNote && <SwitchNoteLine testId="picker-lmstudio-note" note={lmsNote} onDismiss={() => setLmsNote(null)} />}
+            {lmsUnconfirmed.length > 0 && (
+              <SwitchNoteLine
+                testId="picker-lmstudio-unconfirmed-note"
+                note={{ text: lmStudioUnconfirmedSentence(lmsUnconfirmed.map((id) => displayModelName(id))), tone: 'error' }}
+                onDismiss={dismissUnconfirmedLmStudioLoads}
+              />
+            )}
 
             {/* Scrollable model list */}
             <div className="py-1 max-h-[280px] overflow-y-auto scrollbar-thin">
@@ -1775,7 +2064,7 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
                               Credits. Dasselbe Bauteil wie in der
                               Webanwendung, damit beide Oberflaechen dasselbe
                               sagen. */}
-                          <ModelRowMarks model={model as { flash?: CloudModelMarks['flash']; unfiltered?: CloudModelMarks['unfiltered'] }} />
+                          <ModelRowMarks model={model as { flash?: CloudModelMarks['flash']; unfiltered?: CloudModelMarks['unfiltered']; unrestricted?: boolean }} />
                           {/* Subtle meta */}
                           {model.type !== 'text' && (
                             <span className={`text-[0.5rem] uppercase font-medium tracking-wide ${TYPE_COLOR[model.type] || 'text-gray-500'} opacity-60`}>
@@ -1790,7 +2079,7 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
                           {/* 2.5.8, tool-calling capability at a glance. Text
                               models only.
 
-                              David 2026-08-06: "wieso ist es nicht toolfähig?
+                              2026-08-06: "wieso ist es nicht toolfähig?
                               Wir haben doch Toolschema für Hermes Modelle."
                               Exactly. The badge used to draw a ban on
                               `supportsTools === false` and say "Agent and Code
@@ -1871,17 +2160,26 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
                           {isLmsRow ? (
                             <LoadToggle
                               loaded={lmsLoaded.has(rowId)}
-                              busy={togglingLms === rowId}
-                              disabled={togglingLms !== null || selectingLms !== null}
+                              state={lmStudioSwitchState(rowId, lmsRun, selectingLms !== null, lmsEnding)}
                               onClick={() => void toggleLmStudioLoad(model)}
                             />
                           ) : isOllamaRow ? (
+                            <>
+                            {ollamaLoaded.has(model.name) && ollamaOnCpu[model.name] && (
+                              <span
+                                data-testid="ollama-on-cpu"
+                                title={ollamaOnCpu[model.name].title}
+                                className="text-[0.5rem] text-gray-500 whitespace-nowrap"
+                              >
+                                {ollamaOnCpu[model.name].label}
+                              </span>
+                            )}
                             <LoadToggle
                               loaded={ollamaLoaded.has(model.name)}
-                              busy={togglingOllama === model.name}
-                              disabled={togglingOllama !== null}
+                              state={ollamaSwitchState(model.name, ollamaRun)}
                               onClick={() => void toggleOllamaLoad(model)}
                             />
+                            </>
                           ) : null}
                         </div>
                       </div>
@@ -1897,18 +2195,8 @@ export function ModelSelector({ openUpward = false, surface = 'chat', answeredBy
             {hasOllamaModels && (
               <div className="border-t border-black/[0.06] dark:border-white/[0.04] px-1 py-1">
                 <button
-                  onClick={async (e) => {
-                    e.stopPropagation()
-                    if (unloading) return
-                    setUnloading(true)
-                    setUnloadDone(false)
-                    try {
-                      await unloadAllModels()
-                      setUnloadDone(true)
-                      setTimeout(() => setUnloadDone(false), 2000)
-                    } catch { /* ignore */ }
-                    finally { setUnloading(false) }
-                  }}
+                  data-testid="ollama-unload-all"
+                  onClick={(e) => { e.stopPropagation(); void unloadAllOllama() }}
                   disabled={unloading}
                   className="w-full flex items-center justify-center gap-1.5 px-2 py-[5px] rounded t-micro text-red-600/70 dark:text-red-500/60 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/[0.06] transition-colors disabled:opacity-40"
                 >

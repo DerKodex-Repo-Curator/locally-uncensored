@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { stripModelNoise } from '../strip-model-noise'
 
 describe('stripModelNoise', () => {
-  it('drops the truncated ool_call> line David saw twice', () => {
+  it('drops the truncated ool_call> line the owner saw twice', () => {
     const wire = 'Here is the answer.\nool_call>\nMore prose.'
     expect(stripModelNoise(wire)).toBe('Here is the answer.\n\nMore prose.')
   })

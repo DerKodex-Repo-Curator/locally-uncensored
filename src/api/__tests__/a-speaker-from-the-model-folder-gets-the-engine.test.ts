@@ -1,5 +1,5 @@
 /**
- * Discord 2026-10-01 (samvenice, 3.0.3, RTX 4090 24 GB): a group chat of
+ * Discord 2026-10-01 (3.0.3, RTX 4090 24 GB): a group chat of
  * two LU Engine models answered with whichever one was loaded. The other
  * speaker got "The LU Engine has X loaded, but this request asked for Y".
  * Both models sat in the folder named under Settings, Model Storage. The

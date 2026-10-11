@@ -1,6 +1,6 @@
 // ─── A file the agent may not open, and what the user can do about it ───
 //
-// Discord 2026-09-28 (xambran: "I've tried configuring this every possible
+// Discord 2026-09-28 (a user: "I've tried configuring this every possible
 // way, but I still can't get my models to access my files"). Every agent
 // permission stood on Auto, and it did not help: the file tools only ever work
 // inside the chat's working folder, the Sandbox or a folder picked in LU's

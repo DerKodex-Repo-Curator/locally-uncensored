@@ -10,12 +10,15 @@ import { useCreateStore, type GalleryItem, type ProgressPhase } from '../../../s
 import { isMlxImageHost } from '../../../api/mlx-image'
 import { ICON_LG, ICON_STROKE_MARK } from '../../ui/icon-size'
 import { PromptDetails } from './PromptDetails'
+import { hasPromptPanel } from '../../../lib/render/ran-prompt'
 import { markGalleryItemAvailable } from './galleryUrl'
+import { deleteTitle, unavailableLine, playerHasControls, UNAVAILABLE_VIDEO_BOX } from './galleryWording'
 import { downloadGalleryItem } from './galleryDownload'
 import { galleryLabel } from '../../../lib/render/gallery-label'
 import { resultFacts } from '../../../lib/render/result-facts'
 import { useComfyMedia } from './useComfyMedia'
 import { BatchQueue } from './BatchStrip'
+import { FitStage } from './FitStage'
 import { cn } from '../ui/cn'
 
 // The icon in the waiting circle says which PHASE the render is in, never
@@ -25,7 +28,7 @@ import { cn } from '../ui/cn'
 // and the R14 pair caught two samplings. The device is said in words, by the
 // line at the top of the Create tab.
 //
-// 19.09.2026, Entscheid von David: das Warten traegt dasselbe Lila wie der
+// 19.09.2026, Entscheid des Inhabers: das Warten traegt dasselbe Lila wie der
 // Rest der App, damit sichtbar ist, dass da etwas passiert. Sky fuer Laden,
 // Gruen fuer Sampling waren Schmuck fuer eine Phase, keine Warnung, und genau
 // solche Stellen haben Farbe in der App bedeutungslos gemacht. Die Phase sagt
@@ -137,16 +140,18 @@ interface ResultProps {
   onFullscreen: () => void
   onSendToEditor?: () => void
   /** C1: adopt this finished image as the Animate intent's source, matching
-   *  web's OutputView (apps/web/components/create/experimental/OutputView.tsx,
+   *  web's OutputView (the web app,
    *  createStore.animateFrom). Absent where the Animate lane cannot actually
    *  run (see isIntentAvailable('animate', ...) in Stage's caller), same gating
    *  pattern as onSendToEditor above it. */
   onAnimate?: () => void
   /** Pick frames of this finished video and save them as a character. */
   onSaveCharacter?: () => void
-  /** Under the result, in the same column: on a tool that works from a source
-   *  image, the way to the next image (Stage's ResultSourceActions). */
-  footer?: ReactNode
+  /** On a tool that works from a source image: the source, its references
+   *  and the way to the next image (Stage's ResultInputs). They stand beside
+   *  the result in a wide stage and under it in a narrow one, with the result
+   *  given the height that is left (FitStage). */
+  side?: ReactNode
 }
 
 
@@ -163,14 +168,14 @@ function reconcileDims(item: GalleryItem, w: number, h: number) {
   }
 }
 
-export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate, onSaveCharacter, footer }: ResultProps) {
+export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate, onSaveCharacter, side }: ResultProps) {
   const { src: url, onError } = useComfyMedia(item)
   const download = () => void downloadGalleryItem(item)
   const isVideo = item.type === 'video'
   const isAudio = item.type === 'audio'
-  return (
-    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin flex flex-col">
-     <div className="m-auto flex flex-col items-center p-6">
+  // `maxHeight` is the height the stage of a source tool has left for the result
+  // (FitStage); without one it keeps the share of the window it always had.
+  const media = (maxHeight?: string) => (
       <div className="relative group max-w-full max-h-full">
         {isAudio ? (
           <div className="w-[420px] max-w-full flex flex-col items-center gap-3 p-6 rounded-[var(--radius-panel)] border border-white/[0.06] bg-white/[0.02]">
@@ -181,13 +186,14 @@ export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate, onSa
         ) : isVideo ? (
           <video
             src={url}
-            controls
+            controls={playerHasControls(!!item.unavailable)}
             loop
             autoPlay
             muted
             onError={onError}
             onLoadedData={(e) => { markGalleryItemAvailable(item); reconcileDims(item, e.currentTarget.videoWidth, e.currentTarget.videoHeight) }}
-            className="max-w-full max-h-[62vh] object-contain rounded-[var(--radius-panel)] border border-white/[0.06]"
+            className={cn(!maxHeight && 'max-h-[62vh]', 'max-w-full object-contain rounded-[var(--radius-panel)] border border-white/[0.06]', !playerHasControls(!!item.unavailable) && UNAVAILABLE_VIDEO_BOX)}
+            style={maxHeight ? { maxHeight } : undefined}
           />
         ) : (
           <img
@@ -195,16 +201,18 @@ export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate, onSa
             alt={item.prompt}
             onError={onError}
             onLoad={(e) => { markGalleryItemAvailable(item); reconcileDims(item, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight) }}
-            className={cn('max-w-full max-h-[62vh] object-contain rounded-[var(--radius-panel)] border border-white/[0.06]', itemHasAlpha(item) && 'lu-checker')}
+            // A click on the picture opens the large view, where its prompt
+            // stands unfolded.
+            onClick={onFullscreen}
+            className={cn(!maxHeight && 'max-h-[62vh]', 'max-w-full cursor-zoom-in object-contain rounded-[var(--radius-panel)] border border-white/[0.06]', itemHasAlpha(item) && 'lu-checker')}
+            style={maxHeight ? { maxHeight } : undefined}
           />
         )}
         {item.unavailable && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-[var(--radius-panel)] bg-black/60 text-gray-400 p-6 text-center">
             <MonitorOff size={ICON_LG} />
             <span className="t-body">
-              {item.unavailableReason === 'gone'
-                ? 'This file is no longer in the ComfyUI output folder.'
-                : 'This render lives on the local engine, which isn\'t reachable right now. It shows up again as soon as ComfyUI is running.'}
+              {unavailableLine(item.unavailableReason === 'gone', isMlxImageHost())}
             </span>
           </div>
         )}
@@ -228,14 +236,18 @@ export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate, onSa
           {!isAudio && (
             <IconBtn title="Fullscreen" onClick={onFullscreen}><Maximize2 size={14} /></IconBtn>
           )}
-          {/* Discord 2026-09-28 (lapbo, #feature-requests "DELETE BUTTON"):
+          {/* Discord 2026-09-28 (#feature-requests "DELETE BUTTON"):
               delete from the big view too, not only from the tile's corner.
-              The file goes to the Recycle Bin (lib/gallery-trash.ts). */}
-          <IconBtn title="Delete (moves the file to the Recycle Bin)" onClick={() => useCreateStore.getState().removeFromGallery(item.id)}>
+              The file goes to the Recycle Bin, on a Mac to the Trash
+              (lib/gallery-trash.ts). */}
+          <IconBtn title={deleteTitle(isMlxImageHost())} onClick={() => useCreateStore.getState().removeFromGallery(item.id)}>
             <Trash2 size={14} />
           </IconBtn>
         </div>
       </div>
+  )
+  const facts = (
+    <>
       <div className="flex items-center gap-3 mt-3 t-mono text-gray-600" data-testid="result-facts">
         {resultFacts(item).map((fact, i, all) => (
           <Fragment key={fact}>
@@ -243,6 +255,25 @@ export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate, onSa
             {i < all.length - 1 && <span>·</span>}
           </Fragment>
         ))}
+        {/* The fitted stage (a tool that works from a source) has no height to give:
+            in a narrow window the picture is already at its smallest, and a
+            panel under it pushed the stage into a scroll. There the prompt
+            costs no line of its own. This opens the large view, where it
+            stands unfolded with its copy button. */}
+        {side && hasPromptPanel(item) && !isAudio && (
+          <>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={onFullscreen}
+              title="Show the prompt of this result"
+              className="shrink-0 underline underline-offset-2 hover:text-gray-300"
+              data-testid="result-prompt-open"
+            >
+              Prompt
+            </button>
+          </>
+        )}
       </div>
       {item.sourceName && (
         <div className="mt-1 t-mono text-gray-500 truncate max-w-[420px]" data-testid="source-name">from {item.sourceName}</div>
@@ -250,8 +281,15 @@ export function ResultView({ item, onFullscreen, onSendToEditor, onAnimate, onSa
       {item.runNote && (
         <div className="mt-1 t-mono text-gray-500" data-testid="run-note">{item.runNote}</div>
       )}
-      <PromptDetails item={item} className="mt-2" />
-      {footer}
+      {!side && <PromptDetails item={item} className="mt-2" />}
+    </>
+  )
+  if (side) return <FitStage picture={media} under={facts} side={side} capVh={62} />
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin flex flex-col">
+     <div className="m-auto flex flex-col items-center p-6">
+      {media()}
+      {facts}
      </div>
     </div>
   )

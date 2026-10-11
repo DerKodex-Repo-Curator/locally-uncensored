@@ -9,7 +9,7 @@
  * has no member it could be assigned to), and temperature goes on the wire,
  * when it differs from the app default.
  *
- * R5-10/R5-11 (3.0.1-Liste), David's Entscheid vom 18.09.2026: since then a
+ * R5-10/R5-11 (3.0.1-Liste), Entscheid vom 18.09.2026: since then a
  * field NEITHER this chat NOR the Settings page ever moved away from the app
  * default is left off the request entirely (src/lib/sampling.ts,
  * `buildSamplingRequest`), so the model gets the upstream's own default
@@ -146,7 +146,7 @@ describe('what a moved slider puts on the wire', () => {
 })
 
 /**
- * R5-10/R5-11: the rule the fixliste and David's Entscheid ask for. Nothing
+ * R5-10/R5-11: the rule the fixliste and the owner's decision ask for. Nothing
  * NEITHER the chat NOR the Settings page ever moved reaches the wire.
  */
 describe('what an UNTOUCHED value does NOT put on the wire', () => {
@@ -196,7 +196,7 @@ describe('the panel writes to the conversation the send reads', () => {
    * R5-13. The dead control is gone from the popup, and this is the guard that
    * keeps it from coming back: the popup writes nothing the OpenAI-compatible
    * body has no field for. Mirrors the web guard in
-   * apps/web/components/chat/__tests__/sampling-popup-parity.test.ts.
+   * the web app.
    */
   it('R5-13: the popup offers no Top K, and names itself the way the web app does', () => {
     const panel = src('../../components/chat/SamplingControls.tsx')

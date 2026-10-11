@@ -3,7 +3,7 @@ import { tauriMockInit, DEFAULT_ASSISTANT_REPLY, DEFAULT_MODEL_NAME } from './su
 import { routeCloud, seedOnboardingDone, signInViaGate, cloudSwitch } from './support/cloud-mock'
 
 /**
- * In Cloud mode the app never picks a chat model by itself (David, 2026-10-05).
+ * In Cloud mode the app never picks a chat model by itself (2026-10-05).
  *
  * Measured that day: a new account chatted on the head of the hosted
  * catalogue, Llama 3.1 8B Turbo, without ever having picked it. That model

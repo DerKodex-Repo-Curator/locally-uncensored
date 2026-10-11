@@ -2,13 +2,35 @@
 // fallback only. The live truth is GET /api/jobs/catalog (fetched into
 // cloudCatalogStore on every account probe), so a shipped build picks up
 // fleet/pricing changes without an app update. Keep the ids in sync with
-// uselu apps/web/lib/render/cloud-models.ts when touching this file.
+// the web app when touching this file.
 
 import type { RenderKind, RenderOp } from './cloud-jobs'
 import type { ModelTier, ModelWeights, Schema, StudioModel } from './studio-contract'
 
+/** How a model that is metered by the length of its input is priced
+ *  (`credits.length` of /api/jobs/catalog). */
+export interface CloudLengthPrice {
+  /** What is measured. The server lists only the first three; 'extension'
+   *  (a fixed length the model adds) is priced per run and has no entry, it
+   *  is named here because the shared order code asks about it. */
+  basis: 'audio' | 'video' | 'chars' | 'extension'
+  /** Units per billed block: seconds, or characters. */
+  block: number
+  /** Credits per started block. */
+  per_block: number
+  /** The fewest units the provider bills. */
+  min: number
+  /** The most the server takes. */
+  max: number
+  /** The length `credits.base` is the price of. */
+  quote: number
+}
+
 export interface CloudModel {
   id: string
+  /** The name the app shows. From the live catalog this is the server's
+   *  `native_label` where it sends one, else its `label` (api/cloud/catalog.ts,
+   *  desktopCatalog). */
   label: string
   kind: RenderKind
   /** P3: present only on a Studio-capable catalog entry (server field
@@ -31,7 +53,7 @@ export interface CloudModel {
   /** Supports the masked img2img 'edit' op (flux-dev only today). */
   edit?: boolean
   /** R5-66: an instruction-based edit endpoint that takes prompt + image and
-   *  needs no mask at all (Web parity: apps/web/lib/render/cloud-models.ts,
+   *  needs no mask at all (Web parity: the web app,
    *  qwen-image-edit). Only meaningful on an `ops: ['edit']` model; classic
    *  `edit: true` models (flux-dev) are always mask-required. */
   maskless?: boolean
@@ -42,9 +64,9 @@ export interface CloudModel {
    *  set false on a t2v-only model to keep it out of the Animate picker. */
   i2v?: boolean
   /** C2: the provider ships this endpoint with its own filter off, so it
-   *  produces adult output when the account's content policy allows it (server
-   *  migration 0042, uselu apps/web/lib/render/cloud-models.ts). Drives the
-   *  "No refusals" picker mark (ModelChip.tsx) and grants nothing on its own:
+   *  produces adult output when the account's content policy allows it (the
+   *  server decides that). Drives the
+   *  "No Filter" picker mark (ModelChip.tsx) and grants nothing on its own:
    *  the server re-checks the account's policy on every job, this field is
    *  display only. Optional and defaults to falsy: the live catalog
    *  (GET /api/jobs/catalog) only started emitting it once the web-side fix
@@ -92,8 +114,20 @@ export interface CloudModel {
    *  the exact price per bookable length, keyed by the length in seconds as
    *  a string (matches `clip.durations`). Lets a client price a length other
    *  than the short/long pair precisely instead of rounding onto one of
-   *  them; `runCredits()` in cloudCatalogStore.ts prefers this when present. */
-  credits?: { base: number; long?: number; per_s?: number; lora?: number; by_duration?: Record<string, number> }
+   *  them; `runCredits()` in cloudCatalogStore.ts prefers this when present.
+   *
+   *  `length` (server field `credits.length`, 09.10.2026): the provider meters
+   *  this model by the length of what goes in, seconds of the audio or video
+   *  or characters of the text. `base` is then only the price of `quote`
+   *  units and the most a start without `max_credits` can book. The real
+   *  price is `per_block` per started `block`, never below `min` units, and
+   *  the server refuses more than `max`. Absent on a model priced per run and
+   *  on an older server; `lengthPrice()` and `lengthCredits()` in
+   *  cloudCatalogStore.ts read it. */
+  credits?: {
+    base: number; long?: number; per_s?: number; lora?: number; by_duration?: Record<string, number>
+    length?: CloudLengthPrice
+  }
   /** Stufe in den Waehlern (server field `tier`, 02.10.2026): 'best' steht oben,
    *  'older' gesammelt unten, nichts wird versteckt. Optional: ein aelterer
    *  Server und der Notvorrat eines frueheren Stands liefern es nicht, dann
@@ -134,7 +168,7 @@ export const CLOUD_MODEL_SEED: CloudModel[] = [
   // Every hosted clip model does both t2v + i2v, so both flags are true. They're
   // the enforced contract (Video/Animate pickers + submit filter on them), not a
   // note — a future t2v-only or i2v-only model MUST set the flag it lacks to
-  // false. Server truth is /api/jobs/catalog; keep in sync with uselu.
+  // false. Server truth is /api/jobs/catalog; keep in sync with the web app.
   { id: 'wan-2.2-720p', label: 'Wan 2.2 720p', kind: 'video', t2v: true, i2v: true, negative_prompt: true, clip: CLIP, tier: 'older', weights: 'open' },
   // One clip length: its endpoints take no duration field (video-durations.json).
   { id: 'wan-2.2-fast', label: 'Wan 2.2 Fast', kind: 'video', t2v: true, i2v: true, negative_prompt: true, clip: { short: 5 }, tier: 'older', weights: 'open' },
@@ -143,7 +177,7 @@ export const CLOUD_MODEL_SEED: CloudModel[] = [
   { id: 'ltx-2.3', label: 'LTX 2.3', kind: 'video', t2v: true, i2v: true, clip: CLIP, tier: 'older', weights: 'open' },
 
   // Image-to-video endpoints the provider ships with its own filter off
-  // (mirroring uselu apps/web/lib/render/cloud-models.ts). None of them has a
+  // (mirroring the web app). None of them has a
   // text-to-video twin at the provider, hence t2v: false: the path is an image
   // first, then one of these. CLIP does not fit here, the provider quotes only
   // a 5 s rate for them, so there is no 8s button to offer.
@@ -166,7 +200,7 @@ export const CLOUD_MODEL_SEED: CloudModel[] = [
   { id: 'flux-lora-trainer', label: 'Flux Character Training', kind: 'image', ops: ['lora-train'], tier: 'older', weights: 'open' },
   { id: 'z-image-lora-trainer', label: 'Z-Image Character Training', kind: 'image', ops: ['lora-train'], tier: 'best', weights: 'open' },
   { id: 'qwen-image-lora-trainer', label: 'Qwen Character Training', kind: 'image', ops: ['lora-train'], tier: 'older', weights: 'open' },
-  // uselu 5be5dec3 (15.09.2026): der LTX-Video-Trainer verlangt Videos als
+  // the web app (15.09.2026): der LTX-Video-Trainer verlangt Videos als
   // Trainingsmaterial, diese Oberflaeche laedt nur Fotos hoch. Bewusst NICHT
   // mitgefuehrt, kein Rueckstand: "do not advertise an input contract this
   // client cannot satisfy" (Web-Kommentar an derselben Stelle).
@@ -176,8 +210,7 @@ export const CLOUD_MODEL_SEED: CloudModel[] = [
   { id: 'z-image-base-lora', label: 'Z-Image + Character', kind: 'image', ops: ['generate'], lora: true, tier: 'best', weights: 'open' },
   // R5-57/58: missing from this seed entirely, so the edit picker never
   // offered it and the model was unreachable until the live catalog fetch
-  // landed. Label and maskless flag copied verbatim from uselu
-  // apps/web/lib/render/cloud-models.ts.
+  // landed. Label and maskless flag copied verbatim from the web app.
   { id: 'qwen-image-lora', label: 'Qwen Image + Character', kind: 'image', ops: ['generate'], lora: true, tier: 'older', weights: 'open' },
   { id: 'qwen-image-edit', label: 'Qwen Image Edit (no mask needed)', kind: 'image', ops: ['edit'], maskless: true, tier: 'older', weights: 'open' },
   { id: 'infinitetalk-fast', label: 'InfiniteTalk (photo avatar)', kind: 'video', ops: ['lipsync'], lipsync_source: 'image', t2v: false, i2v: false, tier: 'standard', weights: 'open' },

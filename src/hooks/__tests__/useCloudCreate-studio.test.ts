@@ -1,7 +1,7 @@
 /**
  * Die Unterkategorien von Create schicken ein Studio-Modell richtig ab.
  *
- * Port aus uselu (apps/web/hooks/__tests__/useCloudCreate-studio-unterkategorien.test.ts,
+ * Port aus the web app (the web app,
  * 19.09.2026): bis dahin war der Studio-Pfad allein im Preset-Fenster zu
  * Hause. Jetzt faehrt ihn auch der normale Composer/useCloudCreate, und daran
  * haengen vier Dinge, die still falsch sein koennen: der Op, die

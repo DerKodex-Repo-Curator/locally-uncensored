@@ -16,6 +16,7 @@ import { formatCount } from '../../lib/formatters'
 import { countUnsyncedAccountMemories } from '../../lib/memory-unsynced'
 import { PAST_DUE_ACTION, PAST_DUE_BADGE, PAST_DUE_WALLET_LINE, pastDueLine } from '../../lib/past-due'
 import { Modal } from '../ui/Modal'
+import { ModalActions, ModalButton } from '../ui/ModalActions'
 import { Hinweis } from '../ui/Hinweis'
 
 /**
@@ -148,7 +149,7 @@ export function AccountPanel() {
    * Wie viele Kontoerinnerungen noch nicht in der Wolke stehen, waehrend die
    * Nachfrage offen ist. `null` heisst: keine Nachfrage.
    *
-   * R3-19, Entscheid David vom 12.09.2026. Das Abmelden raeumt die
+   * R3-19, Entscheid vom 12.09.2026. Das Abmelden raeumt die
    * Kontosammlung aus der Ansicht. Wer nie synchronisiert hat, sieht seine
    * Eintraege auf dem naechsten Geraet nicht wieder, und das kam ohne
    * Nachfrage als Verlust an. Bei null offenen Eintraegen wird nicht gefragt:
@@ -287,22 +288,14 @@ export function AccountPanel() {
         title={`${offeneErinnerungen ?? 0} memories are not synced yet. Sign out anyway?`}
         maxWidth="max-w-md"
       >
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => setOffeneErinnerungen(null)}
-            className="rounded-xl px-4 py-2 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
-          >
+        <ModalActions className="mt-0">
+          <ModalButton variant="quiet" onClick={() => setOffeneErinnerungen(null)}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => void abmelden()}
-            className="rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold px-4 py-2 text-sm transition-colors"
-          >
+          </ModalButton>
+          <ModalButton variant="primary" onClick={() => void abmelden()}>
             Sign out
-          </button>
-        </div>
+          </ModalButton>
+        </ModalActions>
       </Modal>
 
       {/* A sign-out that did not happen has to say so HERE. The account is
@@ -317,7 +310,7 @@ export function AccountPanel() {
 
       {/* A failed renewal, said in plain words with the way to settle it.
           Until 3.0.5 this account read "No active plan" and was offered a new
-          one. Paying happens on lu-labs.ai, the app does not touch Stripe. */}
+          one. Paying happens on lu-labs.ai, the app takes no payment. */}
       {pastDue && (
         <div className="space-y-1.5" data-testid="past-due-notice">
           <Hinweis ton="fehler">
@@ -337,7 +330,7 @@ export function AccountPanel() {
         <div className="space-y-2">
           {/* One shared compute-credit wallet, chat, images, video and voice
               all draw from the same budget. It refills on the subscription's
-              renewal date, not on the 1st (server migration 0027). */}
+              renewal date, not on the 1st. */}
           <Meter
             label="Cloud credits (this billing period)"
             used={Number(quota.used.credits_used)}

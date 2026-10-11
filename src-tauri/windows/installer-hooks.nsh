@@ -75,7 +75,7 @@
 
 ; Free the bundled engine before the new files land. Live in EVERY build.
 ;
-; aldrich_ironhart, 2026-08-10: the update stopped at "Error opening file for
+; A user, 2026-08-10: the update stopped at "Error opening file for
 ; writing: D:\Locally Uncensored\llama-server.exe" with Abort, Retry, Ignore.
 ; The sidecar is our own (externalBin), and Windows locks a running
 ; image against writes, so the copy cannot succeed while it lives. Rust kills it

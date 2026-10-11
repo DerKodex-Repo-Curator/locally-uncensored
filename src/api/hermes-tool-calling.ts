@@ -54,7 +54,7 @@ function toolParameters(t: AgentToolDef | ToolLike): unknown {
  * A zero-width space after the opening bracket is enough: the marker stops
  * being one for the model and for parseHermesToolCalls, while the text still
  * reads normally to a human and to a model summarising it. Ordinary prose with
- * a less-than sign is untouched. Mirrors apps/web/lib/chat/prompt-tools.ts.
+ * a less-than sign is untouched. Mirrors the web app.
  */
 const TAG_MARKERS = /<(?=[|/]{0,2}(?:tool_call|tool_response|tools|tool)\b)/gi
 const ZERO_WIDTH_SPACE = '\u200B'

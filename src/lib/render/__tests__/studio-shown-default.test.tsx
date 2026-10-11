@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * Fund M6 (05.10.2026, Vorlage: apps/web/lib/render/__tests__/
- * studio-shown-default.test.ts): die Klappe zeigte den Standard des Anbieters,
+ * Fund M6 (05.10.2026, Vorlage: the web app):
+ * die Klappe zeigte den Standard des Anbieters,
  * geschickt und gebucht wurde der Standard des Modells (Seedance 2.5 Avatar:
  * 720p angezeigt, 480p gelaufen). Ein Regler zeigt, was der Lauf ohne Zutun
  * schickt.

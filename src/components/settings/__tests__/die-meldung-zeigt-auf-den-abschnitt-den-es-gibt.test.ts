@@ -1,7 +1,7 @@
 /**
  * Every "Settings > …" a download failure prints has to be a place that exists.
  *
- * goonerforporn, Discord #bug-reports 2026-08-28: "the field for the CivitAI
+ * Discord #bug-reports 2026-08-28: "the field for the CivitAI
  * API key is gone from the UI". The field came back (CivitaiApiKeySetting), and
  * then it MOVED: the A14 Windows review found a tester saving a folder path as
  * his API key, because the key sat directly under the Model Storage folder

@@ -37,7 +37,7 @@ vi.mock('../../../api/backend', () => ({
   secretDelete: vi.fn(),
 }))
 
-const { engineOffloadLine, announceEngineCpuFallback, ENGINE_CPU_ONLY_NOTE, __resetEngineCpuFallbackNote } =
+const { engineOffloadLine, announceEngineCpuFallback, engineStandingNote, ENGINE_CPU_ONLY_NOTE, __resetEngineCpuFallbackNote } =
   await import('../../../lib/engine-offload')
 const { bundledEngineStatus } = await import('../../../api/engine')
 const { useLuEngineSwitchStore } = await import('../../../stores/luEngineSwitchStore')
@@ -217,6 +217,37 @@ describe('the standing line above the composer', () => {
       expect(useLuEngineSwitchStore.getState().note).toBe(ENGINE_CPU_ONLY_NOTE)
     } finally {
       useUIStore.setState({ currentView: 'chat' })
+    }
+  })
+})
+
+/** Sentence as Rust writes it (engine.rs IMAGE_PART_NO_ROOM_NOTE). */
+const NO_ROOM = 'Loaded without image input: the graphics memory has no room for the image part next to the model. A smaller context makes room.'
+
+describe('a model that came up without its image part', () => {
+  it('says so in the standing line, on a card that otherwise runs as usual', () => {
+    announceEngineCpuFallback({ ...AUF_DER_KARTE, imageNote: NO_ROOM })
+    expect(useLuEngineSwitchStore.getState().note).toBe(NO_ROOM)
+  })
+
+  it('stands beside the sentence about where the engine computes', () => {
+    expect(engineStandingNote({ ...AUF_DEM_PROZESSOR, imageNote: NO_ROOM })).toBe(`${ENGINE_CPU_ONLY_NOTE} ${NO_ROOM}`)
+  })
+
+  it('asks the model lists to fetch again when the answer changes, and only then', () => {
+    const refreshed = vi.fn()
+    window.addEventListener('lu-models-refresh', refreshed)
+    try {
+      announceEngineCpuFallback(AUF_DER_KARTE)
+      expect(refreshed).not.toHaveBeenCalled()
+      announceEngineCpuFallback({ ...AUF_DER_KARTE, imageNote: NO_ROOM })
+      announceEngineCpuFallback({ ...AUF_DER_KARTE, imageNote: NO_ROOM })
+      expect(refreshed).toHaveBeenCalledTimes(1)
+      // Loaded again with the part: the lists have to learn that as well.
+      announceEngineCpuFallback(AUF_DER_KARTE)
+      expect(refreshed).toHaveBeenCalledTimes(2)
+    } finally {
+      window.removeEventListener('lu-models-refresh', refreshed)
     }
   })
 })

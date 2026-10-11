@@ -1,5 +1,5 @@
 /**
- * B5 (David 2026-08-04): the example-video stage is gone and the path to the
+ * B5 (2026-08-04): the example-video stage is gone and the path to the
  * cloud is one click shorter.
  *
  * The reason this file exists rather than trusting the diff: the in-app login
@@ -18,6 +18,7 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { cloudGateHeadline } from '../../../lib/mac-pc-words'
 
 const ROOT = resolve(__dirname, '..', '..', '..', '..')
 const read = (p: string) => readFileSync(resolve(ROOT, p), 'utf8')
@@ -61,7 +62,7 @@ describe('the example-video stage is gone', () => {
 })
 
 /**
- * Dieselbe Absicht, neue Form (David, 13.09.2026).
+ * Dieselbe Absicht, neue Form (13.09.2026).
  *
  * Der abgemeldete Weg hatte drei Schritte (Hero, Plaene, Anmeldung) und der
  * Waechter verlangte den Anmeldeeinstieg auf ZWEI davon, weil er auf dem
@@ -127,7 +128,9 @@ describe('the sales panel argues before it asks for a login', () => {
 
   it('carries the kicker, the headline, the subtitle and the footnote', () => {
     expect(flach).toContain('Cloud')
-    expect(flach).toContain('Run uncensored models in the cloud, no GPU needed.')
+    // The headline has a Mac wording, so it lives in lib/mac-pc-words.
+    expect(flach).toContain('{cloudGateHeadline(isMacOS())}')
+    expect(cloudGateHeadline(false)).toBe('Run uncensored models in the cloud, no GPU needed.')
     expect(flach).toContain('Turn on Cloud to reach the full catalogue from any machine.')
     expect(flach).toContain('Your local models keep working exactly as they do now.')
     expect(flach).toContain('Cancel anytime. Local mode stays free and offline.')
@@ -145,7 +148,7 @@ describe('the sales panel argues before it asks for a login', () => {
 
   it('sends the purchase to the browser, never into the app', () => {
     expect(panel).toMatch(/openExternal\(`\$\{CLOUD_BASE\}\/pricing`\)/)
-    // Die App hat nie Stripe angefasst.
+    // Die App hat nie eine Zahlung angefasst.
     expect(panel).not.toMatch(/stripe|checkout\/start/i)
   })
 

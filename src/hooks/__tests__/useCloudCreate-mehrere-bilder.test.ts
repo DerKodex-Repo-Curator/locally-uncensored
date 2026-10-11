@@ -1,6 +1,6 @@
 /**
  * Mehrere Bilder pro Lauf und mehrere Fotos pro Referenz (02.10.2026, Web-
- * Paritaet; Vorlage: apps/web/hooks/__tests__/useCloudCreate-mehrere-bilder.test.ts).
+ * Paritaet; Vorlage: the web app).
  *
  * Nichts wird erzeugt: Absenden, Hochladen, Abholen, Abbrechen und die Preis-
  * bestaetigung sind gemockt.

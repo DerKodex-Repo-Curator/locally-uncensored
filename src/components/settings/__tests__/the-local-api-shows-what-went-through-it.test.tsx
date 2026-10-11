@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * GH Discussion #4 (kreake, 2026-09-22): "If I connect an IDE with the Local
+ * GH Discussion #4 (2026-09-22): "If I connect an IDE with the Local
  * API, I really would appreciate some statistics like connections or context
  * (tokens, etc.)." The panel now shows what went through the API since it
  * started; the counting itself is tested in commands/local_api.rs.

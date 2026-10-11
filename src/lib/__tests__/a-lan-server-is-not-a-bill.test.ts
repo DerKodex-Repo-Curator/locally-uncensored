@@ -55,7 +55,7 @@ describe('the one classification', () => {
   })
 
   it('calls a LAN address local', () => {
-    slotPointsAt('http://192.168.0.54:8000/v1', false)
+    slotPointsAt('http://192.168.1.54:8000/v1', false)
     expect(isLanOpenAiBackend()).toBe(true)
   })
 
@@ -121,7 +121,7 @@ describe('the budget follows it', () => {
   })
 
   it('carries through the chat surfaces too', () => {
-    slotPointsAt('http://192.168.0.54:8000/v1', false)
+    slotPointsAt('http://192.168.1.54:8000/v1', false)
     const local = chatSendBudget({
       providerId: 'openai',
       modelWindow: LOCAL_MODEL_WINDOW,

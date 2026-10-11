@@ -103,7 +103,7 @@ export function renderApprovalPreview(
 /**
  * Is the confirm gate active for THIS run?
  *
- * David 2026-08-22, replacing G15a (2026-08-07) and the 2.5.9 default:
+ * 2026-08-22, replacing G15a (2026-08-07) and the 2.5.9 default:
  * bypass means bypass, on a cloud model too. The 2.5.7 review hard-wired
  * `providerId === 'lu-cloud'` into the gate, 2.5.9 turned that into a visible
  * setting that still defaulted ON, and G15a carried it to the Agent surface.

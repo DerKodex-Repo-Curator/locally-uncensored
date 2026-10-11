@@ -7,7 +7,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeJSONStorage } from '../lib/storage-quota'
-import { CLOUD_MODEL_SEED, DEFAULT_MODEL_IDS, type CloudModel } from '../lib/render/cloud-models'
+import { CLOUD_MODEL_SEED, DEFAULT_MODEL_IDS, type CloudLengthPrice, type CloudModel } from '../lib/render/cloud-models'
 import { STUDIO_MODELS } from '../lib/render/studio-contract'
 import {
   STUDIO_EDIT_MODELS, studioImageToVideo, studioReferenceVideo, studioTextToImage,
@@ -111,7 +111,7 @@ export function loraGenModels(): CloudModel[] {
 }
 
 // Which generation models accept which trained-LoRA family. Ported from
-// uselu main 5be5dec3 (apps/web/lib/render/cloud-models.ts,
+// the web app (the web app,
 // CHARACTER_MODEL_FAMILY): the picker (ModelChip), the meter (CreditsMeter)
 // and the submit path (useCloudCreate) all resolve through the SAME table, so
 // the UI cannot show Flux while quietly running Z-Image. `qwen-image-lora` is
@@ -347,7 +347,7 @@ export function runCredits(
   //
   // The guard sits HERE, not before the op branches above, on purpose: a
   // Studio-originated video can still reach the generic video-upscale
-  // 'enhance' action from the gallery Lightbox, a wholly separate WaveSpeed
+  // 'enhance' action from the gallery Lightbox, a wholly separate render-service
   // utility endpoint, priced from the flat per-second `ops` rate table, not
   // from this model's own Studio price. Blocking that call too (the
   // original, wider guard did) forced the enhance-credits gate onto the
@@ -373,6 +373,33 @@ export function runCredits(
     : credits.base
 }
 
+/** The ops whose models the provider can meter by length (as in the
+ *  server's price table). */
+const LENGTH_OPS: ReadonlySet<string> = new Set(['lipsync', 'tts', 'extend', 'motion'])
+
+/** The length price of a run, when the server says this model is metered by
+ *  the length of its input. No `op` asks about the model as such. Undefined
+ *  for every other model and for a server that does not send the field: then
+ *  the catalogue figure is the price, as it always was. */
+export function lengthPrice(model?: string, op?: string): CloudLengthPrice | undefined {
+  if (model === undefined || (op !== undefined && !LENGTH_OPS.has(op))) return undefined
+  const rate = cloudModelById(model)?.credits?.length
+  if (!rate || !(rate.block > 0) || !(rate.per_block >= 0)) return undefined
+  return rate
+}
+
+/** Credits for `units` seconds (or characters) on a length-priced model, the
+ *  server's own rule: up to whole units, never below its minimum, per started
+ *  block. Without a known length it is the price of the catalogue length,
+ *  which is `credits.base`. */
+export function lengthCredits(model: string, units?: number): number {
+  const rate = lengthPrice(model)
+  if (!rate) return cloudModelById(model)?.credits?.base ?? 0
+  const known = units !== undefined && Number.isFinite(units) && units > 0
+  const billed = Math.min(rate.max, Math.max(rate.min, Math.ceil((known ? units : rate.quote) - 1e-6)))
+  return Math.ceil(billed / rate.block) * rate.per_block
+}
+
 export function shortCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 10_000) return `${Math.round(n / 1000)}k`
@@ -383,7 +410,7 @@ export function shortCount(n: number): string {
  *  (wan-2.2-720p costs 5x wan-2.2-fast) was invisible before picking. Music
  *  prices the CURRENT length-slider value, not a static 60 s quote: the old
  *  hint said 1,800 cr while a 3:10 run really billed 5,700, which read as a
- *  hidden price hike (sockenmonster, bug-reports 2026-08-08). Video quotes the
+ *  hidden price hike (bug-reports 2026-08-08). Video quotes the
  *  short clip; the meter refines it to the exact run. Undefined when the entry
  *  carries no price (seed/offline).
  *

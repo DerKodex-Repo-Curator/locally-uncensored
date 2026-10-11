@@ -140,9 +140,11 @@ describe('keine zweite Rechnung', () => {
     // Eine Division durch 1024 mit einer Einheit dahinter im selben Ausdruck:
     // genau die Form, die `prettySize` hatte.
     const muster = /\/\s*1024[^\n]{0,60}(toFixed|Math\.round)[^\n]{0,40}(\bB\b|KB|MB|GB|TB|KiB|MiB|GiB|TiB)/
+    // Relative paths with forward slashes: the exemptions below are written
+    // that way, and on Windows `join` hands back backslashes.
     const treffer = dateien(WURZEL)
-      .filter((p) => !p.endsWith('lib/formatters.ts'))
-      .map((p) => p.slice(WURZEL.length + 1))
+      .map((p) => p.slice(WURZEL.length + 1).replace(/\\/g, '/'))
+      .filter((p) => p !== 'lib/formatters.ts')
       .filter((p) => !NICHT_DATEIGROESSEN.includes(p))
       .filter((p) => muster.test(readFileSync(resolve(WURZEL, p), 'utf8')))
     expect(treffer).toEqual([])

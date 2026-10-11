@@ -135,10 +135,30 @@ describe('fetchGalleryItemBlob', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     await expect(fetchGalleryItemBlob(baseItem)).rejects.toThrow(/ComfyUI/)
   })
+
+  // Mac hand test of 3.0.6, 10.10.2026: an image made in the running session
+  // could not be picked as the Edit source ("Could not load that gallery
+  // image: Load failed"), one from an earlier day could. A fresh local render
+  // carries its bytes as a data: URL, and the webview's connect-src has no
+  // data: entry, so fetch() refuses it. After a restart the same tile holds a
+  // blob: URL read back from disk, which fetch() may read.
+  it('reads a render of the running session, whose address is a data: URL the webview will not fetch', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.startsWith('data:')) throw new TypeError('Load failed')
+      return { ok: true, blob: async () => new Blob(['wrong']) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const item = { ...baseItem, dataUrl: `data:image/png;base64,${btoa('PNGBYTES')}`, localPath: '/renders/out.png' }
+
+    const blob = await fetchGalleryItemBlob(item)
+    expect(blob.type).toBe('image/png')
+    expect(await blob.text()).toBe('PNGBYTES')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })
 
 // Cloud renders are deleted after seven days (the Create banner says so, and
-// services/render-worker/src/reaper.ts now does it). A tile whose render is
+// the render worker now does it). A tile whose render is
 // gone must settle into an honest state, not retry a dead re-sign forever.
 describe('recoverGalleryUrl — expired cloud renders', () => {
   beforeEach(() => {

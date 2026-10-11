@@ -3,7 +3,7 @@
  *
  * The CivitAI API key field, rendered for real.
  *
- * goonerforporn's report (Discord #bug-reports, 2026-08-28) is precisely the
+ * a user's report (Discord #bug-reports, 2026-08-28) is precisely the
  * kind a source-text test cannot answer: the store had the value and the setter,
  * the changelog named the key, and the field was not in the interface. So this
  * one mounts the component, types a key, and reads the store back.

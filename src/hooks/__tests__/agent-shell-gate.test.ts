@@ -4,7 +4,7 @@
  * Agent running the exec tools on a cloud model unattended while the Code tab
  * confirmed them.
  *
- * David 2026-08-22 replaces the policy that shared setting carried: bypass
+ * 2026-08-22 replaces the policy that shared setting carried: bypass
  * means bypass on a cloud model too, so the setting is an opt-in and ships
  * OFF. With it off, a cloud model is gated by the per-tool permission level
  * and by nothing else. With it on, the confirm rides ON TOP of that level, in

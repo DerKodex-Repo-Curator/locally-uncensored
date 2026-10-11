@@ -62,7 +62,7 @@ export function useABCompare() {
 
     // Build messages for the providers
     //
-    // R2-8, zweite Haelfte, Entscheid David vom 12.09.2026: der Vergleich
+    // R2-8, zweite Haelfte, Entscheid vom 12.09.2026: der Vergleich
     // schickt KEINE Person mehr mit, nur die Frage. Er nahm bis dahin die
     // global gewaehlte Person ohne Nachfrage, waehrend der Chat sie je
     // Unterhaltung unterdrueckt. Wer zwei Modelle nebeneinander stellt, will
@@ -115,8 +115,8 @@ export function useABCompare() {
     const opts = {
       ...buildSamplingRequest(settings),
       topK: settings.topK,
-      // Bug AA v2.5.0: forward num_ctx override to both A/B sides.
-      contextWindow: settings.contextWindowOverride || undefined,
+      // Both sides run in the chat window of their model, like a chat turn.
+      window: 'chat' as const,
     }
     // 2.6.7 Denk-Audit, Loch 6: this hook sent no thinking signal at all and
     // stripped nothing, so a comparison ran on whatever the backend defaulted

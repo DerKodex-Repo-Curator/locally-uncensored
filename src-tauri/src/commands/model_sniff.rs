@@ -1,6 +1,6 @@
 //! Which model family a main model file belongs to, read from the file itself.
 //!
-//! Discord 2026-09-26..28 (boromirofgeo, haschbar): Edit failed with "Node 1
+//! Discord 2026-09-26..28: Edit failed with "Node 1
 //! (CheckpointLoaderSimple): Value not in list" for every model but the one
 //! SDXL checkpoint. The frontend names a model's family from its FILE NAME,
 //! and a name it cannot place fell to the checkpoint pipeline, which only

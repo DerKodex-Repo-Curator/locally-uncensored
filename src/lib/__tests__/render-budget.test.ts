@@ -336,7 +336,7 @@ describe('wiring in the poll loop', () => {
  * failure messages and not one of them said so: renderBudgetNotice told the
  * customer to use fewer steps, swapWarmupNotice told him to free VRAM on a
  * machine that was not using any, and renderTimeoutNotice said nothing at all.
- * shd_scorpion sent us the screenshot of one of them, and the cause was not in
+ * A user sent us the screenshot of one of them, and the cause was not in
  * it, so the support answer had to guess.
  */
 describe('a render without a GPU says so (Runde 12)', () => {

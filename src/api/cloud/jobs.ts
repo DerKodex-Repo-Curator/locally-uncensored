@@ -1,10 +1,11 @@
-// Desktop client for the hosted render queue — port of uselu's
-// lib/render/cloud-jobs.ts fetch wrappers onto cloudFetch (bearer + base URL).
+// Desktop client for the hosted render queue — port of the web app's
+// fetch wrappers onto cloudFetch (bearer + base URL).
 // Pure HTTP, no store access; useCloudCreate owns the store choreography.
 
 import type { RenderKind, CloudQuota } from '../../lib/render/cloud-jobs'
 import { cloudFetch, jsonOrError, CloudJobError } from './client'
 import type { RenderOp } from '../../lib/render/cloud-jobs'
+import { originHeaders, type JobOrigin } from '../../lib/create/chat-origin'
 
 export interface CloudJobParams {
   op: RenderOp
@@ -112,6 +113,9 @@ export interface CloudMe {
     /** The plan waiting for that payment (hosted | hosted-pro | hosted-max). */
     pastDueTier?: string | null
   }
+  /** What the server has released for this account. `createChat`: Create in
+   *  chat. Absent on an older server and for a signed out account = nothing. */
+  features?: { createChat?: boolean }
 }
 
 /** Stage an input; returns the render-inputs storage path. Roles: 'source' /
@@ -121,15 +125,38 @@ export interface CloudMe {
  *  WKWebView's fetch fails a cross-origin FormData(Blob) body with a bare
  *  "Load failed", which broke every source-needing op (edit/removebg/eraser/
  *  upscale/animate). An ArrayBuffer body serialises fine. */
-export async function uploadInput(
-  file: Blob,
-  role: 'source' | 'mask' | 'train' | 'audio' | 'video',
-): Promise<string> {
+export type UploadRole = 'source' | 'mask' | 'train' | 'audio' | 'video'
+
+// `origin` on the writing calls below (upload, adopt, submit): an order of the
+// chat names itself (lib/create/chat-origin.ts), so the server can refuse it
+// for an account Create in chat is not released for. The Create tab passes
+// none and sends the requests it always sent.
+
+export async function uploadInput(file: Blob, role: UploadRole, origin?: JobOrigin): Promise<string> {
   const body = await file.arrayBuffer()
   const res = await cloudFetch(`/api/jobs/upload?role=${role}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/octet-stream' },
+    headers: { 'content-type': 'application/octet-stream', ...originHeaders(origin) },
     body,
+  })
+  const { path } = await jsonOrError<{ path: string }>(res)
+  return path
+}
+
+/** The kind of an own result that is to serve as an input. The server checks
+ *  it against the content, as it does for an upload. */
+export type AdoptRole = 'image' | 'video' | 'audio'
+
+/** Stages the result of an own finished job as an input and returns its path,
+ *  like uploadInput. The server copies it (POST /api/jobs/adopt), nothing is
+ *  downloaded or uploaded here. Throws CloudJobError with the route's status:
+ *  404 unknown or not yours, 409 not finished or already cleaned up, 413 too
+ *  large, 415 wrong kind. */
+export async function adoptInput(jobId: string, role: AdoptRole, origin?: JobOrigin): Promise<string> {
+  const res = await cloudFetch('/api/jobs/adopt', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...originHeaders(origin) },
+    body: JSON.stringify({ job_id: jobId, role }),
   })
   const { path } = await jsonOrError<{ path: string }>(res)
   return path
@@ -172,6 +199,7 @@ const SUBMIT_RETRY_MS = 1_000
 
 export async function submitCloudJob(
   submit: CloudJobSubmit,
+  origin?: JobOrigin,
 ): Promise<CloudJobSubmitResult> {
   // A dropped or timed-out submit may have booked the job anyway (bug hunt
   // 01.10.2026, K8): it ran, it was charged, and the desktop, which has no job
@@ -187,7 +215,7 @@ export async function submitCloudJob(
     try {
       res = await cloudFetch('/api/jobs', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...originHeaders(origin) },
         body,
       })
       if (!SUBMIT_FATE_UNKNOWN.has(res.status) || attempt >= SUBMIT_ATTEMPTS) break
@@ -253,7 +281,7 @@ export async function refreshResultUrl(jobId: string): Promise<string | null> {
  *  refreshResultUrl answers null for two very different situations: the render
  *  is gone for good, or we could not reach the server just now. That was fine
  *  while nothing ever deleted a render. Once the seven-day retention sweep runs
- *  (services/render-worker/src/reaper.ts clears result_url as it deletes the
+ *  (the render worker clears result_url as it deletes the
  *  bytes), a tile that keeps retrying an expired render just renders blank
  *  forever. Splitting the two lets the gallery say "expired" once instead. */
 export type ResultUrlState =
@@ -271,6 +299,11 @@ export async function resolveResultUrl(jobId: string): Promise<ResultUrlState> {
 }
 
 const TERMINAL = new Set(['succeeded', 'failed', 'canceled'])
+
+/** Queued or rendering: the job still holds credits and can be canceled. */
+export function isActiveJob(job: Pick<CloudJob, 'status'>): boolean {
+  return job.status === 'queued' || job.status === 'running'
+}
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise<void>((resolve) => {
@@ -335,7 +368,7 @@ export async function pollJob(
 
 export { CloudJobError }
 
-// ── Kontoeinstellung: Inhaltsrichtlinie (Migration 0042) ─────────────
+// ── Kontoeinstellung: Inhaltsrichtlinie ─────────────────────────────
 
 export type ContentPolicy = 'strict' | 'soft' | 'off'
 

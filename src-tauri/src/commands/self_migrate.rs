@@ -20,8 +20,8 @@
 //! nothing is left for the user to read.
 //!
 //! Same rule as its neighbour: nothing from tauri in here. The whole sequence
-//! has to be runnable inside an Arch container against the real AUR package,
-//! which is what UPDATER-LINUX-BEFUND.md records. HTTP lives in
+//! has to be runnable inside an Arch container against the real AUR package.
+//! HTTP lives in
 //! `self_migrate_cmd.rs`, everything else lives here.
 
 use std::path::{Path, PathBuf};
@@ -437,6 +437,36 @@ pub fn launch_after_exit(exe: &Path, pid: u32) -> Result<(), String> {
         })
 }
 
+/// The file to start again once the plugin has updated this install in place.
+///
+/// An AppImage is started through the path in `APPIMAGE`, the same file the
+/// plugin has just replaced. `current_exe()` is no use there: it points into
+/// the squashfs mount of the OLD file.
+///
+/// A deb or rpm is started through its own path, and there the kernel is in
+/// the way. The package manager renames the new binary over the running one,
+/// the running image loses its name, and `/proc/self/exe` answers
+/// `/usr/bin/locally-uncensored (deleted)` from then on. The new file sits at
+/// exactly the path in front of that suffix.
+///
+/// Nothing here looks at the disk; whether the file is really there is the
+/// caller's question.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub fn relaunch_target(appimage_env: Option<String>, current_exe: Option<PathBuf>) -> Option<PathBuf> {
+    if let Some(appimage) = appimage_env.filter(|v| !v.is_empty()) {
+        return Some(PathBuf::from(appimage));
+    }
+    let exe = current_exe?;
+    match exe.to_str().and_then(|text| text.strip_suffix(REPLACED_EXE_SUFFIX)) {
+        Some(named) => Some(PathBuf::from(named)),
+        None => Some(exe),
+    }
+}
+
+/// What Linux appends to the link of a running binary whose file was replaced.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+const REPLACED_EXE_SUFFIX: &str = " (deleted)";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -478,7 +508,7 @@ mod tests {
         // folder has to be writable. That pair is what `migrates_itself`
         // reads, and it must come out false or the next update would migrate
         // all over again.
-        let layout = Layout::at("/home/zen/.local/share");
+        let layout = Layout::at("/home/bob/.local/share");
         let migrated = layout.appimage();
         let probes = super::super::install_method::Probes {
             appimage_env: Some(migrated.to_string_lossy().to_string()),
@@ -493,20 +523,20 @@ mod tests {
 
     #[test]
     fn the_layout_is_the_users_own_tree() {
-        let layout = Layout::at("/home/zen/.local/share");
+        let layout = Layout::at("/home/bob/.local/share");
         assert_eq!(
             layout.appimage(),
-            PathBuf::from("/home/zen/.local/share/locally-uncensored/Locally.Uncensored.AppImage")
+            PathBuf::from("/home/bob/.local/share/locally-uncensored/Locally.Uncensored.AppImage")
         );
         // Staged next to it, or the rename is a copy across filesystems.
         assert_eq!(layout.staged().parent(), layout.appimage().parent());
         assert_eq!(
             layout.desktop_file(),
-            PathBuf::from("/home/zen/.local/share/applications/Locally Uncensored.desktop")
+            PathBuf::from("/home/bob/.local/share/applications/Locally Uncensored.desktop")
         );
         assert_eq!(
             layout.icon_file("128x128"),
-            PathBuf::from("/home/zen/.local/share/icons/hicolor/128x128/apps/locally-uncensored.png")
+            PathBuf::from("/home/bob/.local/share/icons/hicolor/128x128/apps/locally-uncensored.png")
         );
     }
 
@@ -637,13 +667,35 @@ mod tests {
     fn the_relaunch_waits_for_this_process_to_be_gone() {
         // Without the wait the new AppImage meets single-instance, focuses
         // this window and exits, and the user stays on the old build.
-        let script = relaunch_script(Path::new("/home/zen/.local/share/x/LU.AppImage"), 4242);
+        let script = relaunch_script(Path::new("/home/bob/.local/share/x/LU.AppImage"), 4242);
         assert!(script.contains("kill -0 4242"));
-        assert!(script.contains("exec '/home/zen/.local/share/x/LU.AppImage'"));
+        assert!(script.contains("exec '/home/bob/.local/share/x/LU.AppImage'"));
         // Not forever: twenty seconds at a tenth of a second each.
         assert!(script.contains("[ $n -lt 200 ]"));
         // A quote in the path cannot end the quoting.
         assert!(relaunch_script(Path::new("/home/o'brien/LU.AppImage"), 1).contains("'/home/o'\\''brien/LU.AppImage'"));
+    }
+
+    #[test]
+    fn an_appimage_starts_again_through_the_file_that_was_replaced() {
+        // current_exe() of a running AppImage lies inside the old mount.
+        let target = relaunch_target(
+            Some("/home/bob/Apps/LU.AppImage".to_string()),
+            Some(PathBuf::from("/tmp/.mount_LUabc/usr/bin/locally-uncensored")),
+        );
+        assert_eq!(target, Some(PathBuf::from("/home/bob/Apps/LU.AppImage")));
+    }
+
+    #[test]
+    fn a_package_install_starts_again_through_the_path_the_package_owns() {
+        // After `dpkg -i` or `rpm -U` the running image has lost its name.
+        let replaced = relaunch_target(None, Some(PathBuf::from("/usr/bin/locally-uncensored (deleted)")));
+        assert_eq!(replaced, Some(PathBuf::from("/usr/bin/locally-uncensored")));
+        // A launcher that exports APPIMAGE= with nothing in it is no AppImage.
+        let untouched = relaunch_target(Some(String::new()), Some(PathBuf::from("/usr/bin/locally-uncensored")));
+        assert_eq!(untouched, Some(PathBuf::from("/usr/bin/locally-uncensored")));
+        // No path at all means nothing to start, and the caller only exits.
+        assert_eq!(relaunch_target(None, None), None);
     }
 
     #[test]

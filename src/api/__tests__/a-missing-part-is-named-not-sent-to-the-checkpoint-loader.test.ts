@@ -1,6 +1,6 @@
 /**
- * Discord 2026-09-29 (ssgsixassinators, MiniMax H3) and 2026-10-01
- * (boromirofgeo, qwen_image_2.1): "CheckpointLoaderSimple: Value not in list".
+ * Discord 2026-09-29 (MiniMax H3) and 2026-10-01
+ * (qwen_image_2.1): "CheckpointLoaderSimple: Value not in list".
  * When a family's builder could not find a file, Create fell back to the old
  * fixed graph, which loads every non-FLUX model as an SDXL checkpoint. The
  * missing file now reaches Create as its own sentence and download, and the

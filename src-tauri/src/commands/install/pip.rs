@@ -77,7 +77,7 @@ fn is_transient_pip_error(stderr: &str) -> bool {
 /// "Python 3.8.10 at C:\Python38\python.exe", or just the path when the
 /// interpreter will not say. Costs one process launch, which is fine on an
 /// error path and is the single fact that turns "no matching wheel" from a
-/// riddle into an instruction: willes0504 (Discord 2026-07-28) had a stray
+/// riddle into an instruction: A user (Discord 2026-07-28) had a stray
 /// 3.8 first in PATH and needed a volunteer plus a day to find that out.
 fn interpreter_description(python_bin: &str) -> String {
     let mut cmd = python_command(python_bin);
@@ -209,13 +209,31 @@ pub(crate) fn parse_pip_download_size(line: &str) -> Option<u64> {
     Some((num * factor).round() as u64)
 }
 
+/// pip is done downloading and starts to unpack what it fetched.
+pub(crate) fn pip_downloads_finished(line: &str) -> bool {
+    line.trim_start().starts_with("Installing collected packages")
+}
+
+/// The bytes to show as downloaded.
+///
+/// Two meters, the larger one counts. `read` is what the process tree has
+/// read since the run began; `finished` is the announced size of every wheel
+/// pip has already moved past. The read counter alone stood at about 9 MB
+/// while pip fetched 150 MB of wheels during the voice setup on the box
+/// (07.10.2026), so the bar fell from 28 to 3 percent as the announced total
+/// grew. The finished wheels cannot fall behind like that. Never past the
+/// total, never backwards.
+pub(crate) fn download_progress(read: u64, finished: u64, total: u64, shown: u64) -> u64 {
+    read.max(finished).min(total).max(shown)
+}
+
 /// Cumulative bytes the process has read from files and sockets. pip
 /// downloads in-process, so this is the live counter behind the progress
 /// display next to the rebuild spinner. None where the platform has no
 /// cheap probe and on any probe error; the caller then keeps the plain
 /// spinner instead of guessing.
 #[cfg(target_os = "windows")]
-pub(crate) fn process_read_bytes(pid: u32) -> Option<u64> {
+fn own_read_bytes(pid: u32) -> Option<u64> {
     #[repr(C)]
     struct IoCounters {
         read_ops: u64,
@@ -257,6 +275,78 @@ pub(crate) fn process_read_bytes(pid: u32) -> Option<u64> {
     }
 }
 
+/// Every process below `root` in a list of (pid, parent pid) pairs.
+///
+/// The python.exe of a venv on Windows is a small launcher that starts the
+/// real interpreter as its child and waits. pip then reads its wheels in the
+/// child, the launcher reads nothing, and a counter on the launcher alone
+/// stood at 0 for the whole install (voice setup on the box, 07.10.2026).
+#[cfg(any(target_os = "windows", test))]
+pub(crate) fn descendants_of(root: u32, processes: &[(u32, u32)]) -> Vec<u32> {
+    let mut found: Vec<u32> = Vec::new();
+    let mut frontier = vec![root];
+    while let Some(parent) = frontier.pop() {
+        for (pid, of) in processes {
+            // A pid that is its own parent, or one seen before, ends the walk there.
+            if *of == parent && *pid != root && !found.contains(pid) {
+                found.push(*pid);
+                frontier.push(*pid);
+            }
+        }
+    }
+    found
+}
+
+/// All running processes as (pid, parent pid).
+#[cfg(target_os = "windows")]
+pub(crate) fn process_parents() -> Vec<(u32, u32)> {
+    #[repr(C)]
+    struct ProcessEntry {
+        size: u32,
+        usage: u32,
+        pid: u32,
+        default_heap: usize,
+        module: u32,
+        threads: u32,
+        parent: u32,
+        priority: i32,
+        flags: u32,
+        exe: [u16; 260],
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreateToolhelp32Snapshot(flags: u32, pid: u32) -> isize;
+        fn Process32FirstW(snapshot: isize, entry: *mut ProcessEntry) -> i32;
+        fn Process32NextW(snapshot: isize, entry: *mut ProcessEntry) -> i32;
+        fn CloseHandle(handle: isize) -> i32;
+    }
+    const SNAPPROCESS: u32 = 0x0000_0002;
+    let mut list = Vec::new();
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(SNAPPROCESS, 0);
+        if snapshot == -1 || snapshot == 0 {
+            return list;
+        }
+        let mut entry = std::mem::zeroed::<ProcessEntry>();
+        entry.size = std::mem::size_of::<ProcessEntry>() as u32;
+        let mut more = Process32FirstW(snapshot, &mut entry);
+        while more != 0 {
+            list.push((entry.pid, entry.parent));
+            more = Process32NextW(snapshot, &mut entry);
+        }
+        CloseHandle(snapshot);
+    }
+    list
+}
+
+/// The bytes read by the process and by everything it started.
+#[cfg(target_os = "windows")]
+pub(crate) fn process_read_bytes(pid: u32) -> Option<u64> {
+    let own = own_read_bytes(pid)?;
+    let below: u64 = descendants_of(pid, &process_parents()).into_iter().filter_map(own_read_bytes).sum();
+    Some(own.saturating_add(below))
+}
+
 #[cfg(target_os = "linux")]
 pub(crate) fn process_read_bytes(pid: u32) -> Option<u64> {
     std::fs::read_to_string(format!("/proc/{}/io", pid))
@@ -276,8 +366,8 @@ pub(crate) fn process_read_bytes(_pid: u32) -> Option<u64> {
 /// The Visual C++ runtime files a PyTorch wheel loads and that Windows does
 /// not ship on its own. Named rather than guessed: the whole point of the
 /// diagnosis is to tell the customer which file Windows went looking for.
-/// A3 (falconbob_20415, anglefire, hypocritical_rj, petermanmancusso,
-/// jamiet99uk, Discord 2026-08-26 to 2026-09-02): "VCOMP140.DLL was not
+/// A3 (falconbob_20415, a user, hypocritical_rj, a user,
+/// Discord 2026-08-26 to 2026-09-02): "VCOMP140.DLL was not
 /// found" and "[WinError 1114] ... c10.dll" were shown to five customers as
 /// a raw crash with no sentence attached.
 pub(crate) const VC_RUNTIME_DLLS: &[&str] = &[
@@ -447,7 +537,7 @@ pub(crate) fn pip_failure_hint(kind: PipFailureKind, text: &str) -> String {
              • Arch:   sudo pacman -S python-virtualenv\n\
              • Debian/Ubuntu: sudo apt install python3-venv\n\
              • Fedora: sudo dnf install python3-virtualenv".to_string(),
-        // numbrain (Discord, 2026-08-02): a pyenv/source-built python without
+        // A user (Discord, 2026-08-02): a pyenv/source-built python without
         // the _ssl extension can't reach pypi AT ALL, and the generic SSL hint
         // below (antivirus/clock) sent him in the wrong direction.
         //
@@ -477,7 +567,7 @@ pub(crate) fn pip_failure_hint(kind: PipFailureKind, text: &str) -> String {
         // Ticket 007: beide Saetze endeten auf "then press Repair environment"
         // und widersprachen sich damit selbst, der erste sogar im selben Absatz
         // ("nothing pip does can fix this"). Ein Neubau des venv holt dieselben
-        // Wheels an dieselbe Stelle; was fehlt, wohnt in Windows. falcon bob hat
+        // Wheels an dieselbe Stelle; was fehlt, wohnt in Windows. a user hat
         // die Reparatur gedrueckt, den Neubau abgewartet und stand vor derselben
         // Meldung. Der Satz sagt jetzt, was wirklich hilft.
         PipFailureKind::MissingRuntimeLibrary => {
@@ -623,7 +713,7 @@ pub(crate) fn python_without_ssl_hint(diagnosis: &SslDiagnosis) -> String {
 /// Streaming pip install with retry. When `cancel` is `Some`, polls the
 /// shared flag between line reads and waits, and kills the pip child on
 /// cancel — used by `install_comfyui` so the user's Cancel button
-/// (Bug #1 — techx69 v2.4.3) actually stops the running install instead
+/// (Bug #1 — v2.4.3) actually stops the running install instead
 /// of waiting for pip to finish naturally. When `cancel` is `None`, the
 /// install runs to completion as before — used by `install_python` and
 /// callers that haven't been wired up to the new cancel flow.
@@ -707,6 +797,8 @@ pub(crate) fn pip_install_streaming_with_retry_raw(
             s.download_speed = 0.0;
         }
         let announced_total = Arc::new(AtomicU64::new(0));
+        // Announced bytes of the wheels pip is through with.
+        let finished_total = Arc::new(AtomicU64::new(0));
 
         let mut cmd = python_command(python_bin);
         cmd.args(args)
@@ -737,6 +829,7 @@ pub(crate) fn pip_install_streaming_with_retry_raw(
         // Stream stdout to install logs
         let stdout_state = install_state.clone();
         let announced = announced_total.clone();
+        let finished = finished_total.clone();
         let stdout_handle = std::thread::spawn(move || {
             if let Some(out) = stdout {
                 let reader = BufReader::new(out);
@@ -752,7 +845,12 @@ pub(crate) fn pip_install_streaming_with_retry_raw(
                     let trimmed = line.trim();
                     if !trimmed.is_empty() {
                         if let Some(bytes) = parse_pip_download_size(trimmed) {
+                            // pip fetches one wheel after the other: a new
+                            // one starts when the ones before it are in.
+                            finished.store(announced.load(Ordering::Relaxed), Ordering::Relaxed);
                             announced.fetch_add(bytes, Ordering::Relaxed);
+                        } else if pip_downloads_finished(trimmed) {
+                            finished.store(announced.load(Ordering::Relaxed), Ordering::Relaxed);
                         }
                         if let Ok(mut s) = stdout_state.lock() {
                             s.logs.push(trimmed.to_string());
@@ -794,6 +892,7 @@ pub(crate) fn pip_install_streaming_with_retry_raw(
         // the UI renders next to the rebuild spinner.
         let pid = child.id();
         let mut io_baseline: Option<(u64, Instant)> = None;
+        let mut shown: u64 = 0;
         let mut tick: u32 = 0;
         let exit_status = loop {
             if cancel.as_ref().map(|c| c.load(Ordering::SeqCst)).unwrap_or(false) {
@@ -817,7 +916,15 @@ pub(crate) fn pip_install_streaming_with_retry_raw(
                             if let Some(read) = process_read_bytes(pid) {
                                 let (base, since) =
                                     *io_baseline.get_or_insert((read, Instant::now()));
-                                let progress = read.saturating_sub(base).min(total);
+                                // A child that exits takes its counter along.
+                                // The bar never goes backwards over that.
+                                let progress = download_progress(
+                                    read.saturating_sub(base),
+                                    finished_total.load(Ordering::Relaxed),
+                                    total,
+                                    shown,
+                                );
+                                shown = progress;
                                 let elapsed = since.elapsed().as_secs_f64();
                                 let speed =
                                     if elapsed > 0.5 { progress as f64 / elapsed } else { 0.0 };
@@ -1015,6 +1122,35 @@ mod tests {
     /// hier der Quelltext gelesen. Am laufenden Balken nachzumessen ist Sache
     /// eines Testers auf der Box.
     #[test]
+    fn the_byte_counter_follows_the_venv_launcher_to_the_interpreter_it_started() {
+        // launcher 10 -> interpreter 11 -> build helper 12; 20 is unrelated, 30 has a recycled parent id.
+        let processes = [(10, 4), (11, 10), (12, 11), (20, 4), (30, 30), (4, 0)];
+        let mut below = descendants_of(10, &processes);
+        below.sort_unstable();
+        assert_eq!(below, vec![11, 12]);
+        assert!(descendants_of(20, &processes).is_empty());
+        // A loop in the list (pid reuse) ends, it does not hang.
+        assert_eq!(descendants_of(1, &[(2, 1), (1, 2)]), vec![2]);
+        // The Windows counter sums the tree.
+        let src = include_str!("pip.rs");
+        assert!(src.contains("descendants_of(pid, &process_parents())"));
+    }
+
+    #[test]
+    fn the_wheels_pip_is_through_with_carry_the_bar_when_the_byte_counter_stalls() {
+        // The box: 9 MB read, 95 MB of wheels behind pip, 137 MB announced.
+        assert_eq!(download_progress(9_000_000, 95_000_000, 137_000_000, 9_000_000), 95_000_000);
+        // A counter that is ahead still counts, up to the total.
+        assert_eq!(download_progress(120_000_000, 95_000_000, 137_000_000, 0), 120_000_000);
+        assert_eq!(download_progress(500_000_000, 95_000_000, 137_000_000, 0), 137_000_000);
+        // Never backwards.
+        assert_eq!(download_progress(1, 2, 137_000_000, 50), 50);
+        assert!(pip_downloads_finished("Installing collected packages: yarl, torch"));
+        assert!(!pip_downloads_finished("Downloading yarl-1.25.1-cp312-cp312-win_amd64.whl (102 kB)"));
+        assert!(!pip_downloads_finished("Successfully built docopt"));
+    }
+
+    #[test]
     fn the_windows_byte_counter_includes_socket_traffic() {
         let src = include_str!("pip.rs");
         let win = src
@@ -1203,7 +1339,7 @@ mod tests {
 
     #[test]
     fn a_python_without_ssl_is_named_not_blamed_on_antivirus() {
-        // numbrain's exact pip wording (Discord 2026-08-02): the interpreter
+        // a user's exact pip wording (Discord 2026-08-02): the interpreter
         // itself has no _ssl, so the antivirus/clock hint is the wrong trail.
         //
         // K14: without an interpreter path, LU cannot actually check, so the
@@ -1277,14 +1413,10 @@ mod tests {
         #[cfg(not(windows))]
         let fake = {
             let path = dir.path().join("fake-python-no-ssl.sh");
-            std::fs::write(
+            crate::test_support::write_script(
                 &path,
                 "#!/bin/sh\necho \"ModuleNotFoundError: No module named '_ssl'\" 1>&2\nexit 1\n",
-            )
-            .unwrap();
-            let mut perms = std::fs::metadata(&path).unwrap().permissions();
-            std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
-            std::fs::set_permissions(&path, perms).unwrap();
+            );
             path
         };
         #[cfg(windows)]
@@ -1362,7 +1494,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let marker = dir.path().join("calls");
         let fake = dir.path().join("fake-python-ssl-collision.sh");
-        std::fs::write(
+        crate::test_support::write_script(
             &fake,
             format!(
                 "#!/bin/sh\n\
@@ -1377,11 +1509,7 @@ mod tests {
                  exit 0\n",
                 marker = marker.display()
             ),
-        )
-        .unwrap();
-        let mut perms = std::fs::metadata(&fake).unwrap().permissions();
-        std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
-        std::fs::set_permissions(&fake, perms).unwrap();
+        );
 
         let state = Arc::new(Mutex::new(InstallState::default()));
         let result = pip_install_streaming_with_retry_raw(
@@ -1425,7 +1553,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let marker = dir.path().join("calls");
         let fake = dir.path().join("fake-python-no-ssl.sh");
-        std::fs::write(
+        crate::test_support::write_script(
             &fake,
             format!(
                 "#!/bin/sh\n\
@@ -1437,11 +1565,7 @@ mod tests {
                  exit 1\n",
                 marker = marker.display()
             ),
-        )
-        .unwrap();
-        let mut perms = std::fs::metadata(&fake).unwrap().permissions();
-        std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
-        std::fs::set_permissions(&fake, perms).unwrap();
+        );
 
         let state = Arc::new(Mutex::new(InstallState::default()));
         let result = pip_install_streaming_with_retry_raw(
@@ -1499,7 +1623,7 @@ mod tests {
         assert!(lower.contains("python") || lower.contains("version") || lower.contains("3.10"));
     }
 
-    /// willes0504 (Discord 2026-07-28) read "ComfyUI needs Python 3.10, 3.11
+    /// A user (Discord 2026-07-28) read "ComfyUI needs Python 3.10, 3.11
     /// or 3.12" while a stray 3.8 sat first in PATH. Naming the interpreter we
     /// actually used is the difference between a riddle and an instruction.
     #[test]
@@ -1549,12 +1673,12 @@ mod tests {
     /// The output below is pip's own, from the box, shortened in the middle.
     #[test]
     fn the_excerpt_is_pips_own_error_line_whole_not_the_head_of_the_log() {
-        let filler = "Requirement already satisfied: idna in c:\\users\\ddrob\\comfyui\\venv\\lib\\site-packages (3.19)\n".repeat(40);
+        let filler = "Requirement already satisfied: idna in c:\\users\\alice\\comfyui\\venv\\lib\\site-packages (3.19)\n".repeat(40);
         let raw = format!(
-            "Requirement already satisfied: huggingface-hub>=0.19.0 in c:\\users\\ddrob\\comfyui\\venv\\lib\\site-packages (1.31.0)\n\
+            "Requirement already satisfied: huggingface-hub>=0.19.0 in c:\\users\\alice\\comfyui\\venv\\lib\\site-packages (1.31.0)\n\
              Collecting transparent-background>=1.1.2\n{filler}\
              Installing collected packages: opencv-python-headless\n\
-             ERROR: Could not install packages due to an OSError: [WinError 5] access is denied: 'C:\\\\Users\\\\ddrob\\\\ComfyUI\\\\venv\\\\Lib\\\\site-packages\\\\cv2\\\\cv2.pyd'\n\
+             ERROR: Could not install packages due to an OSError: [WinError 5] access is denied: 'C:\\\\Users\\\\alice\\\\ComfyUI\\\\venv\\\\Lib\\\\site-packages\\\\cv2\\\\cv2.pyd'\n\
              Check the permissions.\n\n\n\
              [notice] A new release of pip is available: 23.2.1 -> 26.2.1\n\
              [notice] To update, run: python.exe -m pip install --upgrade pip\n"
@@ -1563,7 +1687,7 @@ mod tests {
         let excerpt = pip_error_excerpt(&raw);
         assert_eq!(
             excerpt,
-            "ERROR: Could not install packages due to an OSError: [WinError 5] access is denied: 'C:\\\\Users\\\\ddrob\\\\ComfyUI\\\\venv\\\\Lib\\\\site-packages\\\\cv2\\\\cv2.pyd'\nCheck the permissions."
+            "ERROR: Could not install packages due to an OSError: [WinError 5] access is denied: 'C:\\\\Users\\\\alice\\\\ComfyUI\\\\venv\\\\Lib\\\\site-packages\\\\cv2\\\\cv2.pyd'\nCheck the permissions."
         );
         let msg = diagnose_pip_error(&raw);
         assert!(msg.contains("cv2.pyd"), "the file pip could not write is not named: {msg}");
@@ -1870,7 +1994,7 @@ mod tests {
             ("PermissionError: [Errno 13] Permission denied", PipFailureKind::Permission),
             ("No module named pip", PipFailureKind::PipBroken),
             ("ERROR: Could not find a version that satisfies", PipFailureKind::NoMatchingWheel),
-            // sockenmonster's screenshot, verbatim (Discord, August 2026, ticket 0004).
+            // a user's screenshot, verbatim (Discord, August 2026, ticket 0004).
             ("ERROR: Package 'musubi-tuner' requires a different Python: 3.14.6 not in '<3.13,>=3.10'", PipFailureKind::UnsupportedPython),
             ("something nobody has seen before", PipFailureKind::Unknown),
         ] {
@@ -1883,8 +2007,8 @@ mod tests {
     fn a_requirements_file_pip_cannot_resolve_is_named_with_its_reason() {
         let reason = requirements_failure_reason(INVENTED_PACKAGE);
         assert_eq!(reason, "pip found no installable version for a package it names");
-        let line = requirements_fallback_log("C:\\Users\\ddrob\\ComfyUI", reason);
-        assert!(line.starts_with("requirements.txt in C:\\Users\\ddrob\\ComfyUI could not be used ("), "got: {line}");
+        let line = requirements_fallback_log("C:\\Users\\alice\\ComfyUI", reason);
+        assert!(line.starts_with("requirements.txt in C:\\Users\\alice\\ComfyUI could not be used ("), "got: {line}");
         assert!(
             line.ends_with("checking the packages LU knows about and installing the ones that are missing."),
             "got: {line}",

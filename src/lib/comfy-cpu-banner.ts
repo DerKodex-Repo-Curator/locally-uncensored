@@ -50,7 +50,7 @@ export function asComfyGpuMode(value: unknown): ComfyGpuModeName {
 
 /**
  * The AMD half of the banner. Windows and Linux take different routes, which
- * is the finding three users hit in round 12 (numbrain/lapbo/suraj3014): the
+ * is the finding three users hit in round 12 (a user/someone/suraj3014): the
  * generic ZLUDA pointer is a Windows-only dead end on Linux, and the Windows
  * half used to claim there was no Windows ROCm wheel at all, which AMD's own
  * index disproves.
