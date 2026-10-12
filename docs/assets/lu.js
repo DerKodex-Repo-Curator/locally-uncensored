@@ -198,25 +198,58 @@
     document.body.appendChild(s);
   }
 
+  // The button shows the flag of the language the page is in right now. A
+  // click opens a menu with the one other language.
   function wireLang() {
     if (pageLang() !== "en") return;
     var pref = langPref();
-    var target = pref === "de" ? "en" : "de";
+    var current = pref === "de" ? "de" : "en";
+    var target = current === "de" ? "en" : "de";
+
+    var wrap = document.createElement("div");
+    wrap.className = "lu-lang-wrap notranslate";
+    wrap.setAttribute("translate", "no");
+
     var btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "lu-lang notranslate";
-    btn.setAttribute("translate", "no");
-    btn.title = target === "de" ? "Auf Deutsch anzeigen" : "Show in English";
+    btn.className = "lu-lang";
+    btn.title = current === "de" ? "Sprache: Deutsch" : "Language: English";
     btn.setAttribute("aria-label", btn.title);
-    btn.innerHTML = target === "de" ? FLAG_DE : FLAG_EN;
-    btn.addEventListener("click", function () {
+    btn.setAttribute("aria-haspopup", "menu");
+    btn.setAttribute("aria-expanded", "false");
+    btn.innerHTML = current === "de" ? FLAG_DE : FLAG_EN;
+
+    var menu = document.createElement("div");
+    menu.className = "lu-lang-menu";
+    menu.setAttribute("role", "menu");
+    menu.hidden = true;
+
+    var opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "lu-lang-opt";
+    opt.setAttribute("role", "menuitem");
+    opt.setAttribute("lang", target);
+    opt.innerHTML = (target === "de" ? FLAG_DE : FLAG_EN) + "<span>" + (target === "de" ? "Deutsch" : "English") + "</span>";
+    menu.appendChild(opt);
+    wrap.appendChild(btn); wrap.appendChild(menu);
+
+    function open(on) {
+      menu.hidden = !on;
+      btn.setAttribute("aria-expanded", on ? "true" : "false");
+      if (on) opt.focus();
+    }
+    btn.addEventListener("click", function (e) { e.stopPropagation(); open(menu.hidden); });
+    document.addEventListener("click", function (e) { if (!menu.hidden && !wrap.contains(e.target)) open(false); });
+    wrap.addEventListener("keydown", function (e) { if (e.key === "Escape" && !menu.hidden) { open(false); btn.focus(); } });
+    opt.addEventListener("click", function () {
       try { localStorage.setItem(LANG_KEY, target); } catch (e) {}
       setGoogTrans(target === "de" ? "/auto/de" : null);
       location.reload();
     });
+
     var right = document.querySelector(".lu-nav-right");
-    if (right) right.insertBefore(btn, right.firstChild);
-    else { btn.classList.add("fixed"); document.body.appendChild(btn); }
+    if (right) right.insertBefore(wrap, right.firstChild);
+    else { wrap.classList.add("fixed"); document.body.appendChild(wrap); }
 
     if (pref === "de") bootTranslate("de");
     else setGoogTrans(null);

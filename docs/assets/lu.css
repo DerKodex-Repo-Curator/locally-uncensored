@@ -562,7 +562,14 @@ main.wrap.lu-doc{text-align:center;min-height:56vh;display:flex;flex-direction:c
 .lu-lang{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border:0;background:none;padding:0;cursor:pointer;border-radius:var(--radius-sm);transition:background .15s}
 .lu-lang:hover{background:var(--fill-faint)}
 .lu-lang svg{width:20px;height:14px;border-radius:2.5px;display:block;box-shadow:0 0 0 1px rgba(127,127,127,.35)}
-.lu-lang.fixed{position:fixed;top:14px;right:14px;z-index:1000;background:rgba(20,20,26,.7)}
+.lu-lang-wrap{position:relative;display:flex}
+.lu-lang-wrap.fixed{position:fixed;top:14px;right:14px;z-index:1000}
+.lu-lang-wrap.fixed .lu-lang{background:rgba(20,20,26,.7)}
+.lu-lang-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:1001;min-width:128px;padding:4px;border-radius:var(--radius-sm);background:var(--panel);border:1px solid var(--line-subtle);box-shadow:0 14px 40px -12px rgba(0,0,0,.6)}
+.lu-lang-menu[hidden]{display:none}
+.lu-lang-opt{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border:0;border-radius:4px;background:none;color:var(--fg);font-family:var(--sans);font-size:.84rem;font-weight:600;line-height:1;text-align:left;cursor:pointer}
+.lu-lang-opt:hover,.lu-lang-opt:focus-visible{background:var(--fill-faint);outline:none}
+.lu-lang-opt svg{flex:none;width:20px;height:14px;border-radius:2.5px;display:block;box-shadow:0 0 0 1px rgba(127,127,127,.35)}
 #lu-gt,#goog-gt-tt,.goog-te-banner-frame,.goog-te-balloon-frame,body>.skiptranslate,.VIpgJd-ZVi9od-aZ2wEe-wOHMyf{display:none!important}
 body{top:0!important}
 font.goog-text-highlight{background:none!important;box-shadow:none!important}

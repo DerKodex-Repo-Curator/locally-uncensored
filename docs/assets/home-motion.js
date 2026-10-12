@@ -180,7 +180,8 @@
     mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>',
     music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
     ff: '<path d="M13 19l9-7-9-7zM2 19l9-7-9-7z"/>',
-    person: '<circle cx="12" cy="5" r="1"/><path d="m9 20 3-6 3 6M6 8l6 2 6-2M12 10v4"/>'
+    person: '<circle cx="12" cy="5" r="1"/><path d="m9 20 3-6 3 6M6 8l6 2 6-2M12 10v4"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>'
   };
   function ic(k, cls) { return '<svg class="ic' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24">' + I[k] + "</svg>"; }
   var LU = '<svg class="lu" viewBox="176 176 672 672"><rect x="193" y="193" width="638" height="638" rx="138" ry="138" fill="none" stroke="currentColor" stroke-width="40"/><path fill="currentColor" d="M302,342 H377 V612 H433.6 A162,162 0 0,0 500.5,680 H302 Z"/><path fill="currentColor" d="M434,342 H508 V545 A69,69 0 0,0 646,545 V342 H722 V537.5 A144,144 0 0,1 434,537.5 Z"/></svg>';
@@ -670,6 +671,97 @@
       toolState(r.ptool, t, 7.95); dev(r.pimg, t, 5.95, 1.95, r.pnoise); fin(r.cap, t, 8.1, .3);
       fin(r.act, t, 5.7, .3, 8); toolState(r.actTool, t, 7.95);
       TR(r.bar, "scaleX(" + E.io2(sg(t, 5.7, 7.9)).toFixed(3) + ")");
+    }
+  });
+
+  /* VOICE: start, a spoken question, a spoken answer, then the user speaks over it */
+  var VO = {
+    q1: "What can I cook tonight? I have rice, eggs and spring onions.",
+    a1: "Egg fried rice. Scramble the eggs first, then fry the rice hot and stir in the spring onions at the end, with a little soy sauce.",
+    q2: "Wait, make it spicy.", a2: "Then add chili oil with the spring onions."
+  };
+  scene("voice", {
+    w: 720, h: 450, tw: 400, th: 520, D: 13, poster: 6.4,
+    chapters: [[0, "Click Start voice"], [1.5, "Just talk"], [4.5, "It answers out loud"], [7.3, "Speak over it"]],
+    build: function (st) {
+      var bars = ""; for (var i = 0; i < 36; i++) bars += "<i></i>";
+      st.innerHTML = '<div class="ap">' + topbar() + rail("") + '<div class="ap-main"><div class="vo">' +
+        '<div class="vo-h"><b>Voice</b><em>Beta</em><span class="vo-sw">' + ic("gear") + ic("bot", "on") + ic("folder") + ic("spark", "on") + "</span></div>" +
+        '<div class="vo-wv">' + bars + "</div>" +
+        '<div class="vo-st"><i></i><span class="s"></span></div>' +
+        '<div class="feed">' + gw('<div class="bub"></div>', "g1") + gw(msg('<div class="ans"></div>'), "g2") + gw('<div class="bub"></div>', "g3") + gw(msg('<div class="ans"></div>'), "g4") + "</div>" +
+        '<div class="vo-b"><span class="vo-w">Voice answers with <b>Alba</b></span><span class="vo-mic">' + ic("mic") + '</span><span class="vo-go"></span></div>' +
+        "</div></div>" + CUR + "</div>";
+      return { st: st, g: [1, 2, 3, 4].map(function (i) { return q(st, ".g" + i); }), q1: q(st, ".g1 .bub"), a1: q(st, ".g2 .ans"), q2: q(st, ".g3 .bub"), a2: q(st, ".g4 .ans"),
+        wv: q(st, ".vo-wv"), bars: qa(st, ".vo-wv i"), stl: q(st, ".vo-st"), stx: q(st, ".vo-st .s"), mic: q(st, ".vo-mic"), go: q(st, ".vo-go"), cur: q(st, ".cur") };
+    },
+    render: function (t, r) {
+      var on = t >= 1.05;
+      var word = t < 3.6 ? "Listening" : t < 4.5 ? "Thinking" : t < 7.3 ? "Speaking" : t < 8.5 ? "Listening" : t < 9.1 ? "Thinking" : t < 11.1 ? "Speaking" : "Listening";
+      T(r.stx, on ? word : "Voice talks to the model that is selected in Chat.");
+      C(r.stl, "on", on); C(r.stl, "th", on && word === "Thinking"); C(r.stl, "sp", on && word === "Speaking");
+      T(r.go, on ? "Stop" : "Start voice"); C(r.go, "stop", on); C(r.mic, "on", on);
+      TR(r.go, "scale(" + prs(t, 1.02).toFixed(3) + ")");
+      /* the bars follow whoever talks: white for you, violet for LU */
+      var you = (t > 1.7 && t < 3.45) || (t > 7.35 && t < 8.35), lu = on && word === "Speaking";
+      var amp = !on ? 0 : you ? .8 : lu ? 1 : word === "Thinking" ? .1 : .05, n = r.bars.length;
+      C(r.wv, "lu", lu);
+      r.bars.forEach(function (b, i) {
+        var env = Math.sin((i + .5) / n * Math.PI);
+        TR(b, "scaleY(" + cl(.06 + amp * env * (.3 + .7 * Math.abs(Math.sin(t * (5 + (i % 7) * .9) + i * 1.7))), .06, 1).toFixed(3) + ")");
+      });
+      grow(r.g[0], t, 1.75, .3); words(r.q1, VO.q1, t, 1.75, 3.4);
+      /* the first answer breaks off where the user speaks over it */
+      grow(r.g[1], t, 4.5, .3); words(r.a1, VO.a1, Math.min(t, 7.3), 4.55, 8.7); C(r.a1, "cut", t >= 7.3);
+      grow(r.g[2], t, 7.4, .3); words(r.q2, VO.q2, t, 7.4, 8.3);
+      grow(r.g[3], t, 9.1, .3); words(r.a2, VO.a2, t, 9.15, 10.9);
+      cursor(r.cur, t, [[1.0, r.go, .6, 1]], r.st);
+    }
+  });
+
+  /* COMPUTER CONTROL: the chat asks once, LU shrinks to a panel, asks for the
+     app and for the action, types the note and comes back */
+  var CC = { q1: "Write my shopping list into the open Notepad window: milk, eggs, bread.", note: "Shopping list\nmilk\neggs\nbread", a1: "Done. The list is in Notepad." };
+  scene("computer", {
+    w: 720, h: 450, tw: 400, th: 520, D: 14, poster: 9.3,
+    chapters: [[0, "Ask in plain words"], [1.9, "You allow it first"], [3.3, "It asks for each app"], [6.3, "You confirm, it acts"]],
+    build: function (st) {
+      st.innerHTML = '<div class="gnd"></div>' +
+        '<div class="np"><div class="np-t"><i></i>Untitled - Notepad<span>' + ic("x2") + '</span></div><div class="np-m"><span>File</span><span>Edit</span><span>View</span></div><div class="np-x"><span class="ty"></span><i class="caret"></i></div></div>' +
+        '<div class="cc-glow"></div>' +
+        '<div class="ap cc-ap">' + topbar() + rail("chat") + '<div class="ap-main"><div class="feed">' +
+          gw('<div class="bub">' + CC.q1 + "</div>", "g1") +
+          gw(msg('<div class="cc-card"><b>Allow computer control in this chat?</b><div class="cbs"><span class="cb">Deny</span><span class="cb go">Allow</span></div></div>'), "g2") +
+          gw('<div class="ind"><div class="ans"></div></div>', "g3") +
+        "</div>" + composer("Qwen 3.8 27B", "LOCAL", '<span class="mode">' + ic("bot") + "Agent</span>") + "</div></div>" +
+        '<div class="cc-pn"><div class="cc-pn-h">' + LU + '<b>LU</b><span class="cb sm">Pause</span><span class="cb sm">Stop</span></div>' +
+          '<div class="cc-step"><i class="spin"></i><span class="s"></span></div><div class="cc-qs">' +
+          '<div class="cc-q q1"><span class="l">Program</span><b>Notepad</b><div class="cbs"><span class="cb">Deny</span><span class="cb go">Allow once</span></div></div>' +
+          '<div class="cc-q q2"><span class="l">Confirm this action</span><b>Type the list into Notepad</b><div class="cbs"><span class="cb">Decline</span><span class="cb go">Confirm</span></div></div>' +
+        "</div></div>" + CUR;
+      return { st: st, cm: cmpRefs(st), g: [1, 2, 3].map(function (i) { return q(st, ".g" + i); }), ans: q(st, ".g3 .ans"), card: q(st, ".cc-card"), allow: q(st, ".cc-card .go"),
+        ap: q(st, ".cc-ap"), pn: q(st, ".cc-pn"), glow: q(st, ".cc-glow"), step: q(st, ".cc-step .s"), spin: q(st, ".cc-step .spin"),
+        q1: q(st, ".cc-q.q1"), q2: q(st, ".cc-q.q2"), b1: q(st, ".q1 .go"), b2: q(st, ".q2 .go"), nty: q(st, ".np-x .ty"), ncar: q(st, ".np-x .caret"), cur: q(st, ".cur") };
+    },
+    render: function (t, r) {
+      compose(r.cm, t, [[CC.q1, .2, 1.45, 1.6]]);
+      grow(r.g[0], t, 1.6, .3);
+      grow(r.g[1], t, 1.9, .35); C(r.card, "ok", t >= 3.05); TR(r.allow, "scale(" + prs(t, 3.02).toFixed(3) + ")");
+      /* 1 = LU is the small panel in the corner */
+      var sh = E.io3(sg(t, 3.3, 3.8)) * (1 - E.io3(sg(t, 10.2, 10.7))), pp = sg(sh, .6, 1);
+      TR(r.ap, sh <= 0 ? "none" : "scale(" + lr(1, .3, sh).toFixed(3) + ")"); O(r.ap, 1 - sg(sh, .5, .95));
+      S(r.ap, "visibility", sh >= .95 ? "hidden" : "visible");
+      O(r.pn, pp); TR(r.pn, pp >= 1 ? "none" : "scale(" + lr(.9, 1, pp).toFixed(3) + ")");
+      O(r.glow, sh);
+      var a1 = t >= 4.5 && t < 5.9, a2 = t >= 6.3 && t < 7.6, ask = a1 || a2;
+      T(r.step, ask ? "Waiting for your answer" : t < 4.5 ? "Looking at the screen" : t < 6.3 ? "Choosing the next step" : t < 9.75 ? "Acting" : "Looking at the screen");
+      D(r.spin, !ask); C(r.pn, "ask", ask);
+      S(r.q1, "visibility", a1 ? "visible" : "hidden"); fin(r.q1, t, 4.5, .25, 6);
+      S(r.q2, "visibility", a2 ? "visible" : "hidden"); fin(r.q2, t, 6.3, .25, 6);
+      TR(r.b1, "scale(" + prs(t, 5.72).toFixed(3) + ")"); TR(r.b2, "scale(" + prs(t, 7.42).toFixed(3) + ")");
+      typ(r.nty, CC.note, t, 7.9, 9.6); O(r.ncar, t < 7.7 ? 0 : t < 9.6 ? 1 : blink(t));
+      grow(r.g[2], t, 10.75, .3); words(r.ans, CC.a1, t, 10.8, 11.5);
+      cursor(r.cur, t, [[3.0, r.allow, .7, 1], [5.7, r.b1, .9, 1], [7.4, r.b2, .7, 1]], r.st);
     }
   });
 
