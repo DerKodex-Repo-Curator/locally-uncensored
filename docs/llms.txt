@@ -149,6 +149,8 @@ Locally Uncensored is a free, open-source (AGPL-3.0) local AI studio for the des
 - Is Locally Uncensored safe? (unsigned Windows installer, antivirus false positives, how to verify the download): https://locallyuncensored.com/is-locally-uncensored-safe/
 - IA sem censura local (Portuguese guide): https://locallyuncensored.com/blog/ia-sem-censura-local.html
 - IA sin censura en local (Spanish guide): https://locallyuncensored.com/blog/ia-sin-censura-local.html
+- v3.0.6 Release Notes (Voice, computer control, Create in chat and ten more cloud chat models in beta, image input for local models in one download, Mac build for Apple Silicon): https://locallyuncensored.com/blog/locally-uncensored-v3-0-6-release.html
+- Talk to a Local LLM (Voice guide: setup, fifteen voices, the four switches, limits; English only, beta): https://locallyuncensored.com/blog/talk-to-local-llm-voice-chat.html
 - v3.0.2 Release Notes (hotfix: the Code tab scrolls again, issue 138, and the corrected count of open cloud models): https://locallyuncensored.com/blog/locally-uncensored-v3-0-2-hotfix.html
 - Full text for LLMs: https://locallyuncensored.com/llms-full.txt
 - How to Run AI Locally (5-minute beginner guide): https://locallyuncensored.com/blog/how-to-run-ai-locally.html
