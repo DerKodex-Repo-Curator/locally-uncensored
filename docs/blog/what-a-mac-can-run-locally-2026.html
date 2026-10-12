@@ -25,7 +25,7 @@
 <meta name="theme-color" content="#0a0a0a">
 <link rel="icon" href="../favicon.png">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BlogPosting","headline":"What a Mac Can Actually Run Locally in 2026 (By RAM, Not By Chip)","description":"On Apple Silicon the model weights live in unified memory shared with the whole system, so the memory tier of the machine decides what you can load. An honest walk through the tiers by RAM size, the 32 GB threshold where a 27B at 4-bit becomes comfortable, why a Mac is a poor fit for diffusion work, and where the hosted lane on managed NVIDIA GPUs picks up.","image":"https://raw.githubusercontent.com/PurpleDoubleD/locally-uncensored/master/docs/social-preview.png","datePublished":"2026-09-07","dateModified":"2026-09-07","inLanguage":"en","author":{"@type":"Person","name":"PurpleDoubleD","url":"https://github.com/PurpleDoubleD"},"publisher":{"@type":"Organization","name":"Locally Uncensored","url":"https://locallyuncensored.com/"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://locallyuncensored.com/blog/what-a-mac-can-run-locally-2026.html"},"keywords":"what a mac can run locally, apple silicon llm ram, mac local ai 2026, unified memory llm, mac 32gb llm"}
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"What a Mac Can Actually Run Locally in 2026 (By RAM, Not By Chip)","description":"On Apple Silicon the model weights live in unified memory shared with the whole system, so the memory tier of the machine decides what you can load. An honest walk through the tiers by RAM size, the 32 GB threshold where a 27B at 4-bit becomes comfortable, why a Mac is a poor fit for diffusion work, and where the hosted lane on managed NVIDIA GPUs picks up.","image":"https://raw.githubusercontent.com/PurpleDoubleD/locally-uncensored/master/docs/social-preview.png","datePublished":"2026-09-07","dateModified":"2026-10-12","inLanguage":"en","author":{"@type":"Person","name":"PurpleDoubleD","url":"https://github.com/PurpleDoubleD"},"publisher":{"@type":"Organization","name":"Locally Uncensored","url":"https://locallyuncensored.com/"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://locallyuncensored.com/blog/what-a-mac-can-run-locally-2026.html"},"keywords":"what a mac can run locally, apple silicon llm ram, mac local ai 2026, unified memory llm, mac 32gb llm"}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How much RAM does a Mac need to run local AI models?","acceptedAnswer":{"@type":"Answer","text":"16 GB is the floor for anything useful and gets you 7B to 12B models at 4-bit. 32 GB is the first tier we would call comfortable: it is where Qwen 3.8 27B at Q4_K_M fits, since that file is 17.1 GB of weights resident. 64 GB opens the 70B class at 4-bit. Below 16 GB you are running toys, because macOS and your browser take their share of the same pool."}},{"@type":"Question","name":"Why does unified memory matter more than the chip name?","acceptedAnswer":{"@type":"Answer","text":"On Apple Silicon there is no separate VRAM. The GPU and the CPU share one pool of memory with the operating system, Safari, and everything else you have open. A model has to fit in what is left, so an M4 with 16 GB loads exactly the same models as an M2 with 16 GB. The chip generation changes how fast tokens come out. The memory size changes what you can load at all, which is the harder limit."}},{"@type":"Question","name":"Can a Mac run Stable Diffusion or Flux well?","acceptedAnswer":{"@type":"Answer","text":"It can run them, but it is a poor fit compared with a rented NVIDIA card. Diffusion is a compute bound workload, the Mac tooling lags the CUDA tooling, and a single high resolution image that takes seconds on an H100 can take minutes on a laptop while the fans run. One image for fun is fine locally. A batch of forty variations is where a Mac stops being the right tool."}},{"@type":"Question","name":"Can I train a LoRA on a Mac?","acceptedAnswer":{"@type":"Answer","text":"Realistically, no. Training is more memory hungry and far more compute hungry than inference, and the Mac training tooling is thin. LoRA training on the hosted side is included on the Hosted plan at 2 trainings a month, and is not available on a credit pack."}},{"@type":"Question","name":"Is there a Mac build of the Locally Uncensored desktop app?","acceptedAnswer":{"@type":"Answer","text":"Since version 3.0.6, yes, for Apple Silicon on macOS 14 or newer. Intel Macs are not supported. This article was written before that build: it describes a local runner of your choice, such as LM Studio, Ollama or an MLX setup, plus the browser Studio at lu-labs.ai for the models and the image and video lanes the machine cannot handle."}},{"@type":"Question","name":"What does the hosted side cost when my Mac runs out of room?","acceptedAnswer":{"@type":"Answer","text":"A 15 EUR credit pack is 450,000 credits with no subscription and credits never expire. Flux Schnell is 300 credits per image, Flux 2 Dev is 1,200 credits per image, and a 5 second LTX-2 clip is 8,000 credits, so that pack is roughly 1,500 quick images or 375 Flux 2 Dev images. The Hosted plan is 19 EUR a month with 900,000 credits. Full rates at lu-labs.ai/pricing."}}]}
@@ -68,7 +68,7 @@
 
   <div class="post-meta">
     <span class="post-tag">Guide</span>
-    <span>September 7, 2026</span>
+    <span>September 7, 2026, updated October 12</span>
     <span>&middot;</span>
     <span>6 min read</span>
   </div>
@@ -112,6 +112,8 @@
 
     <p>Diffusion is compute bound rather than bandwidth bound, and it is the workload NVIDIA hardware was tuned for over a decade. The Mac tooling also lags: most new samplers, ControlNets and video pipelines land on CUDA first and arrive on Apple Silicon months later, if at all. In practice a single high resolution image that finishes in seconds on rented hardware can take minutes on a laptop with the fans at full tilt, and a video clip is worse by an order of magnitude. If you want the local diffusion route anyway, our <a href="how-to-run-flux-locally.html">Flux local guide</a> covers what it costs in hardware.</p>
 
+    <p>Update for 3.0.6: the desktop app now makes images and video on the Mac itself, and we have timings from one M5 Pro with 48 GB. They are in the <a href="#setup">setup section</a> below. The general point about smaller Macs still holds.</p>
+
     <p>This is where the cloud earns its keep, and we would rather say that plainly than sell a Mac workflow that does not exist. The hosted lanes at <a href="https://lu-labs.ai/pricing" target="_blank" rel="noopener">LU Labs</a> run on managed NVIDIA H100, A100 and B200 class GPUs, with image models, editing and upscale, and video models producing 5 or 8 second clips. The hardware is shared, so at busy hours there is a short queue.</p>
 
     <h2>Where the Line Falls in Practice</h2>
@@ -135,9 +137,39 @@
 
     <p>Compare that against the Apple price of stepping from 16 GB to 32 GB and it is not a close call for image work.</p>
 
-    <h2>The Part We Will Not Dress Up</h2>
+    <h2 id="setup">Setting Up Locally Uncensored on a Mac, Step by Step</h2>
 
-    <p>Our free open source desktop app has a Mac build since version 3.0.6, for Apple Silicon on macOS 14 or newer. This article was written before that build, so it describes two pieces: a local runner of your choice for the offline half, and the browser Studio for everything the machine cannot hold. The <a href="lm-studio-alternative-for-mac.html">LM Studio alternative for Mac guide</a> walks that setup step by step, including the API key path so the hosted models answer from your terminal too.</p>
+    <p>Our free open source desktop app has a Mac build since version 3.0.6. It is in beta, it needs Apple Silicon and macOS 14 or newer, and Intel Macs are not supported. The earlier sections of this article were written before that build existed. This one covers the setup.</p>
+
+    <ol>
+      <li><a href="https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/LU_3.0.6_aarch64.dmg" download>Download the .dmg</a> for Apple Silicon.</li>
+      <li>Open the .dmg and drag the app into Applications.</li>
+      <li>Start it. The setup wizard picks a first model for your machine.</li>
+      <li>Send a first message in Chat. Local models run through the bundled server with Metal, so there is no separate runner to install.</li>
+      <li>Open Create when you want a picture. On a Mac, Create makes images and video on the Mac itself, without ComfyUI.</li>
+    </ol>
+
+    <p>If you keep models in a folder under Desktop, Documents or Downloads, LU says up front that macOS will ask once for access to it.</p>
+
+    <h3>What to Expect From Create on a Mac</h3>
+
+    <p>We have numbers from one machine, an M5 Pro with 48 GB. DreamShaper XL Turbo made an image in 33 seconds and Qwen-Image 2.1 Turbo in 38. LTX-2.3 Distilled 4-bit made a clip of two seconds at 768x512 with sound in 64 seconds. A smaller Mac will be slower, and we have not measured by how much.</p>
+
+    <p>Three things the app does for you there:</p>
+
+    <ul>
+      <li>A Mac has one pool of memory for chat and Create. Before a picture or video run, Create takes the chat model out of memory, shows "Freeing memory..." while it does, and brings the model back when the run is over</li>
+      <li>Where we timed a model on a real run, Create says before the start how long a clip takes once that is ten minutes or more. During the run the line under the bar names the step and the time left</li>
+      <li>The 8-bit and Turbo versions of Qwen-Image 2.1 ask for 24 GB. Their runs on our 48 GB Mac peaked at 10.3 and 14.9 GB. We have not run either on a Mac with 24 GB</li>
+    </ul>
+
+    <p>Most video models in the Mac catalog are marked "Experimental: not yet tested in LU". Take that label at its word.</p>
+
+    <h3>What Is Not Confirmed on a Mac Yet</h3>
+
+    <p>The app has run on that one Mac only. It has not run on macOS 14 or 15, and not on a Mac with 16 or 24 GB. Voice is in the Mac build and has been tried by hand in the app, in English only. Computer control is in the app but not fully tested yet on macOS. Remote Access and the automatic update are not confirmed on macOS. The <a href="/mac/">Mac page</a> keeps this list current, and the <a href="locally-uncensored-v3-0-6-release.html">3.0.6 release notes</a> have the rest.</p>
+
+    <p>If your Mac is an Intel model or short on memory, the browser Studio covers what the machine cannot hold. The <a href="lm-studio-alternative-for-mac.html">LM Studio alternative for Mac guide</a> walks that setup step by step, including the API key path so the hosted models answer from your terminal too.</p>
 
     <p>If you want to compare the local runners themselves first, the <a href="best-local-ai-apps-2026.html">best local AI apps of 2026</a> roundup covers which ones have decent Apple Silicon support.</p>
 
