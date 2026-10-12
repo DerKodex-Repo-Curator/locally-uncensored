@@ -36,7 +36,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/lu.css">
 <script defer src="/assets/lu.js"></script>
-  <script data-goatcounter="https://lu-uncensored.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  <script data-goatcounter="https://purple47.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 <nav class="lu-nav">
@@ -97,7 +97,7 @@
 
     <p>The <strong>Model Manager &gt; Discover &gt; Text</strong> tab lets you download GGUF models from HuggingFace. Until v2.4.0, the destination folder was always auto-detected from the active openai-compat provider &mdash; usually LM Studio&rsquo;s <code>~/.lmstudio/models</code> or the equivalent on Linux/macOS.</p>
 
-    <p>That worked fine for single-disk setups. It did <strong>not</strong> work for dual-boot users who wanted a shared model partition between Linux and Windows, or anyone running a NAS-mounted models folder. Reported on Discord by <code>diimmortalis</code>.</p>
+    <p>That worked fine for single-disk setups. It did <strong>not</strong> work for dual-boot users who wanted a shared model partition between Linux and Windows, or anyone running a NAS-mounted models folder. Reported on Discord.</p>
 
     <p>v2.4.0 adds a dedicated <strong>Settings &gt; Model Storage</strong> section. Three controls:</p>
 
@@ -122,6 +122,8 @@
       <li>Conversations, memories, and generated media live in <code>%APPDATA%/Locally Uncensored</code> on Windows (or the equivalent on Linux/macOS). Back up the folder, move it between machines, or delete it &mdash; LU writes nothing else.</li>
     </ul>
 
+    <p><em>Note, October 2026: this is the statement as version 2.4.0 shipped it. Since September 2026 the app also counts each press of the Cloud switch (which way, platform, app version, no identifier), and while you are signed in to LU Cloud it checks your account every five minutes. The current wording is in the app under Settings, General, Privacy.</em></p>
+
     <h2>Settings &gt; Onboarding &mdash; Re-Run Wizard</h2>
 
     <p>The first-launch wizard runs once: hardware scan, recommended models, agent-mode tour. After that, the only way to see it again was <strong>Reset to Defaults</strong>, which wipes every other preference too &mdash; not great if you wanted to redo the hardware scan or show the app to a friend.</p>
@@ -143,7 +145,7 @@
     <pre><code>window.start_dragging not allowed.
 Permissions associated with this command: core:window:allow-start-dragging</code></pre>
 
-    <p>The window stayed anchored. Keyboard tiling (Super+arrows) still worked, so the bug only bit users who actually dragged windows around. Reported on Discord by <code>diimmortalis</code> with a clean Promise-rejection dump.</p>
+    <p>The window stayed anchored. Keyboard tiling (Super+arrows) still worked, so the bug only bit users who actually dragged windows around. Reported on Discord with a clean Promise-rejection dump.</p>
 
     <p>The fix was one line in <code>src-tauri/capabilities/default.json</code> &mdash; <code>core:window:allow-start-dragging</code> was missing from the capability list. Added.</p>
 
@@ -208,6 +210,9 @@ Permissions associated with this command: core:window:allow-start-dragging</code
     <a href="https://github.com/PurpleDoubleD/locally-uncensored/issues">Issues</a>
     <a href="https://reddit.com/user/GroundbreakingMall54">Reddit</a>
     <a href="https://www.linkedin.com/in/david-drobnitza-locallyuncensored/" rel="me noopener" target="_blank">LinkedIn</a>
+    <a href="https://locallyuncensored.com/privacy/">Privacy</a>
+    <a href="https://locallyuncensored.com/terms/">Terms</a>
+    <a href="https://locallyuncensored.com/impressum/">Impressum</a>
   </div>
 </footer>
 </body>

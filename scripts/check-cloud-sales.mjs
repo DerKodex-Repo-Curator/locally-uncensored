@@ -355,7 +355,7 @@ const clipPrice = (id) => {
   assert.ok(hit, `no base price for ${id} in MEDIA_MODEL_USD`)
   return { base: Number(hit[1]), long: hit[3] === undefined ? undefined : Number(hit[3]) }
 }
-const adultRows = [...pricing.querySelectorAll('[data-adult-video-row]')]
+const adultRows = [...pricing.querySelectorAll('[data-open-video-row]')]
 assert.equal(
   adultRows.length,
   adultVideo.length,
@@ -375,14 +375,14 @@ const OFFEN_OHNE_MARKENWORT = new Set(['open-video', 'open-video-lora'])
 // deshalb je Id: dieselbe Menge, jede Zeile mit Namen und Preis ihrer Id, und
 // die Preise auf der Seite steigen nie.
 const adultById = new Map(adultVideo.map((model) => [model.id, model]))
-const pageIds = adultRows.map((row) => row.querySelector('[data-adult-model-id]')?.dataset.adultModelId)
+const pageIds = adultRows.map((row) => row.querySelector('[data-open-model-id]')?.dataset.openModelId)
 assert.deepEqual([...pageIds].sort(), [...adultById.keys()].sort(),
   'docs/pricing/index.html: the adult video rows are not the open video models of the catalogue')
 let lastCredits = 0
 adultRows.forEach((row, index) => {
-  const name = row.querySelector('[data-adult-model-id]')
+  const name = row.querySelector('[data-open-model-id]')
   assert.ok(name, `docs/pricing/index.html: adult video row ${index + 1} carries no model anchor`)
-  const model = adultById.get(name.dataset.adultModelId)
+  const model = adultById.get(name.dataset.openModelId)
   assert.equal(name.textContent, model.label,
     `docs/pricing/index.html: adult video label drift for ${model.id}`)
   assert.equal(name.textContent.includes(MARKENWORT), !OFFEN_OHNE_MARKENWORT.has(model.id),
@@ -467,60 +467,50 @@ console.log(`Installer guard passed: every "MB installer" claim in docs/ says ${
 
 // ── Der Mac, einmal beantwortet ─────────────────────────────────────
 //
-// Das Handbuch ist die einzige docs/-Flaeche, die fuer 3.0.0 geschrieben
-// wurde, und es sagt: es gibt keinen Mac-Bau und hat nie einen gegeben. Keine
-// andere Seite darf daneben eine Roadmap versprechen. Der Anker ist der Satz
-// im Handbuch: verschwindet er, faellt auch diese Pruefung auf.
-const startseite = readFileSync(new URL('../docs/index.html', import.meta.url), 'utf8')
+// Seit 3.0.6 gibt es einen Mac-Bau: Apple Silicon, macOS 14 oder neuer, kein
+// Intel. Der Anker ist die Antwort im Handbuch. Jede andere Seite darf dem
+// nicht widersprechen und nicht mehr versprechen, als dort steht.
 const macAnswer = readFileSync(new URL('../docs/guide/faq-and-glossary/index.html', import.meta.url), 'utf8')
 assert.ok(
-  macAnswer.includes('There is no Mac build and there has never been one'),
+  macAnswer.includes('The Mac build is for Apple Silicon and needs macOS 14 or newer. Intel Macs are not supported. The .dmg is signed and notarized.'),
   'docs/guide/faq-and-glossary/index.html: the Mac answer drifted',
 )
-const macRoadmapClaims = []
+// Was eine Seite ueber den Mac nicht sagen darf. Ein Release-Beitrag darf
+// von seinem eigenen Release sagen, dass es keinen Mac-Bau hatte ("This
+// release has no macOS build", "3.0.1 was built for Windows and Linux only").
+const macDenials = /\bno (native )?(Mac|macOS)( desktop)? build\b|never (been|was) one|macOS is not supported|\b(is|are) Windows and Linux only\b|Locally Uncensored currently does not/i
+const macOverclaims = /roadmap[^.]*\bmac(os)?\b|\bmac(os)?\b[^.]*roadmap|notari[sz]ed|Intel Macs? (is|are) supported|universal (binary|build)/i
+const macWrong = []
 for (const path of docsFiles(docsRoot)) {
   const text = readFileSync(path, 'utf8')
   for (const satz of text.split(/(?<=[.!?])["\s]|\n/)) {
-    if (/roadmap/i.test(satz) && /\bmac(os)?\b/i.test(satz)) macRoadmapClaims.push(`${path.slice(docsRoot.length + 1)}: ${satz.trim().slice(0, 70)}`)
+    if (/This release has no macOS build/.test(satz)) continue
+    // The one sentence about signing: true for the .dmg of a release run
+    // (Developer ID, notarized, Gatekeeper accepts it), and only in these words.
+    if (satz.trim() === 'The .dmg is signed and notarized.') continue
+    if (macDenials.test(satz) || macOverclaims.test(satz)) macWrong.push(`${path.slice(docsRoot.length + 1)}: ${satz.trim().slice(0, 70)}`)
   }
 }
 assert.equal(
-  macRoadmapClaims.length,
+  macWrong.length,
   0,
-  `The handbook says there has never been a Mac build, so no page may put one on a roadmap: ${macRoadmapClaims.length} claim(s) [${macRoadmapClaims.join(' | ')}]`,
+  `There is a Mac build for Apple Silicon since 3.0.6, and nothing beyond that is proven: ${macWrong.length} sentence(s) deny it or promise more [${macWrong.join(' | ')}]`,
 )
-// Die Startseite hat den Mac ausserdem als behobenen Fehler gefuehrt. Jede
-// Stelle, die den Mac nennt, muss im selben Satz sagen, dass es den Bau nicht
-// gibt, sonst liest die Startseite sich wie eine Plattformzusage. Ein Bau
-// gaebe es an einem .dmg zu erkennen, und das kommt im ganzen Baum nicht vor.
-const macMentions = []
-for (const satz of startseite.split(/(?<=[.!?])["\s]|\n/)) {
-  if (!/\bmac(os)?\b/i.test(satz.replace(/machine/gi, ''))) continue
-  // Die Frage selbst darf den Mac nennen, nur die Antwort ist gebunden.
-  if (/\?/.test(satz)) continue
-  if (/no Mac build|on a Mac, use the hosted studio/i.test(satz)) continue
-  // Die gehostete Seite laeuft im Browser, also auch auf einem Mac. Ein Satz,
-  // der den Mac ausdruecklich an den Browser bindet, verspricht keinen Bau.
-  if (/\bin a browser\b[^.]*\bon a Mac\b/i.test(satz.replace(/<[^>]+>/g, ''))) continue
-  macMentions.push(satz.trim().slice(0, 70))
-}
-assert.equal(
-  macMentions.length,
-  0,
-  `There is no Mac build, so docs/index.html may only say so: ${macMentions.length} other Mac mention(s) [${macMentions.join(' | ')}]`,
-)
-const dmgClaims = docsFiles(docsRoot).filter((path) => /\.dmg\b|\bdmg\b/i.test(readFileSync(path, 'utf8')))
-assert.equal(dmgClaims.length, 0, `No Mac build exists, so docs/ may not offer a .dmg: ${dmgClaims.length} page(s)`)
-// Die Fernzugriff-Anleitung endet im Fenster der App, und das laeuft auf
-// einem Mac nicht. Eine Installationszeile fuer macOS fuehrt den Leser bis
-// Schritt 2 und dann ins Leere.
+// Wer ein .dmg anbietet, sagt auf derselben Seite, fuer welche Macs.
+const dmgWithoutChip = docsFiles(docsRoot)
+  .filter((path) => /\.dmg\b/i.test(readFileSync(path, 'utf8')) && !/Apple Silicon/.test(readFileSync(path, 'utf8')))
+  .map((path) => path.slice(docsRoot.length + 1))
+assert.equal(dmgWithoutChip.length, 0, `A page that offers a .dmg names Apple Silicon: ${dmgWithoutChip.join(', ')}`)
+// Die Fernzugriff-Anleitung fuehrt bis ins Fenster der App. Auf einem Mac
+// ist dieser Weg nicht nachgeprueft, deshalb traegt sie dort keine
+// Installationszeile.
 const remoteAccess = readFileSync(new URL('../docs/remote-access/index.html', import.meta.url), 'utf8')
 const macSetupLines = remoteAccess.split('\n').filter((zeile) => /macos/i.test(zeile))
-assert.equal(macSetupLines.length, 0, `There is no Mac build, so docs/remote-access/index.html may not carry a macOS setup line: ${macSetupLines.length}`)
+assert.equal(macSetupLines.length, 0, `Remote access is not checked on a Mac, so docs/remote-access/index.html carries no macOS setup line: ${macSetupLines.length}`)
 for (const platform of ['Windows:', 'Linux:']) {
   assert.ok(remoteAccess.includes(platform), `docs/remote-access/index.html: the ${platform} line is gone`)
 }
-console.log('Mac guard passed: 0 roadmap promises, 0 stray Mac mentions on the home page, 0 macOS setup lines in the remote-access guide and 0 dmg offers in docs/, and the handbook answer is unchanged.')
+console.log('Mac guard passed: the handbook says Apple Silicon and macOS 14 or newer, 0 sentences in docs/ deny the Mac build or promise more than that, every page with a .dmg names Apple Silicon, and the remote-access guide carries 0 macOS setup lines.')
 
 // ── Die Startseite verneint nicht, was die Wolkenseite verkauft ─────
 //
@@ -844,6 +834,7 @@ const appVersion = JSON.parse(readFileSync(new URL('../package.json', import.met
 const versionClaims = [
   /"softwareVersion":"([^"]+)"/g,
   /&middot; (\d+\.\d+\.\d+)</g,
+  /\bv(\d+\.\d+\.\d+) &middot;/g,
   /Current [Vv]ersion: v?(\d+\.\d+\.\d+)/g,
   /^- Version: v?(\d+\.\d+\.\d+)/gm,
 ]
@@ -861,15 +852,47 @@ assert.equal(
   0,
   `package.json says ${appVersion}, so every current-version claim says it: ${versionDrift.length} stale claim(s) [${versionDrift.join(', ')}]`,
 )
-// Der Abschnitt "New in X" der Startseite ist keine Angabe zur laufenden
-// Version, er beschreibt die Version, die er nennt. Seit 3.0.2 ist er nicht
-// nachgezogen (Stand 09.10.2026: 3.0.1). Ein neuer Abschnitt braucht eine
-// Ueberschrift und Bilder, das entscheidet der Besitzer
-// (lu-306-texte/website-changes.md). Geprueft wird deshalb, was ohne ihn
-// pruefbar ist: Ueberschrift, Sprungmarke und Changelog-Verweis nennen
-// dieselbe Version, und die ist nicht neuer als die laufende. Der Rueckstand
-// wird bei jedem Lauf laut genannt, nicht still hingenommen.
+// Ein Link auf releases/latest/download/<Datei> traegt die Version im
+// Dateinamen. Er zeigt nur dann auf eine Datei, wenn der Name zur laufenden
+// Version gehoert, also wird jeder solche Link im ganzen Baum geprueft, auch
+// der im Handbuch und jeder, der spaeter dazukommt.
+const staleDownloads = []
+const downloadLink = /releases\/latest\/download\/([^"'\s<>)]+)/g
+for (const path of docsFiles(docsRoot)) {
+  for (const treffer of readFileSync(path, 'utf8').matchAll(downloadLink)) {
+    if (!treffer[1].includes(appVersion)) staleDownloads.push(`${path.slice(docsRoot.length + 1)}: ${treffer[1]}`)
+  }
+}
+assert.equal(
+  staleDownloads.length,
+  0,
+  `package.json says ${appVersion}, so every direct download link names a file of that version: ${staleDownloads.length} stale link(s) [${staleDownloads.join(', ')}]`,
+)
+// Die Startseite bietet Windows, Mac und Linux gleichwertig an: zwei
+// Download-Bloecke und der Knopf in der Navigation, je System ein Knopf mit
+// der passenden Datei, dazu die Wahl darunter. Welcher Satz sichtbar ist,
+// entscheidet html[data-os] (Inline-Skript, assets/home.css).
 const homeText = readFileSync(new URL('../docs/index.html', import.meta.url), 'utf8')
+const downloadFile = { win: /_x64-setup\.exe$/, mac: /_aarch64\.dmg$/, linux: /_amd64\.AppImage$/ }
+const downloadDrift = []
+for (const [was, anzahl] of [['class="dl-btn" data-dl-for', 2], ['class="lu-nav-dl" data-dl-for', 1], ['data-dl-os', 2]]) {
+  for (const [os, datei] of Object.entries(downloadFile)) {
+    const links = [...homeText.matchAll(new RegExp(`<a ${was}="${os}" href="([^"]+)"`, 'g'))].map((m) => m[1])
+    if (links.length !== anzahl) downloadDrift.push(`${was}="${os}": ${links.length} instead of ${anzahl}`)
+    for (const link of links) if (!datei.test(link)) downloadDrift.push(`${was}="${os}": ${link}`)
+  }
+}
+for (const paket of ['_amd64.deb', '.x86_64.rpm']) {
+  if (homeText.split(`${paket}" download>`).length - 1 !== 2) downloadDrift.push(`${paket} is not linked from both download blocks`)
+}
+assert.equal(downloadDrift.length, 0, `docs/index.html offers every system its own file: ${downloadDrift.length} difference(s) [${downloadDrift.join(', ')}]`)
+// Der Abschnitt "What's new" der Startseite nennt seit dem 09.10.2026 keine
+// Version mehr: er verweist auf releases/latest, den Changelog und den Blog.
+// Davor stand dort "New in 3.0.1" und blieb seit 3.0.2 stehen. Kommt wieder
+// ein Abschnitt "New in X" (lu-306-texte/website-changes.md, braucht
+// Ueberschrift und Bilder), gilt weiter: Ueberschrift, Sprungmarke und
+// Changelog-Verweis nennen dieselbe Version, die ist nicht neuer als die
+// laufende, und ein Rueckstand wird bei jedem Lauf laut genannt.
 const whatsNew = new Set([
   ...[...homeText.matchAll(/New in (\d+\.\d+\.\d+)/g)].map((m) => m[1]),
   ...[...homeText.matchAll(/full (\d+\.\d+\.\d+) changelog/g)].map((m) => m[1]),
@@ -887,7 +910,7 @@ for (const datei of ['llms.txt', 'llms-full.txt']) {
   const angaben = [...text.matchAll(/Current [Vv]ersion: v?\d+\.\d+\.\d+/g), ...text.matchAll(/^- Version: v?\d+\.\d+\.\d+/gm)]
   assert.equal(angaben.length, 1, `docs/${datei}: ${angaben.length} current-version statements, expected exactly one`)
 }
-console.log(`Version guard passed: every current-version claim on the home page and in the language-model files says ${appVersion}, the version package.json carries.`)
+console.log(`Version guard passed: every current-version claim on the home page and in the language-model files says ${appVersion}, the version package.json carries, every direct download link in docs/ names a file of that version, and the home page offers Windows, Mac and Linux each its own file in both download blocks and in the navigation.`)
 
 // ── Der Changelog-Abschnitt der laufenden Version ────────────────────
 //

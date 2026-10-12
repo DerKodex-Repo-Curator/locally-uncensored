@@ -15,7 +15,7 @@
 <meta property="og:image" content="https://locallyuncensored.com/social-preview.png">
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"TechArticle","headline":"What Locally Uncensored Is: Local Versus Hosted, GPU or Not, What Is Free","description":"What the Locally Uncensored desktop app does, what runs on your own machine and what runs on LU Cloud, which parts need a graphics card, and what costs nothing.","url":"https://locallyuncensored.com/guide/what-it-is/","dateModified":"2026-09-11","inLanguage":"en","author":{"@type":"Person","name":"PurpleDoubleD","url":"https://github.com/PurpleDoubleD"},"publisher":{"@type":"Organization","name":"Locally Uncensored","url":"https://locallyuncensored.com/"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://locallyuncensored.com/guide/what-it-is/"},"isPartOf":{"@type":"WebPage","name":"Locally Uncensored Handbook: Install, Chat, Agent, Code, Create, Cloud","url":"https://locallyuncensored.com/guide/"},"about":{"@type":"SoftwareApplication","name":"Locally Uncensored","operatingSystem":"Windows, Linux","applicationCategory":"UtilitiesApplication"}}
+{"@context":"https://schema.org","@type":"TechArticle","headline":"What Locally Uncensored Is: Local Versus Hosted, GPU or Not, What Is Free","description":"What the Locally Uncensored desktop app does, what runs on your own machine and what runs on LU Cloud, which parts need a graphics card, and what costs nothing.","url":"https://locallyuncensored.com/guide/what-it-is/","dateModified":"2026-09-11","inLanguage":"en","author":{"@type":"Person","name":"PurpleDoubleD","url":"https://github.com/PurpleDoubleD"},"publisher":{"@type":"Organization","name":"Locally Uncensored","url":"https://locallyuncensored.com/"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://locallyuncensored.com/guide/what-it-is/"},"isPartOf":{"@type":"WebPage","name":"Locally Uncensored Handbook: Install, Chat, Agent, Code, Create, Cloud","url":"https://locallyuncensored.com/guide/"},"about":{"@type":"SoftwareApplication","name":"Locally Uncensored","operatingSystem":"Windows, Linux, macOS","applicationCategory":"UtilitiesApplication"}}
 </script>
 <link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,7 +23,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/lu.css">
 <script defer src="/assets/lu.js"></script>
-  <script data-goatcounter="https://lu-uncensored.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  <script data-goatcounter="https://purple47.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 <nav class="lu-nav">
@@ -73,7 +73,7 @@
 
 <p>The app has two ways to do its work, and a switch next to the model picker moves between them.</p>
 
-<p>Local means the model runs on your computer. The app ships its own engine, called the LU Engine, which runs the model files you download. It can also talk to an engine you already have, such as Ollama or LM Studio, or to any server that speaks the OpenAI API. Images and video run through a ComfyUI that the app installs, starts and repairs for you. In local mode nothing you type leaves your machine. The only network traffic the app makes on its own is the check for updates against GitHub Releases, the model downloads you start, and one anonymous daily count when you press the Cloud switch (which way it was pressed, platform and app version, nothing else). Settings, General, Privacy states this in the app itself.</p>
+<p>Local means the model runs on your computer. The app ships its own engine, called the LU Engine, which runs the model files you download. It can also talk to an engine you already have, such as Ollama or LM Studio, or to any server that speaks the OpenAI API. Images and video run through a ComfyUI that the app installs, starts and repairs for you. In local mode nothing you type leaves your machine. On its own the app uses the network for two things: a check for updates against GitHub Releases, and a count of each press of the Cloud switch (which way it was pressed, platform and app version, no identifier). While you are signed in to LU Cloud it also checks your account every five minutes, in local mode too. Model downloads you start yourself. Settings, General, Privacy states this in the app itself.</p>
 
 <p>Hosted means the same window, but the model runs on GPUs that LU Labs rents. This is LU Cloud. You sign in with an account, the work is metered in credits, and the same account also works in a browser at lu-labs.ai without the desktop app. Hosted requests leave your machine together with anything you attached to them. Chapter 8 explains the account, the credits and the settings that come with it.</p>
 
@@ -99,7 +99,7 @@
 
 <h2 id="platforms">Which computers it runs on</h2>
 
-<p>Windows 10 and 11 on x64, and Linux on x64 as an AppImage, a .deb or an .rpm. There is no Mac build and there has never been one; on a Mac the hosted studio runs in the browser at lu-labs.ai. A phone is not a place to run the app either, but a paired phone can drive the app on your PC over your network, which the Remote tab in the sidebar sets up.</p>
+<p>Windows 10 and 11 on x64, and Linux on x64 as an AppImage, a .deb or an .rpm. Since version 3.0.6 there is a Mac build for Apple Silicon on macOS 14 or newer. Intel Macs are not supported; on any Mac the hosted studio also runs in the browser at lu-labs.ai. A phone is not a place to run the app either, but a paired phone can drive the app on your PC over your network, which the Remote tab in the sidebar sets up.</p>
 
 <div class="callout info">
 <div class="callout-title">Version</div>
@@ -121,6 +121,9 @@ This handbook describes version 3.0.5. The app shows its version under Settings,
     <a href="https://github.com/PurpleDoubleD/locally-uncensored/issues">Issues</a>
     <a href="https://reddit.com/user/GroundbreakingMall54">Reddit</a>
     <a href="https://www.linkedin.com/in/david-drobnitza-locallyuncensored/" rel="me noopener" target="_blank">LinkedIn</a>
+    <a href="https://locallyuncensored.com/privacy/">Privacy</a>
+    <a href="https://locallyuncensored.com/terms/">Terms</a>
+    <a href="https://locallyuncensored.com/impressum/">Impressum</a>
   </div>
 </footer>
 </body>

@@ -23,7 +23,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/lu.css">
 <script defer src="/assets/lu.js"></script>
-  <script data-goatcounter="https://lu-uncensored.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  <script data-goatcounter="https://purple47.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 <nav class="lu-nav">
@@ -50,7 +50,7 @@
 <div class="breadcrumb"><a href="/">Home</a> &rsaquo; Handbook</div>
 <h1>The Locally Uncensored handbook</h1>
 <p class="subtitle">Everything you need to install the app, run a model on your own machine, use the agent, the Code tab and the Create studios, add LU Cloud when your hardware runs out, and fix the usual problems yourself. Written for version 3.0.5 from the app's own source.</p>
-<p>Locally Uncensored is a desktop app for Windows and Linux that runs AI models on your own computer. Chat, an agent that can use tools, a coding tab, and a Create tab for images, video and audio all sit in one window. When a model is too big for your graphics card, the same window can hand the work to LU Cloud, the hosted twin of the app that also runs in a browser at <a href="https://lu-labs.ai">lu-labs.ai</a>.</p>
+<p>Locally Uncensored is a desktop app for Windows, Linux and Apple Silicon Macs that runs AI models on your own computer. Chat, an agent that can use tools, a coding tab, and a Create tab for images, video and audio all sit in one window. When a model is too big for your graphics card, the same window can hand the work to LU Cloud, the hosted twin of the app that also runs in a browser at <a href="https://lu-labs.ai">lu-labs.ai</a>.</p>
 
 <p>This handbook is written for someone who has never used a local AI app. Each chapter explains what a part of the app is for, then walks through it in numbered steps with the button labels exactly as they appear on screen, and ends with the things that usually go wrong and how to fix them. Every fact comes from the app's source code for version 3.0.5, so where the code does not settle a question, the handbook says so instead of guessing.</p>
 
@@ -73,7 +73,7 @@
 
 <section class="callout info" aria-labelledby="data-boundaries">
 <h2 id="data-boundaries">Local by default, with optional network features</h2>
-<p>The app runs locally by default. Chat, agent runs and image and video generation on a local model happen on your machine, and the app sends no telemetry and no analytics. Model downloads, update checks against GitHub Releases, and the anonymous daily count that is sent when you press the Cloud switch still use the network. Hosted requests leave your machine and are sent to the selected service, including any content you attach to that request. Remote access can also expose app content to a device you paired. Review the selected provider and the tool permissions before sharing private material.</p>
+<p>The app runs locally by default. Chat, agent runs and image and video generation on a local model happen on your machine, and the app has no analytics kit and sends no crash reports. Model downloads, update checks against GitHub Releases, and the count that is sent on each press of the Cloud switch still use the network. While you are signed in to LU Cloud, the app also checks your account every five minutes, in local mode too. Hosted requests leave your machine and are sent to the selected service, including any content you attach to that request. Remote access can also expose app content to a device you paired. Review the selected provider and the tool permissions before sharing private material.</p>
 <p>For what the hosted service does and does not do, read <a href="/cloud/">the cloud overview</a>. Local chat needs a downloaded model, and document chat also needs an embedding model. Image and video generation need ComfyUI and additional model downloads, which the app installs for you. None of this is a promise that every computer performs the same way.</p>
 </section>
 
@@ -107,6 +107,9 @@
     <a href="https://github.com/PurpleDoubleD/locally-uncensored/issues">Issues</a>
     <a href="https://reddit.com/user/GroundbreakingMall54">Reddit</a>
     <a href="https://www.linkedin.com/in/david-drobnitza-locallyuncensored/" rel="me noopener" target="_blank">LinkedIn</a>
+    <a href="https://locallyuncensored.com/privacy/">Privacy</a>
+    <a href="https://locallyuncensored.com/terms/">Terms</a>
+    <a href="https://locallyuncensored.com/impressum/">Impressum</a>
   </div>
 </footer>
 </body>

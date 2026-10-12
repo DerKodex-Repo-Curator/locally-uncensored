@@ -1,6 +1,6 @@
 <!-- LU-CLOUD-FACTS:START -->
 ## Current cloud offer (2026-09-14)
-Hosted includes 11 Flash models; Pro and Max include 12. Up to 500,000 combined input and output tokens per account per UTC day in app sessions. GLM 5.3 Flash uses credits on Hosted and joins the daily allowance on Pro and Max. API keys always use credits.
+Hosted includes 11 Flash models; Pro and Max include 12. In app sessions they cost no credits, up to a daily limit per account. GLM 5.3 Flash uses credits on Hosted and joins the daily allowance on Pro and Max. API keys always use credits.
 Hosted EUR 19/month: 900,000 shared credits, up to 900 uncensored images OR 90 five-second uncensored image-to-video clips. Each maximum spends the entire shared monthly wallet on one model. These are alternatives, not separate allowances. Input-image generation, character training, LoRA routes and additional operations cost extra. Uncensored video uses an input image and five-second clips. Failed jobs and changing catalog prices can affect results.
 https://locallyuncensored.com/cloud-facts.json
 Uncensored AI chat online: 47 chat models, all of them in every plan and every pack, and no moderation layer from us on text. https://locallyuncensored.com/uncensored-ai-chat-online/
@@ -14,14 +14,14 @@ https://lu-labs.ai/product-facts
 
 > Plug-and-play local AI studio: uncensored chat, image generation, video generation, and a coding agent in one desktop app. One installer, no command line, no Docker.
 
-Locally Uncensored is a free, open-source (AGPL-3.0) local AI studio for the desktop. It combines AI chat, image generation, video creation, and a coding agent in one interface, and installs like a normal program: no command line, no Docker, no config files. It runs 100% locally on your machine. No telemetry, no analytics, no cloud calls unless you enable a cloud route. There are two: BYOK with your own provider API key, and the paid LU Labs Cloud service, where inference runs on our infrastructure partners.
+Locally Uncensored is a free, open-source (AGPL-3.0) local AI studio for the desktop. It combines AI chat, image generation, video creation, and a coding agent in one interface, and installs like a normal program: no command line, no Docker, no config files. It runs locally on your machine: chats, models and files stay there. The app has no analytics kit and sends no crash reports. On its own it checks GitHub Releases for updates and counts each press of the Cloud switch. Nothing goes to a cloud model unless you enable a cloud route. There are two: BYOK with your own provider API key, and the paid LU Labs Cloud service, where inference runs on our infrastructure partners.
 
 ## Key Facts
 - Name: Locally Uncensored
-- Current Version: v3.0.5 (October 2026)
+- Current Version: v3.0.6
 - Type: Desktop AI Application (local AI studio)
 - License: AGPL-3.0 (free and open source)
-- Platforms: Windows 10/11, Linux (deb, rpm, AppImage)
+- Platforms: Windows 10/11, Linux (deb, rpm, AppImage), macOS 14 or newer on Apple Silicon (dmg, since v3.0.6). Intel Macs are not supported.
 - Tech Stack: React 19, TypeScript, Tailwind CSS 4, Vite 8, Tauri v2 (Rust backend)
 - AI Backends: 12 auto-detected (Ollama, LM Studio, vLLM, KoboldCpp, llama.cpp, LocalAI, Jan, TabbyAPI, GPT4All, Aphrodite, SGLang, text-generation-webui) plus ComfyUI for images/video
 - Cloud Providers: optional, BYOK (OpenAI, Anthropic, OpenRouter, Groq, Together, DeepSeek, Mistral)
@@ -34,7 +34,7 @@ Locally Uncensored is a free, open-source (AGPL-3.0) local AI studio for the des
 - Qwen-Image 2.1 runs locally on Windows and Linux and does both jobs: text to image, and editing a reference image from a prompt with no mask; about 16 GB of files, ComfyUI 0.37.0 or newer, research license without commercial use (v3.0.1)
 - Models has a dedicated LoRAs tab on Windows and Linux: CivitAI search and download into the ComfyUI loras folder, an installed list with sizes and trigger words, and deletion (v3.0.1)
 - Only local AI app combining chat + coding agent + image generation + video generation + mobile remote in one interface
-- Talking Character, Music, Extend Video and Motion Control run as full local ComfyUI lanes on your own GPU; only Upscale, Erase Object and Character Studio are cloud-only (v2.5.8, refined in v2.5.9)
+- Talking Character, Music, Extend Video and Motion Control run as full local ComfyUI lanes on your own GPU; only Upscale and Erase Object are cloud-only (v2.5.8, refined in v2.5.9); Character Studio trains locally since v2.6.0
 - Per-lane frame count, resolution and step controls on every Create lane, so low-VRAM runs are practical (v2.5.8)
 - Surgical file_edit tool in the Coding Agent: it changes the lines you asked for instead of rewriting whole files, and num_ctx follows the model instead of being pinned to 8192 (v2.5.9)
 - Remote access works with non-Ollama backends: LM Studio, Lemonade and llama.cpp are translated to and from the phone's request shape, including streaming, tool calls, vision and reasoning (v2.5.9)
@@ -51,7 +51,9 @@ Locally Uncensored is a free, open-source (AGPL-3.0) local AI studio for the des
 - Mobile remote access via LAN or Cloudflare Tunnel with 6-digit passcode + QR setup
 - A/B Model Compare and Local Benchmark built in
 - Memory system and Document Chat (RAG): local embeddings, no cloud
-- Voice STT (Whisper) and TTS
+- Voice (v3.0.6, beta): a spoken conversation with the selected chat model. Speech recognition (Whisper base.en), the voice (Pocket TTS, 15 English voices) and turn taking run locally. The model can use the agent tools by voice. English only.
+- Computer control (v3.0.6, beta): a model uses mouse, keyboard and screenshots in apps the user approves. Off by default, per-app approval, confirmation before every action unless a session is set to autonomous, fixed list of apps that are off limits (terminals, password managers, system sign-in and security dialogs).
+- Dictation (Whisper) and read aloud (Piper)
 - Auto-update over signed NSIS channel for Windows
 - Single-instance lock (v2.4.0): double-launch focuses existing window
 - In-app Privacy section (v2.4.0): explicit data-handling statement
@@ -114,9 +116,13 @@ Locally Uncensored is a free, open-source (AGPL-3.0) local AI studio for the des
 - Best in class: 24 GB+ VRAM for 35B MoE and 35B+ chat models
 
 ## Privacy
-- 100% local by default
-- No telemetry, no analytics, no model pings home
-- Only outbound traffic without explicit opt-in: GitHub Releases auto-update checks
+- Local by default: chats, models and files stay on your machine
+- No analytics kit and no crash reports
+- On its own the app uses the network for two things: an update check against GitHub Releases shortly after start and at most every six hours after that, and a count of each press of the Cloud switch (which way, platform, app version, no identifier)
+- A new version downloads in the background unless you switch that off under Settings, General, Updates; installing always needs a click
+- While you are signed in to LU Cloud, in local mode too: an account check at lu-labs.ai every five minutes, and a press of the Cloud switch is counted for the account as well
+- Everything else that goes online you start yourself: model and engine downloads, providers with your own API keys, web search in agent runs, and Remote Access
+- Remote Access over the internet: Cloudflare relays the traffic, encrypted to and from Cloudflare, not end to end
 - Cloud optional, two routes: BYOK (your own API keys, your data), and the paid LU Labs Cloud service, where inference runs on our infrastructure partners
 - Data lives in %APPDATA%/Locally Uncensored on Windows (or equivalent on Linux/macOS)
 
@@ -181,7 +187,7 @@ Locally Uncensored is a free, open-source (AGPL-3.0) local AI studio for the des
 - Qwen-Image 2.1 Explained (7B image model, alpha channel, ten references, no longer Apache 2.0): https://locallyuncensored.com/blog/qwen-image-2-1-explained.html
 - Flux 2 Online Without a 24 GB Card (browser image generation, credit math): https://locallyuncensored.com/blog/flux-2-online-without-gpu.html
 - Flux 2 Dev vs Flux Dev vs Flux Schnell (cost per image and which to default to): https://locallyuncensored.com/blog/flux-2-dev-vs-flux-dev-vs-schnell.html
-- LM Studio Alternative for Mac (browser Studio setup, no native Mac build): https://locallyuncensored.com/blog/lm-studio-alternative-for-mac.html
+- LM Studio Alternative for Mac (browser Studio setup): https://locallyuncensored.com/blog/lm-studio-alternative-for-mac.html
 - What a Mac Can Run Locally in 2026 (RAM tiers and where the cloud picks up): https://locallyuncensored.com/blog/what-a-mac-can-run-locally-2026.html
 - Uncensored AI Chat Online (browser, desktop Cloud switch, or API key): https://locallyuncensored.com/blog/uncensored-ai-chat-online-guide.html
 - What No Filter Actually Means Here (the honest limits): https://locallyuncensored.com/blog/what-no-filter-means-online.html

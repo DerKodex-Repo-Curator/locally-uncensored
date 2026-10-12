@@ -6,7 +6,7 @@
 
 **The all-in-one local AI studio for your desktop. Chat, images, video and a coding agent in one app. Install it, pick a model, go.**
 
-Free and open source. Everything runs on your own machine. No Docker, no terminal, no config files. The platforms are listed under [Download](#download).
+Free and open source. In local mode everything runs on your own machine. No Docker, no terminal, no config files. The platforms are listed under [Download](#download).
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub stars](https://img.shields.io/github/stars/PurpleDoubleD/locally-uncensored?style=social)](https://github.com/PurpleDoubleD/locally-uncensored/stargazers)
@@ -35,19 +35,21 @@ Take the latest build from [Releases](https://github.com/PurpleDoubleD/locally-u
 
 | Platform | File | Status |
 |----------|------|--------|
-| Windows 10 and 11 | [`Locally.Uncensored_3.0.5_x64-setup.exe`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored_3.0.5_x64-setup.exe) (NSIS, recommended) or [`Locally.Uncensored_3.0.5_x64_en-US.msi`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored_3.0.5_x64_en-US.msi) | Tested every release, signed auto update channel |
-| Linux | [`Locally.Uncensored_3.0.5_amd64.AppImage`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored_3.0.5_amd64.AppImage), [`Locally.Uncensored_3.0.5_amd64.deb`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored_3.0.5_amd64.deb) or [`Locally.Uncensored-3.0.5-1.x86_64.rpm`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored-3.0.5-1.x86_64.rpm) | Built on every release |
-| macOS | no desktop build in the current release | LU Cloud runs in the browser at [lu-labs.ai](https://lu-labs.ai) |
+| Windows 10 and 11 | [`Locally.Uncensored_3.0.6_x64-setup.exe`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored_3.0.6_x64-setup.exe) (NSIS, recommended) or [`Locally.Uncensored_3.0.6_x64_en-US.msi`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored_3.0.6_x64_en-US.msi) | Tested every release, signed auto update channel |
+| Linux | [`Locally.Uncensored_3.0.6_amd64.AppImage`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored_3.0.6_amd64.AppImage), [`Locally.Uncensored_3.0.6_amd64.deb`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored_3.0.6_amd64.deb) or [`Locally.Uncensored-3.0.6-1.x86_64.rpm`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/Locally.Uncensored-3.0.6-1.x86_64.rpm) | Built on every release |
+| macOS 14 or newer, Apple Silicon (Beta) | [`LU_3.0.6_aarch64.dmg`](https://github.com/PurpleDoubleD/locally-uncensored/releases/latest/download/LU_3.0.6_aarch64.dmg) | Signed with an Apple Developer ID and notarized by Apple. Intel Macs are not supported. The app has run on one Mac so far. Voice has been tried by hand in the app on a Mac and works. Computer control is in the Mac app but not fully tested yet on macOS. Remote Access and the automatic update are not confirmed on macOS |
 
-<!-- MAC: the macOS row above is the one place in this file that says whether there is a Mac build. Change it only when a .dmg is attached to the latest release. -->
+<!-- MAC: the macOS row above is the one place in this file that says whether there is a Mac build. This is the Mac version of the row. It is true only for the .dmg that the release run built, signed and notarized, so it goes out after that run is green. -->
 
 Some antivirus engines flag unsigned NSIS installers that download other binaries, which is a false positive. The installer is built by GitHub Actions from the public source on `master`, and the update channel is signed against a public minisign key, so you can verify both: see [SECURITY.md](SECURITY.md#antivirus--browser-false-positives).
 
 Code signing for the Windows installers: free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). SignPath Foundation has accepted the project. The production certificate is not in place yet, and until it is the installers ship unsigned.
 
-Current release: **v3.0.5** (October 2026). Every change since 1.0.0 is in [CHANGELOG.md](CHANGELOG.md).
+Current release: **v3.0.6** (October 2026). Every change since 1.0.0 is in [CHANGELOG.md](CHANGELOG.md).
 
-3.0.5 is about Create: LTX 2.5, FastH3 and YuE2 run on your own machine, Qwen-Image 2.1 gets a transparent background and its prompt enhancer, Edit, Remove Background and Enhance Image take up to 50 images in one go, and LU Cloud adds Qwen Image 2.1, LTX 2.5, MiniMax H3 and Wan 3.0 Reference. Chat takes any file, each model in a group chat can have its own persona, dropdowns stay inside the window (issue 149), and the speech install works again on Ubuntu 24.04.
+3.0.6 adds Voice and computer control, both in beta. Voice is a spoken conversation with the chat model you picked: speech recognition and the voice run on your own machine, there are fifteen voices, and the model can use the agent tools while you talk. With computer control a model uses the mouse and keyboard in apps you approve, and it is off until you switch it on. Dialogs have a new look, a running task shows the LU mark with a plain word for what it is doing, and LU Cloud lists ten more chat models, in beta as well. Our check of both in the real app ran on Windows.
+
+3.0.5 was about Create: LTX 2.5, FastH3 and YuE2 run on your own machine, Qwen-Image 2.1 gets a transparent background and its prompt enhancer, Edit, Remove Background and Enhance Image take up to 50 images in one go, and LU Cloud adds Qwen Image 2.1, LTX 2.5, MiniMax H3 and Wan 3.0 Reference. Chat takes any file, each model in a group chat can have its own persona, dropdowns stay inside the window (issue 149), and the speech install works again on Ubuntu 24.04.
 
 3.0.4 fixed the Code agent and the agent in chat on LU Cloud: writing a long file no longer ends the run, "continue" picks up where a run stopped instead of starting over, the agent keeps a plan only when you ask for one, and cloud context is 32K by default and can be set per model. It also fixed the bugs reported on GitHub and Discord since 3.0.3 (issues 144 to 147): MiniMax H3 runs as a video model with sound, Edit takes up to three extra images with Qwen-Image 2.1, a missing encoder or VAE is named and offered as a download instead of ending in "Value not in list", the LoRA stack follows the loras folder, and group chat works with every LU Engine model.
 
@@ -109,7 +111,7 @@ npm run tauri build  # desktop binary
 
 Some models are larger than any desktop card. Flip the Cloud switch in the same app and those run on hosted GPUs instead, with the heavy Create lanes alongside them. The same account works in the browser at [lu-labs.ai](https://lu-labs.ai), on a plan or on credit packs that do not expire. The local app stays free either way, and switching back to local costs nothing: [plans and prices](https://lu-labs.ai/pricing). With Create in chat (Beta), a cloud chat model can put together an order for images, video, music or voice, and nothing runs until you approve it.
 
-Since 3.0.0 the catalogue says what it can back up. Every cloud chat model was asked the same two questions twice and judged on the answer, and a longer three-round test on 2026-10-05 took the mark from five more: 19 of the 46 we measured answer in full, and only those carry the No Filter mark in the picker. Across all measured answers, 5% were refusals. Ten more chat models that their makers release to answer without refusing are listed as a group of their own, marked Uncensored (Beta). They were not part of the measurement above. 12 models cost no credits at all in chat on an active plan, up to 500,000 input and output tokens per day. For images and video, 14 video and 7 image models run without a built-in content restriction, most of them with Uncensored in the name, and your account decides what they may produce.
+Since 3.0.0 the catalogue says what it can back up. Every cloud chat model was asked the same two questions twice and judged on the answer, and a longer three-round test on 2026-10-05 took the mark from five more: 19 of the 46 we measured answer in full, and only those carry the No Filter mark in the picker. Across all measured answers, 5% were refusals. Ten more chat models that their makers release to answer without refusing are listed as a group of their own, marked Uncensored (Beta). They were not part of the measurement above. On an active plan, 11 models on Hosted and 12 on Pro and Max cost no credits in chat, up to a daily limit. For images and video, 14 video and 7 image models run without a built-in content restriction, most of them with Uncensored in the name, and your account decides what they may produce.
 
 ## How it compares
 
@@ -159,7 +161,7 @@ GLM 5.3 is in the catalog too, but its smallest local quant is 217 GB, so on a d
 | FLUX.1 schnell or dev | 8-10 GB | Fast, or slower and better. |
 | FLUX 2 Klein 4B | 8-10 GB | The newest FLUX, and the quickest of them. |
 | Z-Image Turbo | 10-16 GB | Unfiltered. Loads slowly below 16 GB. |
-| Qwen-Image 2.1 | 16-24 GB | Generates and edits in one model. Needs ComfyUI 0.37.0. Research license, non-commercial. |
+| Qwen-Image 2.1 | 16-24 GB | Generates and edits in one model. Needs ComfyUI 0.37.0 or newer. Research license, non-commercial. |
 | Qwen-Image 2.1 (No Filter) | 16-24 GB | The same model with a community text encoder that has its refusals removed (Heretic). |
 | Noct Q (Qwen-Image 2.1, Unfiltered) | 16-24 GB | A community finetune of Qwen-Image 2.1 with modified image model weights. Research license, non-commercial. |
 | ERNIE-Image Turbo | 24 GB | Baidu DiT, eight steps. |
@@ -180,12 +182,12 @@ Music runs on ACE Step 1.5 Turbo at 6-8 GB, and Talking Character on Wan 2.2 S2V
 
 ## Bring your own engine
 
-If you already run a local engine, the app finds it and lists it instead of installing a second one. It detects Ollama, LM Studio, vLLM, KoboldCpp, llama.cpp, LocalAI, Jan, TabbyAPI, GPT4All, Aphrodite, SGLang, TGI, LiteLLM and text-generation-webui, and it ships its own LU Engine for people who have none. Cloud providers are optional and use your own keys: OpenAI, Anthropic, OpenRouter, Groq, Together, DeepSeek, Mistral, or any OpenAI compatible address you paste in.
+If you already run a local engine, the app finds it and lists it instead of installing a second one. It detects twelve of them: Ollama, LM Studio, Jan, GPT4All, KoboldCpp, llama.cpp, vLLM, LocalAI, text-generation-webui, TabbyAPI, Aphrodite and SGLang. It also ships its own LU Engine for people who have none. Cloud providers are optional and use your own keys: OpenAI, Anthropic, OpenRouter, Groq, Together, DeepSeek, Mistral, or any OpenAI compatible address you paste in.
 
 ## FAQ
 
 **Is it really free and offline?**
-Yes. AGPL-3.0, no account, no usage limits. In local mode chat, agent runs and image and video generation all happen on your machine, and after the model download they work without a connection. The app has no analytics kit and sends no crash reports. On its own it uses the network for two things: it checks GitHub Releases for updates shortly after start and at most every six hours after that, and it counts each press of the Cloud switch (which way, platform, app version, no identifier). While you are signed in to LU Cloud it also checks your account every five minutes. Settings, Privacy has the full list.
+Yes. AGPL-3.0, no account, no usage limits. In local mode chat, agent runs and image and video generation all happen on your machine, and after the model download they work without a connection. The app has no analytics kit and sends no crash reports. On its own it uses the network for two things: it checks GitHub Releases for updates shortly after start and at most every six hours after that, and it counts each press of the Cloud switch (which way, platform, app version, no identifier). While you are signed in to LU Cloud it also checks your account every five minutes. Settings, General, Privacy has the full list.
 
 **What does "uncensored" mean?**
 Abliterated models have the trained in refusal behaviour removed from the weights, so it is not a jailbreak that can be patched or break. They answer directly, without refusals. [Full guide](https://locallyuncensored.com/blog/abliterated-models-guide.html).
@@ -197,17 +199,17 @@ Chat runs a 3B model on 8 GB of system RAM with no GPU at all, and an 8B model c
 For most chat, writing and coding, yes, with a good 8B to 14B local model, and it stays private and unlimited. Frontier cloud models are still stronger on the hardest reasoning. You can add them with your own API keys, or use the Cloud switch.
 
 **Does remote access leak data?**
-No. It is off until you turn it on, gated by a passcode, and it lists the devices that are connected. On your LAN nothing leaves the network. Away from home the traffic runs through a Cloudflare tunnel: it is encrypted between each device and Cloudflare, and Cloudflare relays it, so it is not end to end. No third party AI server is involved.
+Remote access is off until you start it, sits behind a six-digit passcode, and shows when a device is connected. On your own network the chat goes straight from phone to PC. Over the internet Cloudflare relays it: the traffic is encrypted to and from Cloudflare, not end to end, so Cloudflare could read it.
 
 **What about macOS?**
-The macOS row of the [Download](#download) table says whether the current release has a Mac build. On any Mac you can use LU Cloud in the browser at [lu-labs.ai](https://lu-labs.ai), which runs chat, images and video on hosted GPUs.
+The macOS row of the [Download](#download) table says whether the current release has a Mac build. On a Mac, chat runs on local models through the bundled server with Metal, and Create makes images and video on the Mac itself, without ComfyUI, so what this README says about ComfyUI, VRAM and LoRA folders describes Windows and Linux. On any Mac you can use LU Cloud in the browser at [lu-labs.ai](https://lu-labs.ai), which runs chat, images and video on hosted GPUs.
 
 ## Roadmap
 
 - [ ] Face ID and PuLID in Create, so a character keeps one face across images
 - [ ] Upscale and Erase Object as local lanes; both run in the cloud today
 
-Everything else listed here has shipped. See [Releases](https://github.com/PurpleDoubleD/locally-uncensored/releases) for the history.
+Everything that used to be on this list has shipped. See [Releases](https://github.com/PurpleDoubleD/locally-uncensored/releases) for the history.
 
 ## Tech stack
 

@@ -89,9 +89,9 @@ const geprueftesTabellenblatt = (wahl: string, preisfeld: 'clipCredits' | 'image
   const zeilen = [...blatt().querySelectorAll(wahl)]
   expect(zeilen.length, `${wahl} steht nicht auf der Preisseite`).toBeGreaterThan(0)
   return zeilen.map((zeile) => {
-    const name = zeile.querySelector<HTMLElement>('[data-adult-model-id]')
+    const name = zeile.querySelector<HTMLElement>('[data-open-model-id]')
     expect(name, 'eine Zeile ohne Modellanker').toBeTruthy()
-    const id = name!.dataset.adultModelId!
+    const id = name!.dataset.openModelId!
     if (preisfeld === 'clipCredits' && !OFFEN_OHNE_SPICY_IM_NAMEN.has(id)) {
       expect(id, `${id} traegt kein spicy und steht in keiner Ausnahme`).toMatch(/spicy$/)
     }
@@ -142,14 +142,14 @@ describe('die Zahl der offenen Modelle', () => {
   })
 
   it('und die Preisseite fuehrt jede offene Videozeile genau einmal', () => {
-    const ids = geprueftesTabellenblatt('[data-adult-video-row]', 'clipCredits')
+    const ids = geprueftesTabellenblatt('[data-open-video-row]', 'clipCredits')
     expect(ids, 'die Preistabelle zaehlt anders als der Katalog')
       .toHaveLength(CLOUD_PITCH.openVideoModels)
     expect(new Set(ids).size, 'ein Modell steht zweimal in der Tabelle').toBe(ids.length)
   })
 
   it('und jede offene Bildzeile genau einmal', () => {
-    const ids = geprueftesTabellenblatt('[data-adult-image-row]', 'imageCredits')
+    const ids = geprueftesTabellenblatt('[data-open-image-row]', 'imageCredits')
     expect(ids, 'die Bildtabelle zaehlt anders als der Katalog')
       .toHaveLength(CLOUD_PITCH.openImageModels)
     expect(new Set(ids).size, 'ein Modell steht zweimal in der Tabelle').toBe(ids.length)
@@ -182,7 +182,7 @@ describe('die Zahl der offenen Modelle', () => {
       let klassisch = 0
       let ausDemStudio = 0
       for (const zeile of seite.querySelectorAll<HTMLElement>(wahl)) {
-        const id = zeile.querySelector<HTMLElement>('[data-adult-model-id]')!.dataset.adultModelId!
+        const id = zeile.querySelector<HTMLElement>('[data-open-model-id]')!.dataset.openModelId!
         const preis = Number(zeile.querySelector<HTMLElement>(`[data-${preisfeld === 'clipCredits' ? 'clip' : 'image'}-credits]`)!.dataset[preisfeld])
         if (studio.has(id)) {
           expect(studio.get(id), `${id} kostet im Studio-Abschnitt etwas anderes`).toBe(preis)
@@ -195,8 +195,8 @@ describe('die Zahl der offenen Modelle', () => {
     }
 
     // Die Herleitung aus dem Kommentar in cloud-pitch.ts, Zahl fuer Zahl.
-    expect(teile('[data-adult-video-row]', 'clipCredits')).toEqual({ klassisch: 10, ausDemStudio: 4 })
-    expect(teile('[data-adult-image-row]', 'imageCredits')).toEqual({ klassisch: 3, ausDemStudio: 4 })
+    expect(teile('[data-open-video-row]', 'clipCredits')).toEqual({ klassisch: 10, ausDemStudio: 4 })
+    expect(teile('[data-open-image-row]', 'imageCredits')).toEqual({ klassisch: 3, ausDemStudio: 4 })
     expect(CLOUD_PITCH.openVideoModels).toBe(10 + 4)
     expect(CLOUD_PITCH.openImageModels).toBe(3 + 4)
   })

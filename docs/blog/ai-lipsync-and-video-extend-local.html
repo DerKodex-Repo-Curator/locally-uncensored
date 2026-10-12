@@ -32,7 +32,7 @@
 {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://locallyuncensored.com/"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://locallyuncensored.com/blog/"},{"@type":"ListItem","position":3,"name":"AI Lipsync and Video Extend, Locally","item":"https://locallyuncensored.com/blog/ai-lipsync-and-video-extend-local.html"}]}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"HowTo","name":"How to make a character talk locally with AI","description":"Set up the local Talking Character lane in Locally Uncensored: install the app, download the lane's models with a resumable download, add a portrait and a voice clip, and render on your own GPU.","totalTime":"PT20M","tool":[{"@type":"HowToTool","name":"Windows 10/11 PC (Linux builds on GitHub Releases)"},{"@type":"HowToTool","name":"A GPU with patience on smaller cards — Talking Character is one of the heavy video lanes"},{"@type":"HowToTool","name":"A portrait image and a voice clip"}],"step":[{"@type":"HowToStep","position":1,"name":"Install Locally Uncensored","text":"Download the ~14 MB Windows installer (v2.6.3) from GitHub Releases and install it like any normal app — no command line, no Docker. Linux builds (deb, rpm, AppImage) are on the same releases page.","url":"https://github.com/PurpleDoubleD/locally-uncensored/releases/latest"},{"@type":"HowToStep","position":2,"name":"Open Create and pick Talking Character","text":"In Local mode the lane builds a ComfyUI graph out of core node families and runs on your card — no hosted endpoint involved."},{"@type":"HowToStep","position":3,"name":"Download the models from the setup card","text":"Press Download & install. The card names the file and counts it up with size and speed, the download shows in the Downloads tray, Cancel really stops it, and a dropped connection resumes instead of restarting at zero."},{"@type":"HowToStep","position":4,"name":"Add a portrait and a voice clip","text":"The lane animates the portrait from the voice clip, and the length of the result follows your audio. A clear, front-facing portrait and clean speech give the model the most to work with."},{"@type":"HowToStep","position":5,"name":"Render, then fit it to your GPU","text":"Use the per-lane Frame, Size and Step controls to trade quality for time — on a modest card that trade is the difference between a clip and a timeout."}]}
+{"@context":"https://schema.org","@type":"HowTo","name":"How to make a character talk locally with AI","description":"Set up the local Talking Character lane in Locally Uncensored: install the app, download the lane's models with a resumable download, add a portrait and a voice clip, and render on your own GPU.","totalTime":"PT20M","tool":[{"@type":"HowToTool","name":"Windows 10/11 PC (Linux builds on GitHub Releases)"},{"@type":"HowToTool","name":"A GPU, and patience on smaller cards: Talking Character is one of the heavy video lanes"},{"@type":"HowToTool","name":"A portrait image and a voice clip"}],"step":[{"@type":"HowToStep","position":1,"name":"Install Locally Uncensored","text":"Download the Windows installer from GitHub Releases and install it like any normal app, with no command line and no Docker. Linux builds (deb, rpm, AppImage) are on the same releases page.","url":"https://github.com/PurpleDoubleD/locally-uncensored/releases/latest"},{"@type":"HowToStep","position":2,"name":"Open Create and pick Talking Character","text":"In Local mode the lane builds a ComfyUI graph out of core node families and runs on your card, with no hosted endpoint involved."},{"@type":"HowToStep","position":3,"name":"Download the models from the setup card","text":"Press Download & install. The card names the file and counts it up with size and speed, the download shows in the Downloads tray, Cancel really stops it, and a dropped connection resumes instead of restarting at zero."},{"@type":"HowToStep","position":4,"name":"Add a portrait and a voice clip","text":"The lane animates the portrait from the voice clip, and the length of the result follows your audio. A clear, front-facing portrait and clean speech give the model the most to work with."},{"@type":"HowToStep","position":5,"name":"Render, then fit it to your GPU","text":"Use the per-lane Frame, Size and Step controls to trade quality for time. On a modest card that trade is the difference between a clip and a timeout."}]}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I make a character talk locally?","acceptedAnswer":{"@type":"Answer","text":"Yes. Locally Uncensored's Talking Character lane runs locally: it animates a portrait from a voice clip on your own GPU, with the length of the clip following your audio. In Local mode the lane builds a ComfyUI graph out of core node families — no hosted endpoint involved."}},{"@type":"Question","name":"How do I extend an AI video?","acceptedAnswer":{"@type":"Answer","text":"Use the Extend Video lane: it continues a clip you already have by extracting its last frame and feeding the regular image-to-video path. Load the clip, render, and append the result. Because the extension starts from the final frame, clips that end on a clean, sharp frame extend best."}},{"@type":"Question","name":"How much VRAM do I need for a local talking character?","acceptedAnswer":{"@type":"Answer","text":"The release notes are blunt: the heavy 14B video lanes, Talking Character in particular, are genuinely slow on smaller GPUs even at low step counts. There is no honest exact number to promise, so plan on a mid-range card and use the per-lane Frame, Size and Step controls to trade quality for time. For orientation from the same sources: regular text-to-video plans on 10–12 GB VRAM, and image-to-video starts at 6 GB with FramePack F1."}},{"@type":"Question","name":"Where does the voice clip come from?","acceptedAnswer":{"@type":"Answer","text":"Any audio clip with clear speech works — record one, reuse one you have, or synthesize one with a TTS tool. The lane takes the clip as input and the length of the rendered video follows it."}},{"@type":"Question","name":"Is any of this sent to the cloud?","acceptedAnswer":{"@type":"Answer","text":"Not for these two lanes. Talking Character, Music, Extend Video and Motion Control run as full local ComfyUI lanes on your own GPU; only Upscale, Erase Object and Character Studio are cloud-only. Anything you render on your own GPU stays in your own gallery for as long as you keep it."}}]}
@@ -42,7 +42,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/lu.css">
 <script defer src="/assets/lu.js"></script>
-  <script data-goatcounter="https://lu-uncensored.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  <script data-goatcounter="https://purple47.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 <nav class="lu-nav">
@@ -95,7 +95,7 @@
 <h2>Step by Step: Make a Character Talk</h2>
 
 <h3>Step 1: Install Locally Uncensored</h3>
-<p>Download the installer from <a href="https://github.com/PurpleDoubleD/locally-uncensored/releases/latest">GitHub Releases</a> &mdash; the current v2.6.3 Windows installer is about 14 MB &mdash; and install it like any normal app. No command line, no Docker, no config files. Linux builds (deb, rpm, AppImage) are on the same page.</p>
+<p>Download the installer from <a href="https://github.com/PurpleDoubleD/locally-uncensored/releases/latest">GitHub Releases</a> and install it like any normal app. No command line, no Docker, no config files. Linux builds (deb, rpm, AppImage) are on the same page.</p>
 
 <h3>Step 2: Open Create and Pick Talking Character</h3>
 <p>The lane lives in the Create tab next to Music, Extend Video and Motion Control. All four run as full local ComfyUI lanes; the app installs and manages ComfyUI for you if it is not set up yet.</p>
@@ -131,7 +131,7 @@
 
 <h2>What Stays Local, What Does Not</h2>
 
-<p>Worth stating precisely, because &ldquo;local&rdquo; gets used loosely elsewhere. Talking Character, Music, Extend Video and Motion Control run as full local ComfyUI lanes on your own GPU. Only three Create operations are cloud-only: Upscale, Erase Object and Character Studio. Everything you render locally stays in your own gallery for as long as you keep it, and the app ships no telemetry.</p>
+<p>Worth stating precisely, because &ldquo;local&rdquo; gets used loosely elsewhere. Talking Character, Music, Extend Video and Motion Control run as full local ComfyUI lanes on your own GPU. Only three Create operations are cloud-only: Upscale, Erase Object and Character Studio. Everything you render locally stays in your own gallery for as long as you keep it. The app has no analytics kit and sends no crash reports.</p>
 
 <p>Locally Uncensored is an all-in-one local AI studio &mdash; chat, image, video, music and a coding agent in one installer &mdash; so the talking character does not have to perform in silence: generate a soundtrack with the <a href="local-ai-music-generation.html">local Music lane</a> on the same GPU, in the same app.</p>
 
@@ -150,7 +150,7 @@
 <p>Anywhere &mdash; record one, reuse one you have, or synthesize one with a TTS tool. The lane takes an audio clip as input, and the rendered length follows it.</p>
 
 <h3>Is any of this sent to the cloud?</h3>
-<p>Not for these two lanes. The four local Create lanes run on your own GPU; only Upscale, Erase Object and Character Studio are cloud-only. Local renders stay in your gallery, and there is no telemetry.</p>
+<p>Not for these two lanes. The four local Create lanes run on your own GPU; only Upscale, Erase Object and Character Studio are cloud-only. Local renders stay in your gallery.</p>
 
 <h2>Next Steps</h2>
 
@@ -179,6 +179,9 @@
     <a href="https://github.com/PurpleDoubleD/locally-uncensored/issues">Issues</a>
     <a href="https://reddit.com/user/GroundbreakingMall54">Reddit</a>
     <a href="https://www.linkedin.com/in/david-drobnitza-locallyuncensored/" rel="me noopener" target="_blank">LinkedIn</a>
+    <a href="https://locallyuncensored.com/privacy/">Privacy</a>
+    <a href="https://locallyuncensored.com/terms/">Terms</a>
+    <a href="https://locallyuncensored.com/impressum/">Impressum</a>
   </div>
 </footer>
 </body>

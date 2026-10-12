@@ -94,8 +94,29 @@ html.hm .rx.in{background-size:100% 0%,100% .07em;color:var(--accent-soft)}
 .hx-alt a:hover{color:var(--fg);border-bottom-color:var(--accent)}
 .hx .dl-alts{margin-top:14px}
 
+/* One download block per system. html[data-os] comes from the inline script in
+   index.html; without it the Windows set shows and every note stays readable. */
+html:not([data-os]) [data-dl-for]:not([data-dl-for="win"]),
+html[data-os="win"] [data-dl-for]:not([data-dl-for="win"]),
+html[data-os="mac"] [data-dl-for]:not([data-dl-for="mac"]),
+html[data-os="linux"] [data-dl-for]:not([data-dl-for="linux"]),
+html[data-os="win"] [data-dl-note]:not([data-dl-note="win"]),
+html[data-os="mac"] [data-dl-note]:not([data-dl-note="mac"]),
+html[data-os="linux"] [data-dl-note]:not([data-dl-note="linux"]){display:none}
+.dl-pick{width:100%;display:flex;flex-direction:column;align-items:center;gap:12px}
+.dl-os{display:inline-flex;gap:4px;padding:4px;border-radius:999px;border:1px solid var(--line-subtle);background:var(--panel)}
+.dl-os a{font-family:var(--sans);font-size:.82rem;font-weight:600;line-height:1;padding:9px 16px;border-radius:999px;color:var(--fg-50);transition:color .2s,background .2s}
+.dl-os a:hover{color:var(--fg)}
+html:not([data-os]) .dl-os [data-dl-os="win"],
+html[data-os="win"] .dl-os [data-dl-os="win"],
+html[data-os="mac"] .dl-os [data-dl-os="mac"],
+html[data-os="linux"] .dl-os [data-dl-os="linux"]{color:var(--fg);background:rgba(139,92,246,.2);box-shadow:inset 0 0 0 1px rgba(139,92,246,.5)}
+.dl-note{font-size:.82rem;color:var(--fg-50);max-width:none;text-align:center}
+.dl-note a{color:var(--accent-soft);border-bottom:1px solid rgba(139,92,246,.4)}
+.dl-note a:hover{color:var(--fg);border-bottom-color:var(--accent)}
+
 /* The download card David likes, only bigger and louder */
-.dl-card--xl{max-width:680px;width:100%;padding:16px 16px 16px 18px;gap:16px;
+.dl-card--xl{max-width:760px;width:100%;padding:16px 16px 16px 18px;gap:16px;
   border-color:rgba(139,92,246,.5);
   background:linear-gradient(180deg,rgba(139,92,246,.13),rgba(139,92,246,.03)),var(--panel);
   box-shadow:0 0 0 1px rgba(139,92,246,.14),0 30px 80px -28px rgba(139,92,246,.6),0 20px 50px -30px rgba(0,0,0,.85)}
@@ -105,6 +126,7 @@ html.hm .rx.in{background-size:100% 0%,100% .07em;color:var(--accent-soft)}
 @keyframes dl-sheen{0%{transform:translateX(-120%)}35%,100%{transform:translateX(320%)}}
 .dl-card--xl:hover{border-color:rgba(167,139,250,.8)}
 .dl-card--xl .dl-info h3{font-size:clamp(1.08rem,1.7vw,1.32rem)}
+.dl-card--xl .dl-info h3 em,.dl-nb{white-space:nowrap}
 .dl-card--xl .dl-info p{font-size:.64rem}
 .dl-card--xl .dl-btn{font-size:1rem;font-weight:700;padding:15px 24px;gap:9px;border-radius:10px;
   background:linear-gradient(180deg,#9d70fb,#7b4ae8);
@@ -230,10 +252,6 @@ html[data-theme="light"] .mv-clip{box-shadow:0 0 0 1px rgba(0,0,0,.12),0 30px 70
 .cl-stat>span{font-size:.86rem;line-height:1.45;color:var(--fg-50)}
 .cl-stat em{font-style:normal;font-weight:700;color:var(--fg)}
 .cl-foot{font-size:.78rem;line-height:1.55;color:var(--fg-30);padding:4px 2px 0}
-
-/* what's new */
-.hp-new .model-card{position:relative;overflow:hidden}
-.hp-new .model-card::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent)}
 
 /* setup */
 .how-split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);align-items:center;margin:56px 0 30px;text-align:left}

@@ -1,6 +1,6 @@
 <!-- LU-CLOUD-FACTS:START -->
 ## Current cloud offer (2026-09-14)
-Hosted includes 11 Flash models; Pro and Max include 12. Up to 500,000 combined input and output tokens per account per UTC day in app sessions. GLM 5.3 Flash uses credits on Hosted and joins the daily allowance on Pro and Max. API keys always use credits.
+Hosted includes 11 Flash models; Pro and Max include 12. In app sessions they cost no credits, up to a daily limit per account. GLM 5.3 Flash uses credits on Hosted and joins the daily allowance on Pro and Max. API keys always use credits.
 Hosted EUR 19/month: 900,000 shared credits, up to 900 uncensored images OR 90 five-second uncensored image-to-video clips. Each maximum spends the entire shared monthly wallet on one model. These are alternatives, not separate allowances. Input-image generation, character training, LoRA routes and additional operations cost extra. Uncensored video uses an input image and five-second clips. Failed jobs and changing catalog prices can affect results.
 https://locallyuncensored.com/cloud-facts.json
 Uncensored AI chat online: 47 chat models, all of them in every plan and every pack, and no moderation layer from us on text. https://locallyuncensored.com/uncensored-ai-chat-online/
@@ -12,20 +12,20 @@ https://lu-labs.ai/product-facts
 <!-- LU-CLOUD-FACTS:END -->
 # Locally Uncensored, Full Reference
 
-> Free, open-source (AGPL-3.0) plug-and-play local AI studio for Windows and Linux: chat with 20+ providers, generate images and video via ComfyUI, and code with a built-in agent. One installer, no command line, no Docker. No telemetry, and no account for local use. Cloud only when you switch it on.
+> Free, open-source (AGPL-3.0) plug-and-play local AI studio for Windows, Linux and Mac: chat with 20+ providers, generate images and video on your own machine (through ComfyUI on Windows and Linux), and code with a built-in agent. One installer, no command line, no Docker. No analytics kit, and no account for local use. Cloud only when you switch it on.
 
-Last updated: 2026-10-05. Current version: v3.0.5 (October 2026).
+Current version: v3.0.6.
 
 This file is the full, citable reference for Locally Uncensored. Facts are stated plainly so they can be quoted directly.
 
 ## What Locally Uncensored Is
 
-Locally Uncensored is a plug-and-play local AI studio: a desktop application for running AI models on your own hardware that installs like a normal program (no command line, no Docker, no config files). It combines four things most local-AI tools keep separate: AI chat, a coding agent, image generation, and video generation, all in one interface. It is free and open source under AGPL-3.0. It runs 100% locally by default; the only outbound traffic without explicit opt-in is the GitHub Releases auto-update check. Cloud providers are optional and use your own API keys.
+Locally Uncensored is a plug-and-play local AI studio: a desktop application for running AI models on your own hardware that installs like a normal program (no command line, no Docker, no config files). It combines four things most local-AI tools keep separate: AI chat, a coding agent, image generation, and video generation, all in one interface. It is free and open source under AGPL-3.0. It runs locally by default. On its own the app uses the network for two things: an update check against GitHub Releases and a count of each press of the Cloud switch. Cloud providers are optional and use your own API keys.
 
 - Name: Locally Uncensored (abbreviated LU)
 - Category: local AI studio / desktop AI application
 - License: AGPL-3.0 (free, open source)
-- Platforms: Windows 10/11 and Linux (deb, rpm, AppImage). macOS is not supported yet.
+- Platforms: Windows 10/11, Linux (deb, rpm, AppImage) and, since v3.0.6, macOS 14 or newer on Apple Silicon (dmg). Intel Macs are not supported.
 - Website: https://locallyuncensored.com
 - Source: https://github.com/PurpleDoubleD/locally-uncensored
 - Author: PurpleDoubleD
@@ -44,7 +44,7 @@ Yes. Qwen 3.8 27B is in the Model Manager since v2.6.6, with working vision: the
 Yes. Locally Uncensored works as a ChatGPT and Claude alternative that runs on your own hardware. Use Qwen 3.8, GPT-OSS, GLM-4.7, DeepSeek R1, Llama 4 or Gemma 4 instead, or add cloud providers (OpenAI, Anthropic, OpenRouter, Groq) alongside the local stack.
 
 ### Is it really free and offline?
-Yes. After setup and model download, no internet is needed for the local providers. There are no accounts, no telemetry, and no usage limits. Cloud providers are optional; the core runs entirely on your hardware.
+Yes. After setup and model download, no internet is needed for the local providers. Local use needs no account and has no usage limit. The app has no analytics kit and sends no crash reports. On its own it checks GitHub for updates and counts presses of the Cloud switch. Cloud providers are optional; the core runs entirely on your hardware.
 
 ### How is this different from Open WebUI, LM Studio, Jan or Msty?
 Those tools handle text chat. Locally Uncensored adds a coding agent with 14 MCP tools, image generation via ComfyUI, video creation, mobile remote access via LAN or Cloudflare Tunnel, A/B model comparison, local benchmarking, granular permissions, file upload with vision, and thinking mode, all in one app.
@@ -56,10 +56,10 @@ Text chat: 8 GB RAM. Image generation: an NVIDIA card from 6 GB of VRAM with the
 It refers to abliterated AI models with artificial refusal behaviour removed. The model responds without refusing or adding disclaimers. Combined with fully local execution, conversations stay private on your machine.
 
 ### Does remote access leak data?
-Only if you explicitly dispatch a chat over LAN or Cloudflare Tunnel. Remote access is opt-in, gated behind a 6-digit passcode, and shows visible device connection status. There are no background uploads and no telemetry.
+Remote access is off until you start it, sits behind a 6-digit passcode, and shows when a device is connected. On your own network the chat goes straight from phone to PC. Over the internet Cloudflare relays it: the traffic is encrypted to and from Cloudflare, not end to end, so Cloudflare could read it.
 
 ### Can I run it on macOS?
-No. There is no Mac build and there has never been one. The release workflow builds Windows and Linux. On a Mac, use the hosted studio in a browser at lu-labs.ai.
+Yes, since version 3.0.6, in beta. The Mac build is for Apple Silicon and needs macOS 14 or newer. Intel Macs are not supported. The .dmg is signed and notarized. Chat runs on local models through the bundled server with Metal, and Create makes images and video on the Mac itself, without ComfyUI. The app has run on one Mac so far, an M5 Pro with 48 GB. Voice has been tried by hand in the app on a Mac and works. Computer control is in the Mac app but not fully tested yet on macOS. Remote Access and the automatic update are not confirmed on macOS. On any Mac you can also use the hosted studio in a browser at lu-labs.ai.
 
 ### Is there a mobile app?
 Yes. The desktop app hosts a full mobile web app over LAN or Cloudflare Tunnel. From a phone you get chat, Coding Agent, 14 agent tools, plugins and personas.
@@ -74,7 +74,7 @@ Ja. Der deutsche Einsteiger-Guide zu unzensierter lokaler KI: https://locallyunc
 Only on very large machines. The GLM-5.3 flagship has 753.9 billion parameters and its smallest quantised build is 216.7 GB; GLM-5.3-Flash has 320.8 billion parameters with 18 billion active per token and starts at 93.1 GB, plus a 1.13 GB mmproj file if you want it to read images. Those are file sizes before context and cache. The flagship runs in a stock llama.cpp build because its glm-dsa architecture has been in the main branch since GLM-5.2; Flash reports itself as glm5next and was still waiting on pull request 27754 on 2 September 2026. Flash is MIT licensed, the flagship ships under Z.ai's own glm-5.3 licence. Both are available hosted in LU Labs Cloud on every plan. Full guide: https://locallyuncensored.com/blog/run-glm-5-3-locally.html
 
 ### Can I run Kimi K3 locally?
-No: Kimi K3 is a ~2.8 trillion parameter Mixture-of-Experts model, and now that the weights are public the sizes are measured: the smallest 1-bit GGUF is 466 GB and Q4 is 1.5 TB, which is datacenter hardware. Hosted access exists on DeepInfra and in LU Labs Cloud on every plan. Run strong mid-size open models (Qwen, GLM, Gemma, Ling 3.0 Flash) locally in Locally Uncensored instead. Full guide: https://locallyuncensored.com/blog/can-you-run-kimi-k3-locally.html
+No: Kimi K3 is a ~2.8 trillion parameter Mixture-of-Experts model, and now that the weights are public the sizes are measured: the smallest 1-bit GGUF is 466 GB and Q4 is 1.5 TB, which is datacenter hardware. Hosted access exists at independent hosts and in LU Labs Cloud on every plan. Run strong mid-size open models (Qwen, GLM, Gemma, Ling 3.0 Flash) locally in Locally Uncensored instead. Full guide: https://locallyuncensored.com/blog/can-you-run-kimi-k3-locally.html
 
 ### Can I run Ling 3.0 Flash locally?
 Yes, on the right machine. Ling 3.0 Flash is a 124B Mixture-of-Experts model with only 5.1B active parameters, MIT licensed; GGUF quants run from about 42 GB at 2-bit to a 78 GB Q4_K_M sweet spot, so 64 GB machines run the small quants and 96 GB machines run Q4 comfortably. A 24 GB GPU plus 64 GB system RAM also works via MoE offload, and generation stays fast because so few parameters are active. Full guide: https://locallyuncensored.com/blog/how-to-run-ling-3-0-flash-locally.html
@@ -116,13 +116,15 @@ Yes. The endpoint is OpenAI-compatible Chat Completions at the base URL https://
 - Image generation via ComfyUI (FLUX 2 Klein, FLUX.1, Juggernaut XL, Z-Image Turbo, ERNIE-Image, SDXL, SD 3.5)
 - Video generation (Wan 2.1, Wan 2.2, HunyuanVideo 1.5, LTX 2.3, FramePack F1, AnimateDiff, Mochi, Cosmos)
 - Image-to-image with denoise control, in a tab labelled "Edit / Image to Image"; image-to-video (FramePack F1 on 6 GB VRAM)
-- Local Create lanes for Talking Character, Music, Extend Video and Motion Control, built from core ComfyUI node families and run on your own GPU; Upscale, Erase Object and Character Studio are cloud-only
+- Local Create lanes for Talking Character, Music, Extend Video and Motion Control, built from core ComfyUI node families and run on your own GPU; Upscale and Erase Object are cloud-only, and Character Studio trains on your own GPU or in the cloud
 - Per-lane frame count, resolution and step controls on every Create lane
 - Surgical file_edit tool in the Coding Agent that changes the requested lines instead of rewriting whole files
 - Mobile remote access via LAN or Cloudflare Tunnel with 6-digit passcode and QR setup, working against non-Ollama backends too (LM Studio, Lemonade, llama.cpp), with streaming, tool calls, vision and reasoning
 - A/B model compare and local benchmark
 - Memory system and Document Chat (RAG) with local embeddings (nomic-embed-text), no cloud
-- Voice: speech-to-text (Whisper) and text-to-speech
+- Voice (since v3.0.6, beta): a spoken conversation with the selected chat model. Speech recognition (Whisper base.en through faster-whisper), the voice (Pocket TTS, 15 English voices) and turn taking run on the user's machine. The user can interrupt an answer by speaking. The model can use the agent tools with the same permissions, limited to the workspace folder by default. English only. The check in the real app ran on Windows.
+- Computer control (since v3.0.6, beta): a model looks at the screen and uses mouse and keyboard in apps the user approves. Off by default. LU asks before it touches an app for the first time and before every action unless the session is set to autonomous. An action that sends, buys, deletes or changes permissions always needs a click and cannot be confirmed by voice. Terminals, password managers, system sign-in and permission dialogs, security settings, the Run dialog and windows with administrator rights are always off limits, and LU never types into a password field. A screen task ends after at most 25 steps or 8 minutes. Foreground only.
+- Dictation: speech-to-text (Whisper). Read aloud: text-to-speech (Piper).
 - 25+ built-in AI personas plus Caveman Mode (lite/full/ultra terseness)
 - Thinking mode with universal tag stripping
 - File upload with vision support
@@ -156,6 +158,14 @@ Yes. The endpoint is OpenAI-compatible Chat Completions at the base URL https://
 - AnimateDiff Lightning, Mochi, Cosmos, SVD
 - Removed in v2.5.9 because they could never run: CogVideoX (both bundles) and Pyramid Flow. Their pipelines were built against ComfyUI node names that no version of the wrappers registers, so every generation came back an error. Nothing already on disk is deleted; they are simply no longer offered. Wan 2.1 and 2.2, LTX, SVD, FramePack, Hunyuan, Mochi and Cosmos are unaffected.
 
+## What Changed in v3.0.6
+
+- Voice (beta): talk to LU and hear it answer. Runs locally, 15 English voices, tools by voice, a switch for thinking and a switch that unloads the voice engine.
+- Computer control (beta): a model can work in the apps the user approves. Off until switched on, with per-app approval and a fixed list of apps that are off limits.
+- The status line shows the LU mark with a plain word for what a run is doing, and the mark floats above the composer when the user scrolls up during a run.
+- Dialogs have a new look.
+- LU Cloud lists ten more chat models (beta) that their makers release to answer without refusing, marked Uncensored. The mark for measured models is now called No Filter.
+
 ## What Changed in v2.5.9 (26 July 2026)
 
 A correctness release. Most of it is things that looked like they worked and did not.
@@ -185,14 +195,18 @@ A correctness release. Most of it is things that looked like they worked and did
 - Best in class: 24 GB+ VRAM for 35B MoE and 35B+ chat models
 
 ## Installation
-1. Download the installer for Windows or Linux from GitHub Releases (https://github.com/PurpleDoubleD/locally-uncensored/releases/latest). One-click install, no Docker, no terminal, no config files.
+1. Download the installer for Windows, Linux or macOS from GitHub Releases (https://github.com/PurpleDoubleD/locally-uncensored/releases/latest). One-click install, no Docker, no terminal, no config files.
 2. On first launch, the setup wizard scans for 12 local AI backends and offers one-click install links if none are running.
 3. Pick a model from the Model Manager and start chatting. Switch to the Coding Agent for coding, or open Create to generate images and video. Add cloud providers in Settings to mix local and cloud.
 
 ## Privacy
-- 100% local by default
-- No telemetry, no analytics, no model pings home
-- Only outbound traffic without explicit opt-in: GitHub Releases auto-update checks
+- Local by default: chats, models and files stay on your machine
+- No analytics kit and no crash reports
+- On its own the app uses the network for two things: an update check against GitHub Releases shortly after start and at most every six hours after that, and a count of each press of the Cloud switch (which way, platform, app version, no identifier)
+- A new version downloads in the background unless you switch that off under Settings, General, Updates; installing always needs a click
+- While you are signed in to LU Cloud, in local mode too: an account check at lu-labs.ai every five minutes, and a press of the Cloud switch is counted for the account as well
+- Everything else that goes online you start yourself: model and engine downloads, providers with your own API keys, web search in agent runs, and Remote Access
+- Remote Access over the internet: Cloudflare relays the traffic, encrypted to and from Cloudflare, not end to end
 - Cloud optional, two routes: bring your own key (your keys, your data), and the paid LU Labs Cloud service, where inference runs on our infrastructure partners
 - Data lives in %APPDATA%/Locally Uncensored on Windows (or the equivalent on Linux)
 

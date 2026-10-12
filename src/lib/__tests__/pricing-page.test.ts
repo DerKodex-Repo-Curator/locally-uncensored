@@ -178,32 +178,25 @@ it('scans the whole site, not an empty list', () => {
   expect(SITE.length).toBeGreaterThan(50)
 })
 
-it('never promises a Mac build of the desktop app', () => {
-  // In keinem der 19 GitHub-Releases lag je eine .dmg. Zwei alte
-  // Release-Artikel schickten den Leser trotzdem fuer eine zur
-  // Releases-Seite, und vier weitere Stellen zaehlten Mac in der
-  // Plattformliste der App mit. Richtig ist: Windows und Linux, und auf dem
-  // Mac laeuft das gehostete Studio im Browser.
-  const banned = [
-    '.dmg',
-    'Windows, Linux and macOS',
-    'Windows, Linux and Mac',
-    'Windows, Linux und Mac',
-    'Windows, Linux \u0438 Mac',
-    'Windows/macOS/Linux',
-    'macOS and Linux builds',
-  ]
+it('says which Macs the desktop build is for, wherever a page offers it', () => {
+  // Seit 3.0.6 gibt es einen Mac-Bau fuer Apple Silicon ab macOS 14, keinen
+  // fuer Intel. Eine Seite, die eine .dmg anbietet, nennt den Chip. Die zwei
+  // Stellen, an denen die Frage gestellt wird, nennen ausserdem die
+  // Mindestversion und sagen, was nicht geht.
   for (const [path, html] of SITE) {
-    for (const phrase of banned) {
-      expect(html.includes(phrase), `${path} promises a Mac build: ${phrase}`).toBe(false)
-    }
+    if (html.includes('.dmg')) expect(html.includes('Apple Silicon'), `${path} offers a .dmg without naming Apple Silicon`).toBe(true)
+    expect(/Intel Macs? (is|are) supported/i.test(html), `${path} promises an Intel build`).toBe(false)
+  }
+  for (const path of ['docs/index.html', 'docs/guide/faq-and-glossary/index.html']) {
+    const html = readFileSync(path, 'utf8')
+    expect(html, path).toContain('The Mac build is for Apple Silicon and needs macOS 14 or newer. Intel Macs are not supported.')
   }
 })
 
-it('points the two old release articles at the browser studio instead', () => {
+it('the two old release articles say since when there is a Mac build, and still name the browser studio', () => {
   for (const name of ['locally-uncensored-v1-5-release', 'locally-uncensored-v2-2-2-release']) {
     const html = readFileSync(`docs/blog/${name}.html`, 'utf8')
-    expect(html, name).toMatch(/no Mac (build|download)|never shipped a Mac build/i)
+    expect(html, name).toContain('A Mac build exists since version 3.0.6, for Apple Silicon')
     expect(html, name).toContain('lu-labs.ai')
     // Dieselben zwei Dateien sind beim Umschreiben von 90 Gedankenstrichen
     // befreit worden.

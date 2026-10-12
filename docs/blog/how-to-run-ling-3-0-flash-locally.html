@@ -28,14 +28,14 @@
 {"@context":"https://schema.org","@type":"BlogPosting","headline":"How to Run Ling 3.0 Flash Locally: Real GGUF Sizes and Hardware Math","description":"Practical guide to running inclusionAI's Ling 3.0 Flash locally: measured GGUF sizes from 27 GB to 136 GB, hardware recommendations for Apple Silicon and GPU plus RAM hybrids, llama.cpp MoE offload, and hosted alternatives.","image":"https://raw.githubusercontent.com/PurpleDoubleD/locally-uncensored/master/docs/social-preview.png","datePublished":"2026-08-09","dateModified":"2026-08-09","author":{"@type":"Person","name":"PurpleDoubleD","url":"https://github.com/PurpleDoubleD"},"publisher":{"@type":"Organization","name":"Locally Uncensored","url":"https://locallyuncensored.com/"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://locallyuncensored.com/blog/how-to-run-ling-3-0-flash-locally.html"},"keywords":"how to run ling 3.0 flash locally, ling 3.0 flash gguf, ling 3.0 flash hardware requirements, inclusionai ling"}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What hardware do I need to run Ling 3.0 Flash locally?","acceptedAnswer":{"@type":"Answer","text":"The 2-bit GGUF quants are 42 to 43 GB and want 48 to 64 GB of RAM or unified memory. The Q4_K_M sweet spot is 78 GB on disk and runs well on 96 GB machines, or on a 24 GB GPU with 64 GB or more system RAM using MoE offload."}},{"@type":"Question","name":"How fast is Ling 3.0 Flash on local hardware?","acceptedAnswer":{"@type":"Answer","text":"Only 5.1B of its 124B parameters are active per token, so once the weights fit in memory, generation speed resembles a small model: double-digit tokens per second on Apple Silicon at Q4 and on GPU plus RAM hybrid setups."}},{"@type":"Question","name":"What license does Ling 3.0 Flash use?","acceptedAnswer":{"@type":"Answer","text":"MIT. The weights are on Hugging Face under inclusionAI/Ling-3.0-flash, including official fp8, fp4 and int4 variants, and community GGUF conversions from roughly 27 GB to 136 GB."}},{"@type":"Question","name":"Can I use Ling 3.0 Flash without buying hardware?","acceptedAnswer":{"@type":"Answer","text":"Yes. It is in the LU Labs Cloud catalog on every plan, DeepInfra serves it at 0.03 dollars per million input and 0.07 dollars per million output tokens, and OpenRouter lists a free tier."}},{"@type":"Question","name":"Is Ling 3.0 Flash uncensored?","acceptedAnswer":{"@type":"Answer","text":"The stock model carries standard alignment. Its MIT license makes community finetunes and abliterated builds fully legal to create and share, but none exist yet as of August 2026."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What hardware do I need to run Ling 3.0 Flash locally?","acceptedAnswer":{"@type":"Answer","text":"The 2-bit GGUF quants are 42 to 43 GB and want 48 to 64 GB of RAM or unified memory. The Q4_K_M sweet spot is 78 GB on disk and runs well on 96 GB machines, or on a 24 GB GPU with 64 GB or more system RAM using MoE offload."}},{"@type":"Question","name":"How fast is Ling 3.0 Flash on local hardware?","acceptedAnswer":{"@type":"Answer","text":"Only 5.1B of its 124B parameters are active per token, so once the weights fit in memory, generation speed resembles a small model: double-digit tokens per second on Apple Silicon at Q4 and on GPU plus RAM hybrid setups."}},{"@type":"Question","name":"What license does Ling 3.0 Flash use?","acceptedAnswer":{"@type":"Answer","text":"MIT. The weights are on Hugging Face under inclusionAI/Ling-3.0-flash, including official fp8, fp4 and int4 variants, and community GGUF conversions from roughly 27 GB to 136 GB."}},{"@type":"Question","name":"Can I use Ling 3.0 Flash without buying hardware?","acceptedAnswer":{"@type":"Answer","text":"Yes. It is in the LU Labs Cloud catalog on every plan, independent hosting costs a few cents per million tokens, and OpenRouter lists a free tier."}},{"@type":"Question","name":"Is Ling 3.0 Flash uncensored?","acceptedAnswer":{"@type":"Answer","text":"The stock model carries standard alignment. Its MIT license makes community finetunes and abliterated builds fully legal to create and share, but none exist yet as of August 2026."}}]}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/lu.css">
 <script defer src="/assets/lu.js"></script>
-  <script data-goatcounter="https://lu-uncensored.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  <script data-goatcounter="https://purple47.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 
@@ -126,7 +126,7 @@ cd locally-uncensored
       <li>On a GPU plus RAM setup, use the offload slider to keep experts in system memory if the file does not fit in VRAM.</li>
     </ol>
 
-    <p>In local mode everything stays on your machine: prompts, chats, and the model file. No account, no telemetry, no cloud in the loop.</p>
+    <p>In local mode everything stays on your machine: prompts, chats, and the model file. It needs no account, and no cloud model is involved.</p>
 
     <h2>Running It with Plain llama.cpp</h2>
 
@@ -141,7 +141,7 @@ cd locally-uncensored
 
     <h2>No Big Machine? The Hosted Options</h2>
 
-    <p>Ling 3.0 Flash is so cheap to serve that hosted access is nearly free. DeepInfra lists it at $0.03 per million input tokens and $0.07 per million output tokens, which rounds to pocket lint. It is also in the <a href="https://lu-labs.ai/pricing">LU Labs Cloud</a> catalog on every plan as of today, with the same thinking toggle the local app exposes, plus native tool calling for agent work. And OpenRouter carries a free tier of the model if you just want to poke it.</p>
+    <p>Ling 3.0 Flash is so cheap to serve that hosted access is nearly free. Independent hosting costs a few cents per million tokens, which rounds to pocket lint. It is also in the <a href="https://lu-labs.ai/pricing">LU Labs Cloud</a> catalog on every plan as of today, with the same thinking toggle the local app exposes, plus native tool calling for agent work. And OpenRouter carries a free tier of the model if you just want to poke it.</p>
 
     <h2>What About Uncensored Use?</h2>
 
@@ -162,7 +162,7 @@ cd locally-uncensored
     <p>MIT. Weights are on Hugging Face (inclusionAI/Ling-3.0-flash), including official fp8, fp4, and int4 variants.</p>
 
     <h3>Can I run it without a monster PC?</h3>
-    <p>Yes, hosted: it is in LU Labs Cloud on every plan, on DeepInfra for fractions of a cent, and OpenRouter has a free tier.</p>
+    <p>Yes, hosted: it is in LU Labs Cloud on every plan, independent hosting costs a few cents per million tokens, and OpenRouter has a free tier.</p>
 
     <hr>
 
@@ -190,6 +190,9 @@ cd locally-uncensored
     <a href="https://github.com/PurpleDoubleD/locally-uncensored/issues">Issues</a>
     <a href="https://reddit.com/user/GroundbreakingMall54">Reddit</a>
     <a href="https://www.linkedin.com/in/david-drobnitza-locallyuncensored/" rel="me noopener" target="_blank">LinkedIn</a>
+    <a href="https://locallyuncensored.com/privacy/">Privacy</a>
+    <a href="https://locallyuncensored.com/terms/">Terms</a>
+    <a href="https://locallyuncensored.com/impressum/">Impressum</a>
   </div>
 </footer>
 </body>

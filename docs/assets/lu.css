@@ -1,7 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   Locally Uncensored — shared design system
-   Ported from the lu-labs.ai marketing design (uselu/apps/web marketing.css +
-   home.css). Applied site-wide via :root so every static page shares one look.
+   Locally Uncensored: shared design system
+   Ported from the lu-labs.ai marketing design. Applied site-wide via :root so every static page shares one look.
 
    IMPORTANT: purely visual. Brand stays "Locally Uncensored"; all page content,
    links, headings and SEO are owned by the HTML, not this file.

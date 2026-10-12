@@ -33,7 +33,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/lu.css">
 <script defer src="/assets/lu.js"></script>
-  <script data-goatcounter="https://lu-uncensored.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  <script data-goatcounter="https://purple47.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 
@@ -71,7 +71,7 @@
     <h1>How to Run Kimi K3: Every Option That Actually Works</h1>
 
     
-    <p><strong>Update, August 9, 2026:</strong> the weights are out and the options below have changed shape. Independent hosting is live: DeepInfra serves K3 at $2.85 per million input and $14.25 per million output, slightly undercutting Moonshot's own API. K3 is also in <a href="https://lu-labs.ai/pricing">LU Labs Cloud</a> on every plan as of today, with image input verified working and reasoning as a toggle you can switch off. Local hosting is now technically possible but starts at a 466 GB 1-bit GGUF; the honest breakdown lives in <a href="can-you-run-kimi-k3-locally.html">Can You Run Kimi K3 Locally</a>, and yes, the first <a href="abliterated-models-guide.html">abliterated</a> conversions have appeared for the RAM-rich.</p>
+    <p><strong>Update, August 9, 2026:</strong> the weights are out and the options below have changed shape. Independent hosting is live and slightly undercuts Moonshot's own API. K3 is also in <a href="https://lu-labs.ai/pricing">LU Labs Cloud</a> on every plan as of today, with image input verified working and reasoning as a toggle you can switch off. Local hosting is now technically possible but starts at a 466 GB 1-bit GGUF; the breakdown is in <a href="can-you-run-kimi-k3-locally.html">Can You Run Kimi K3 Locally</a>, and yes, the first <a href="abliterated-models-guide.html">abliterated</a> conversions have appeared for the RAM-rich.</p>
 
     <p>Kimi K3 launched on July 16, 2026, and the first question everyone asks after the benchmarks is the practical one: <strong>how do I actually run this thing?</strong> Here is every working option as of today, with real setup steps, real prices, and the honest answer on local hosting. (New to the model itself? Start with our <a href="kimi-k3-explained.html">Kimi K3 explainer</a>.)</p>
 
@@ -83,7 +83,7 @@
         <tr><td>Moonshot API</td><td>Live</td><td>$3 / M input, $15 / M output</td><td>Developers, agents, coding tools</td></tr>
         <tr><td>OpenRouter</td><td>Live (routes to Moonshot)</td><td>Same + OpenRouter margin</td><td>Apps already on OpenRouter</td></tr>
         <tr><td>Kimi app / Kimi Code</td><td>Live</td><td>Subscription (¥199 entry tier)</td><td>Chat users, no code</td></tr>
-        <tr><td>Your own hardware</td><td>Not yet — weights due July 27</td><td>—</td><td>Nobody with a consumer PC (see below)</td></tr>
+        <tr><td>Your own hardware</td><td>Not yet, weights due July 27</td><td>n/a</td><td>Nobody with a consumer PC (see below)</td></tr>
       </tbody>
     </table>
 
@@ -122,13 +122,13 @@ print(resp.choices[0].message.content)</code></pre>
 
     <h2>Option 4: Running Kimi K3 Locally (the honest math)</h2>
 
-    <p>Short version: <strong>you cannot run K3 locally today, and after July 27 you still almost certainly will not want to try on consumer hardware.</strong> The weights are not public yet, and when they land, the arithmetic is brutal: ~2.8 trillion parameters means that even at aggressive 4-bit quantization the weights alone are well over a terabyte. That is multi-server, multi-GPU territory. We ran the full numbers in <a href="can-you-run-kimi-k3-locally.html">Can You Run Kimi K3 Locally?</a> — the summary is: no gaming PC, no Mac Studio, no single workstation gets there.</p>
+    <p>Short version: <strong>you cannot run K3 locally today, and after July 27 you still almost certainly will not want to try on consumer hardware.</strong> The weights are not public yet, and when they land, the arithmetic is brutal: ~2.8 trillion parameters means that even at aggressive 4-bit quantization the weights alone are well over a terabyte. That is multi-server, multi-GPU territory. We ran the full numbers in <a href="can-you-run-kimi-k3-locally.html">Can You Run Kimi K3 Locally?</a>. The summary: no gaming PC, no Mac Studio, no single workstation gets there.</p>
 
-    <p>What the weights release <em>does</em> change is who can serve the model. Independent hosts (DeepInfra and friends) can spin it up, prices typically fall under competition, and the OpenRouter listing stops being a single-upstream pass-through. If you want K3 without a Moonshot account, that is the moment to watch.</p>
+    <p>What the weights release <em>does</em> change is who can serve the model. Independent hosts can spin it up, prices typically fall under competition, and the OpenRouter listing stops being a single-upstream pass-through. If you want K3 without a Moonshot account, that is the moment to watch.</p>
 
     <h2>What to Run Locally While You Wait</h2>
 
-    <p>The realistic local play is not a 2.8T flagship — it is the strong mid-size open models that fit real hardware: Qwen 3.6, GLM, Gemma, and the pruned or distilled variants the community builds within weeks of every big release (K2 got them; K3 will too). If you compared the family already, our <a href="kimi-k3-vs-kimi-k2-6.html">K3 vs K2.6 breakdown</a> covers which capabilities actually need the big model.</p>
+    <p>The realistic local play is not a 2.8T flagship. It is the strong mid-size open models that fit real hardware: Qwen 3.6, GLM, Gemma, and the pruned or distilled variants the community builds within weeks of every big release (K2 got them; K3 will too). If you compared the family already, our <a href="kimi-k3-vs-kimi-k2-6.html">K3 vs K2.6 breakdown</a> covers which capabilities actually need the big model.</p>
 
     <p>LU Labs walks through what K3 is and how it reached a hosted catalog in <a href="https://lu-labs.ai/blog/kimi-k3-explained-and-lu-labs-cloud" target="_blank" rel="noopener">Kimi K3 explained</a>.</p>
 
@@ -167,6 +167,9 @@ print(resp.choices[0].message.content)</code></pre>
     <a href="https://github.com/PurpleDoubleD/locally-uncensored/issues">Issues</a>
     <a href="https://reddit.com/user/GroundbreakingMall54">Reddit</a>
     <a href="https://www.linkedin.com/in/david-drobnitza-locallyuncensored/" rel="me noopener" target="_blank">LinkedIn</a>
+    <a href="https://locallyuncensored.com/privacy/">Privacy</a>
+    <a href="https://locallyuncensored.com/terms/">Terms</a>
+    <a href="https://locallyuncensored.com/impressum/">Impressum</a>
   </div>
 </footer>
 </body>

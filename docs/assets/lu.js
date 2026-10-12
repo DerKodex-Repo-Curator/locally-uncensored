@@ -148,8 +148,8 @@
 
   // Preserve a validated campaign source when a visitor crosses from the
   // editorial LUC site to LU Labs. Static pricing links carry a useful default
-  // (`luc-pricing`), but an inbound campaign such as `m300_w1_a` must win so the
-  // eventual Stripe checkout can still be attributed after login.
+  // (`luc-pricing`), but an inbound campaign source must win so the
+  // eventual checkout can still be attributed after login.
   function wireFunnelSource() {
     var source = new URLSearchParams(window.location.search).get("src");
     if (!source || !/^[a-z0-9_-]{1,32}$/.test(source)) return;

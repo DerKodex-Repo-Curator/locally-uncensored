@@ -23,17 +23,17 @@
 <meta name="theme-color" content="#0a0a0a">
 <link rel="icon" href="../favicon.png">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BlogPosting","headline":"DeepSeek V4 Flash in the Cloud: LU Labs, API, OpenRouter","description":"Practical cloud guide for DeepSeek V4 Flash: official DeepSeek API setup with code and cache hit pricing, LU Labs hosted plans with flat monthly pricing on open weight models, and OpenRouter as the one line switch.","image":"https://raw.githubusercontent.com/PurpleDoubleD/locally-uncensored/master/docs/social-preview.png","datePublished":"2026-07-31","dateModified":"2026-07-31","inLanguage":"en","author":{"@type":"Person","name":"PurpleDoubleD","url":"https://github.com/PurpleDoubleD"},"publisher":{"@type":"Organization","name":"Locally Uncensored","url":"https://locallyuncensored.com/"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://locallyuncensored.com/blog/deepseek-v4-flash-cloud.html"},"keywords":"deepseek v4 flash api, deepseek v4 flash cloud, deepseek v4 flash pricing, deepseek v4 flash openrouter"}
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"DeepSeek V4 Flash in the Cloud: LU Labs, API, OpenRouter","description":"Practical cloud guide for DeepSeek V4 Flash: official DeepSeek API setup with code and cache hit pricing, LU Labs hosted plans and credit packs for open weight models, and OpenRouter as the one line switch.","image":"https://raw.githubusercontent.com/PurpleDoubleD/locally-uncensored/master/docs/social-preview.png","datePublished":"2026-07-31","dateModified":"2026-07-31","inLanguage":"en","author":{"@type":"Person","name":"PurpleDoubleD","url":"https://github.com/PurpleDoubleD"},"publisher":{"@type":"Organization","name":"Locally Uncensored","url":"https://locallyuncensored.com/"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://locallyuncensored.com/blog/deepseek-v4-flash-cloud.html"},"keywords":"deepseek v4 flash api, deepseek v4 flash cloud, deepseek v4 flash pricing, deepseek v4 flash openrouter"}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How much does the DeepSeek V4 Flash API cost?","acceptedAnswer":{"@type":"Answer","text":"On the official API: $0.14 per million input tokens on a cache miss, $0.0028 per million on a cache hit, and $0.28 per million output tokens. Both V4 models support 1M input context and up to 384K output tokens. DeepSeek has announced that peak hour pricing (Beijing business hours) will run at 2x once it takes effect."}},{"@type":"Question","name":"What is the easiest way to use DeepSeek V4 Flash without an API key?","acceptedAnswer":{"@type":"Answer","text":"A hosted plan or a credit pack. LU Labs offers flat monthly plans (from 19 EUR) and credit packs from 15 EUR with no subscription, and you pick DeepSeek V4 Flash from a model picker without managing keys, tokens, or billing spreadsheets. V4 Flash and V4 Pro are in that picker on every plan and on every pack."}},{"@type":"Question","name":"Does DeepSeek V4 Flash work with Codex style coding agents?","acceptedAnswer":{"@type":"Answer","text":"Yes. The 0731 build natively supports the Responses API format and is adapted for Codex, so tools that expect the OpenAI Responses interface work against the official API without a shim."}},{"@type":"Question","name":"Is my data private when I use DeepSeek V4 Flash in the cloud?","acceptedAnswer":{"@type":"Answer","text":"Depends on the route. The official API processes prompts on DeepSeek's servers under DeepSeek's terms. LU Labs serves open weights with European billing and no training on your prompts. Fully private means local: the weights are MIT licensed, so you can run the model on your own hardware."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How much does the DeepSeek V4 Flash API cost?","acceptedAnswer":{"@type":"Answer","text":"On the official API: $0.14 per million input tokens on a cache miss, $0.0028 per million on a cache hit, and $0.28 per million output tokens. Both V4 models support 1M input context and up to 384K output tokens. DeepSeek has announced that peak hour pricing (Beijing business hours) will run at 2x once it takes effect."}},{"@type":"Question","name":"What is the easiest way to use DeepSeek V4 Flash without an API key?","acceptedAnswer":{"@type":"Answer","text":"A hosted plan or a credit pack. LU Labs offers monthly plans from 19 EUR, each with a credit balance, and credit packs from 15 EUR with no subscription, and you pick DeepSeek V4 Flash from a model picker without managing keys, tokens, or billing spreadsheets. V4 Flash and V4 Pro are in that picker on every plan and on every pack."}},{"@type":"Question","name":"Does DeepSeek V4 Flash work with Codex style coding agents?","acceptedAnswer":{"@type":"Answer","text":"Yes. The 0731 build natively supports the Responses API format and is adapted for Codex, so tools that expect the OpenAI Responses interface work against the official API without a shim."}},{"@type":"Question","name":"Is my data private when I use DeepSeek V4 Flash in the cloud?","acceptedAnswer":{"@type":"Answer","text":"Depends on the route. The official API processes prompts on DeepSeek's servers under DeepSeek's terms. LU Labs serves open weights with European billing and no training on your prompts. Fully private means local: the weights are MIT licensed, so you can run the model on your own hardware."}}]}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/lu.css">
 <script defer src="/assets/lu.js"></script>
-  <script data-goatcounter="https://lu-uncensored.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  <script data-goatcounter="https://purple47.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 
@@ -77,18 +77,18 @@
     <table>
       <thead><tr><th>Option</th><th>Cost</th><th>Setup effort</th><th>Best for</th></tr></thead>
       <tbody>
-        <tr><td>LU Labs hosted plans</td><td>Flat, from 19&euro;/mo, or a credit pack from 5&euro; with no subscription</td><td>Sign up, pick model, go</td><td>Chat and agents without key management</td></tr>
+        <tr><td>LU Labs hosted plans</td><td>A plan from 19&euro;/mo with monthly credits, or a credit pack from 15&euro; with no subscription</td><td>Sign up, pick model, go</td><td>Chat and agents without key management</td></tr>
         <tr><td>Official DeepSeek API</td><td>$0.14 / M input, $0.28 / M output</td><td>API key + three lines of code</td><td>Developers, agents, Codex style tools</td></tr>
         <tr><td>OpenRouter</td><td>Provider price + margin</td><td>Change one model string</td><td>Apps already on OpenRouter</td></tr>
       </tbody>
     </table>
 
-    <h2>Option 1: LU Labs (flat price, no key juggling)</h2>
+    <h2>Option 1: LU Labs (one credit balance, no key juggling)</h2>
 
-    <p><a href="https://lu-labs.ai/" target="_blank" rel="noopener">LU Labs</a> is the hosted layer from the team behind Locally Uncensored: the same studio experience (chat, code, image, video), with the heavy models running on rented GPUs instead of yours. The model picker includes the whole DeepSeek line, and <strong>V3.2, V4 Flash and V4 Pro are all in it on every plan and on a credit pack from 5&euro;</strong>, metered in credits against your balance instead of a per token bill. A few reasons people pick this over raw API keys:</p>
+    <p><a href="https://lu-labs.ai/" target="_blank" rel="noopener">LU Labs</a> is the hosted layer from the team behind Locally Uncensored: the same studio experience (chat, code, image, video), with the heavy models running on rented GPUs instead of yours. The model picker includes the whole DeepSeek line, and <strong>V3.2, V4 Flash and V4 Pro are all in it on every plan and on a credit pack from 15&euro;</strong>, metered in credits against one balance. A few reasons people pick this over raw API keys:</p>
 
     <ul>
-      <li><strong>Flat monthly pricing.</strong> No surprise bills when an agent loop runs long; you see quota, not invoices.</li>
+      <li><strong>One balance you can see.</strong> A plan comes with monthly credits and a pack with a fixed amount, and a long agent loop draws on that balance.</li>
       <li><strong>Open weights, EU billing.</strong> Served for the plan price, billed in the EU, and no training on your prompts.</li>
       <li><strong>One picker, whole lineup.</strong> V4 Flash next to Qwen, GLM, Kimi and the unfiltered community builds, switchable per conversation.</li>
       <li><strong>Works with the desktop app.</strong> Run small models locally in Locally Uncensored and borrow cloud muscle for the big ones, same interface.</li>
@@ -117,7 +117,7 @@ print(resp.choices[0].message.content)</code></pre>
 
     <h2>Option 3: OpenRouter</h2>
 
-    <p>OpenRouter lists <code>deepseek/deepseek-v4-flash</code>, so apps already wired to it switch with one model string. You get unified billing and fallbacks; you pay the routing margin, and with open weights now published, expect independent hosts to appear under the same listing and push prices around. For a single model, the official API or a flat plan is usually the simpler deal.</p>
+    <p>OpenRouter lists <code>deepseek/deepseek-v4-flash</code>, so apps already wired to it switch with one model string. You get unified billing and fallbacks; you pay the routing margin, and with open weights now published, expect independent hosts to appear under the same listing and push prices around. For a single model, the official API or a plan with credits is usually the simpler deal.</p>
 
     <h2>Which Cloud Route for Whom</h2>
 
@@ -157,6 +157,9 @@ print(resp.choices[0].message.content)</code></pre>
     <a href="https://github.com/PurpleDoubleD/locally-uncensored/issues">Issues</a>
     <a href="https://reddit.com/user/GroundbreakingMall54">Reddit</a>
     <a href="https://www.linkedin.com/in/david-drobnitza-locallyuncensored/" rel="me noopener" target="_blank">LinkedIn</a>
+    <a href="https://locallyuncensored.com/privacy/">Privacy</a>
+    <a href="https://locallyuncensored.com/terms/">Terms</a>
+    <a href="https://locallyuncensored.com/impressum/">Impressum</a>
   </div>
 </footer>
 </body>
