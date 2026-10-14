@@ -1679,8 +1679,11 @@ jobs:
       # The updater on a Mac asks latest.json for `darwin-aarch64`
       # (tauri-plugin-updater: <os>-<arch>). This reads the file the release
       # now serves and requires that key, with a signature and the updater
-      # archive as its url, AND the Windows and Linux keys the two other
-      # lanes wrote before this job started (see the header for the merge).
+      # archive as its url, AND the key of every other platform whose updater
+      # files hang on the release: the merge must not drop it. Windows signed
+      # through SignPath attaches its installers and writes its key later
+      # (stage 3 in windows-signpath.yml, after an approval), so until then
+      # it is not asked for here; the log says it is not there yet.
       - name: Verify latest.json carries darwin-aarch64 and kept the other platforms
         if: ${{ env.MAC_DRY_RUN != 'true' }}
         shell: bash
@@ -1707,11 +1710,19 @@ jobs:
           if (!/\.app\.tar\.gz$/.test(mac.url || '')) fail('darwin-aarch64 does not point at an .app.tar.gz: ' + mac.url)
           const file = decodeURIComponent(mac.url.split('/').pop())
           if (!assets.includes(file)) fail('darwin-aarch64 points at ' + file + ', which is not an asset of this release')
-          for (const need of ['windows-x86_64', 'linux-x86_64']) {
+          // A platform counts once its signed updater files are attached.
+          const lanes = {
+            'windows-x86_64': /_x64.*\.(exe|msi)(\.zip)?\.sig$/,
+            'linux-x86_64': /\.AppImage(\.tar\.gz)?\.sig$/,
+          }
+          const later = []
+          for (const [need, files] of Object.entries(lanes)) {
+            if (!assets.some((n) => files.test(n))) { later.push(need); continue }
             if (!json.platforms[need]) fail(need + ' is gone from latest.json: the merge dropped a platform, do NOT flip this release to Latest')
           }
           if (!assets.some((n) => /\.dmg$/.test(n))) fail('no .dmg is attached to the release')
-          console.log('OK: darwin-aarch64 -> ' + file + ', Windows and Linux keys intact, .dmg attached')
+          if (later.length) console.log('NOTE: not attached yet: ' + later.join(', ') + '. Do not flip this release to Latest before they are.')
+          console.log('OK: darwin-aarch64 -> ' + file + ', every attached platform kept its key, .dmg attached')
           NODE
 
   # The promise above, made real for every trigger. Runs after the binaries are
