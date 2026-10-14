@@ -2,9 +2,10 @@
  * Two locks of the build lanes, held as text.
  *
  * 1. The signing probe is started by hand and takes the name of the signing
- *    policy as free input. With a policy other than the test policy it asks
- *    for a certificate Windows trusts, so that is refused on every branch but
- *    the default one, before anything is checked out or built.
+ *    policy as free input. A policy other than the test policy asks for a
+ *    certificate Windows trusts, which SignPath issues for release tags only,
+ *    so the probe refuses it outright, before anything is checked out or
+ *    built.
  * 2. The Windows lanes download an SDK installer and run it. Every lane that
  *    does checks the file against one pinned sha256 first.
  */
@@ -25,14 +26,19 @@ describe('signpath-probe.yml', () => {
   const probe = read('.github/workflows/signpath-probe.yml')
   const all = steps(probe)
 
-  it('refuses every policy but the test policy on a branch other than the default branch, as its first step', () => {
+  it('refuses every policy but the test policy, as its first step', () => {
     const first = all[0]
-    expect(first).toContain("inputs.signing-policy-slug != 'test-signing'")
-    expect(first).toContain("github.ref != format('refs/heads/{0}', github.event.repository.default_branch)")
+    expect(first).toContain("if: ${{ inputs.signing-policy-slug != 'test-signing' }}")
     expect(first).toMatch(/^\s*exit 1\s*$/m)
     expect(first).not.toMatch(/continue-on-error/)
     // Nothing runs before it: no checkout, no secret.
     expect(first).not.toMatch(/uses:|secrets\./)
+    // Its job is the one every other job waits for.
+    const jobs = probe.slice(probe.indexOf('\njobs:\n'))
+    expect(jobs).toMatch(/^jobs:\n {2}[^\n]*\n {2}lock:\n/m)
+    for (const job of ['build', 'installers', 'finish']) {
+      expect(jobs, job).toMatch(new RegExp(`^ {2}${job}:\\n {4}needs: lock$`, 'm'))
+    }
   })
 
   it('keeps the test policy as the default input', () => {

@@ -201,12 +201,20 @@ jobs:
     # AppImage) that ci.yml's own tauri-build does not, so its ceiling is
     # wider than that job's 60 minutes rather than equal to it.
     #
-    # The SignPath lane (Windows only) waits for a person to approve two
-    # signing requests, so that leg gets the six hours a hosted runner allows.
-    # The signing policy is the last of the SignPath values to be entered,
-    # the one that switches the lane on for releases; without it the
-    # expression is 90 for every leg, as before.
-    timeout-minutes: ${{ matrix.platform == 'windows-latest' && vars.SIGNPATH_SIGNING_POLICY_SLUG != '' && 360 || 90 }}
+    # The SignPath lane (Windows only) waits for no person: it submits the
+    # app binary and ends, and the approvals are picked up later by
+    # windows-signpath.yml. That leg builds llama.cpp from source instead of
+    # restoring it from the cache, so it gets 120 minutes. The signing policy
+    # is the last of the SignPath values to be entered, the one that switches
+    # the lane on for releases; without it the expression is 90 for every
+    # leg, as before.
+    timeout-minutes: ${{ matrix.platform == 'windows-latest' && vars.SIGNPATH_SIGNING_POLICY_SLUG != '' && 120 || 90 }}
+    # contents: write as for the whole workflow (the release). actions: read
+    # for the SignPath lane: SignPath fetches the uploaded binary with this
+    # job's token, and the lane reads the state artifacts of earlier runs.
+    permissions:
+      contents: write
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -294,7 +302,13 @@ jobs:
         # llama-server.exe, and SignPath asks that a signed release restores no
         # built binary from a cache: everything in the signed installer is
         # built in this run (agreed with SignPath, 2026-10-14). The Rust cache
-        # above may stay, it keeps dependencies and drops the app's own build.
+        # above may stay, it keeps dependencies and drops the app's own build:
+        # at the pinned commit of swatinem/rust-cache, src/save.ts lines 39-54
+        # clean the target directory with the packages outside the workspace
+        # only (workspace crates join only with cache-workspace-crates, off
+        # here), and src/cleanup.ts lines 13-31 and 58-75 delete every file of
+        # target/ and of target/release, keep build/, .fingerprint/ and deps/,
+        # and inside those only what belongs to those packages.
         if: ${{ !(matrix.platform == 'windows-latest' && vars.SIGNPATH_SIGNING_POLICY_SLUG != '' && !inputs.dry_run) }}
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -809,11 +823,12 @@ jobs:
         run: ./scripts/windows-signing-verify.ps1 -SignTool "${{ steps.winsign.outputs.signtool }}"
 
       # ── Windows code signing with SignPath, only with its values ─────────
-      # Builds, signs and verifies; see the header of the action for the
-      # order and for why it takes two signing requests. It publishes nothing.
-      # The publisher check refuses anything but the certificate of the
-      # SignPath Foundation, so a release can never go out under the
-      # self-signed test certificate: that one is for signpath-probe.yml.
+      # Stage 1 of 3: builds the app, keeps the build output, and submits the
+      # app binary to SignPath without waiting for the approval. Stages 2 and
+      # 3 (installers, then publish with the publisher check and latest.json)
+      # run later in windows-signpath.yml on the same tag; see the header of
+      # the action for the order and for why it takes two signing requests.
+      # Until stage 3 is through, this release has no Windows assets.
       # SignPath signs for this project only from a run on a release tag
       # (refs/tags/v<major>.<minor>.<patch>), the pattern its signing policy
       # names. A run started by hand from a branch carries that branch as its
@@ -831,73 +846,16 @@ jobs:
             exit 1
           fi
 
-      - name: Build and sign the Windows installers (SignPath)
+      - name: Build the app and submit it to SignPath (stage 1)
         id: signpath
-        if: matrix.platform == 'windows-latest' && steps.signcfg.outputs.signpath == 'true' && !inputs.dry_run && startsWith(github.ref, 'refs/tags/v')
+        if: matrix.platform == 'windows-latest' && steps.signcfg.outputs.signpath == 'true' && startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run
         uses: ./.github/actions/windows-signpath
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
           project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
           signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
-          expected-publisher: ${{ vars.SIGNPATH_EXPECTED_PUBLISHER || 'SignPath Foundation' }}
-          updater-private-key: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          updater-private-key-password: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      # What tauri-action does for the other lanes, for the files this lane
-      # signed after the build: attach them to the release and point the
-      # Windows entries of latest.json at them. The Linux leg writes its own
-      # entries into the same file with tauri-action, at a time this leg does
-      # not control, so the merge is read back and repeated if the other leg
-      # wrote in between.
-      - name: Attach the signed Windows installers and update latest.json
-        if: matrix.platform == 'windows-latest' && steps.signcfg.outputs.signpath == 'true' && !inputs.dry_run
-        shell: bash
-        timeout-minutes: 45
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
-          DIST: ${{ steps.signpath.outputs.dist }}
-        run: |
-          set -euo pipefail
-          # On workflow_dispatch the release may not exist yet: the Linux leg
-          # creates it when its own build is through.
-          for attempt in $(seq 1 60); do
-            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then break; fi
-            if [ "$attempt" -eq 60 ]; then
-              echo "::error::release $TAG does not exist after 30 minutes; the signed installers were not attached"
-              exit 1
-            fi
-            sleep 30
-          done
-          cd "$DIST"
-          gh release upload "$TAG" ./* --repo "$GITHUB_REPOSITORY" --clobber
-          RELEASE_NOTES="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)"
-          export RELEASE_NOTES
-          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
-          work="$(mktemp -d)"
-          for attempt in 1 2 3 4 5; do
-            rm -f "$work/latest.json"
-            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir "$work" 2>/dev/null \
-              || echo "no latest.json on the release yet, starting one"
-            node "$GITHUB_WORKSPACE/scripts/windows-signpath.mjs" merge-latest-json . "$work/latest.json" "$base"
-            cp "$work/latest.json" "$work/wanted.json"
-            gh release upload "$TAG" "$work/latest.json" --repo "$GITHUB_REPOSITORY" --clobber
-            sleep 45
-            rm -f "$work/latest.json"
-            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir "$work"
-            if node -e '
-              const [now, wanted] = process.argv.slice(1).map((f) => JSON.parse(require("fs").readFileSync(f, "utf8")).platforms)
-              const kept = Object.keys(wanted).filter((k) => k.startsWith("windows-")).every((k) => now[k] && now[k].signature === wanted[k].signature)
-              process.exit(kept ? 0 : 1)
-            ' "$work/latest.json" "$work/wanted.json"; then
-              echo "latest.json on $TAG names the signed Windows installers"
-              exit 0
-            fi
-            echo "latest.json was rewritten by another job, merging again (attempt $attempt)"
-          done
-          echo "::error::latest.json on $TAG does not keep the Windows entries of the signed installers"
-          exit 1
+          label: ${{ github.ref_name }}
 
       - name: Say on the run page whether this Windows build is signed
         if: matrix.platform == 'windows-latest'
@@ -906,9 +864,7 @@ jobs:
           AZURE: ${{ steps.signcfg.outputs.windows }}
           AZURE_PUBLISHER: ${{ steps.winverify.outputs.publisher }}
           SIGNPATH: ${{ steps.signcfg.outputs.signpath }}
-          SIGNPATH_PUBLISHER: ${{ steps.signpath.outputs.publisher }}
           SIGNPATH_APP_REQUEST: ${{ steps.signpath.outputs.app-signing-request }}
-          SIGNPATH_INSTALLERS_REQUEST: ${{ steps.signpath.outputs.installers-signing-request }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           if [ "$DRY_RUN" = "true" ]; then
@@ -917,8 +873,8 @@ jobs:
             echo "Windows installers: signed with Azure Artifact Signing, publisher \`$AZURE_PUBLISHER\`." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$SIGNPATH" = "true" ]; then
             {
-              echo "Windows installers: signed with SignPath, publisher \`$SIGNPATH_PUBLISHER\`."
-              echo "Signing requests: [app binary]($SIGNPATH_APP_REQUEST), [installers]($SIGNPATH_INSTALLERS_REQUEST)."
+              echo "Windows installers: not attached yet. SignPath stage 1 is through: the [app binary]($SIGNPATH_APP_REQUEST) waits for approval in SignPath."
+              echo "Stages 2 and 3 follow after the approvals; the SignPath section of this page says how."
             } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Windows installers: unsigned (no signing lane is configured)." >> "$GITHUB_STEP_SUMMARY"

@@ -5,7 +5,8 @@
 // Tauri expects to sign during the build. This script is everything between
 // the two that is plain file work, so it can be tested without Windows and
 // without a SignPath account (src/lib/__tests__/windows-signpath.test.ts).
-// The steps that call it are in .github/actions/windows-signpath/action.yml.
+// The steps that call it are in the three SignPath stage actions,
+// .github/actions/windows-signpath{,-installers,-finish}/action.yml.
 //
 // Why the app binary is staged twice. The bundler writes the installer type
 // into the main binary before it packs it (tauri-bundler 2.8.1, bundle.rs,
@@ -19,6 +20,7 @@
 // warning, and packs the file as it is.
 //
 // Commands (paths are relative to the repository root unless absolute):
+//   app-binary                          the file name of the app binary
 //   stage-app <out-dir>                 patched copies under nsis/ and msi/
 //   place-app <nsis|msi> <signed-dir>   signed copy into src-tauri/target/release
 //   check-app <nsis|msi> <signed-dir>   the bundler left that copy untouched
@@ -220,6 +222,10 @@ function onlyFile(dir, pattern, what) {
 }
 
 const commands = {
+  'app-binary'() {
+    output('binary', appBinaryName())
+  },
+
   'stage-app'([outDir]) {
     const out = resolve(outDir ?? fail('usage: stage-app <out-dir>'))
     const binary = readFileSync(builtApp())

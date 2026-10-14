@@ -8,6 +8,9 @@
  * - A cache may restore dependencies, never a finished binary. The sidecar
  *   cache holds a built llama-server.exe, so the signed Windows leg runs
  *   without it.
+ * - Build and signing are separate: the run on the tag submits the app
+ *   binary and ends; every later stage (windows-signpath.yml) runs on the
+ *   same tag and refuses any other ref before it checks anything out.
  *
  * Run: npx vitest run src/lib/__tests__/signpath-signs-a-release-tag-only.test.ts
  */
@@ -18,6 +21,7 @@ import { dirname, resolve } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const release = readFileSync(resolve(here, '../../../.github/workflows/release.yml'), 'utf8')
+const stages = readFileSync(resolve(here, '../../../.github/workflows/windows-signpath.yml'), 'utf8')
 
 /** The lines of one step, from its `- name:` to the next one. */
 function step(name: string): string {
@@ -36,11 +40,31 @@ describe('SignPath in release.yml', () => {
     expect(guard).toContain('exit 1')
     expect(guard).toContain("steps.signcfg.outputs.signpath == 'true'")
     expect(release.indexOf('- name: SignPath signs a release tag only'))
-      .toBeLessThan(release.indexOf('- name: Build and sign the Windows installers (SignPath)'))
+      .toBeLessThan(release.indexOf('- name: Build the app and submit it to SignPath (stage 1)'))
   })
 
-  it('the SignPath build itself also asks for a tag ref', () => {
-    expect(step('Build and sign the Windows installers (SignPath)')).toContain("startsWith(github.ref, 'refs/tags/v')")
+  it('the SignPath build itself also asks for a tag ref, and names the chain after the tag', () => {
+    const stage1 = step('Build the app and submit it to SignPath (stage 1)')
+    expect(stage1).toContain("startsWith(github.ref, 'refs/tags/v')")
+    expect(stage1).toContain('label: ${{ github.ref_name }}')
+  })
+
+  it('every later stage refuses a run that is not on a release tag, as its first step', () => {
+    for (const job of ['app', 'installers', 'publish']) {
+      const block = stages.slice(stages.indexOf(`\n  ${job}:\n`) + 1)
+      const body = block.slice(0, block.search(/\n {2}[a-z][a-z-]*:\n/) === -1 ? undefined : block.search(/\n {2}[a-z][a-z-]*:\n/))
+      const first = body.split(/\n(?= {6}- name: )/)[1]
+      expect(first, job).toContain('- name: SignPath signs a release tag only')
+      expect(first, job).toMatch(TAG)
+      expect(first, job).toContain('exit 1')
+      expect(first, job).not.toMatch(/uses:|secrets\./)
+    }
+  })
+
+  it('the watcher starts stages on release tags only', () => {
+    const script = readFileSync(resolve(here, '../../../scripts/signpath-stages.mjs'), 'utf8')
+    expect(script).toContain('if (!releaseTagOf(`refs/tags/${label}`)) fail(')
+    expect(script).toContain('await gh.dispatch(workflow, `refs/tags/${label}`, { stage: next.stage })')
   })
 
   it('the tag pattern matches release tags and nothing else', () => {
