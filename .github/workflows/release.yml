@@ -290,6 +290,12 @@ jobs:
 
       # ── llama.cpp sidecar ────────────────────────────────────────────────
       - name: Sidecar build cache
+        # Not on the Windows leg that SignPath signs. The cache holds a finished
+        # llama-server.exe, and SignPath asks that a signed release restores no
+        # built binary from a cache: everything in the signed installer is
+        # built in this run (agreed with SignPath, 2026-10-14). The Rust cache
+        # above may stay, it keeps dependencies and drops the app's own build.
+        if: ${{ !(matrix.platform == 'windows-latest' && vars.SIGNPATH_SIGNING_POLICY_SLUG != '' && !inputs.dry_run) }}
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           # Must match LLAMA_BUILD_CACHE below, or Windows caches an empty
@@ -808,9 +814,26 @@ jobs:
       # The publisher check refuses anything but the certificate of the
       # SignPath Foundation, so a release can never go out under the
       # self-signed test certificate: that one is for signpath-probe.yml.
+      # SignPath signs for this project only from a run on a release tag
+      # (refs/tags/v<major>.<minor>.<patch>), the pattern its signing policy
+      # names. A run started by hand from a branch carries that branch as its
+      # ref even when it checks out the tag, so SignPath would refuse it after
+      # an hour of building. It stops here instead, before the build, and never
+      # falls back to unsigned installers.
+      - name: SignPath signs a release tag only
+        if: matrix.platform == 'windows-latest' && steps.signcfg.outputs.signpath == 'true' && !inputs.dry_run
+        shell: bash
+        env:
+          RUN_REF: ${{ github.ref }}
+        run: |
+          if [[ ! "$RUN_REF" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::SignPath signs runs on a release tag (refs/tags/vX.Y.Z) only. This run is on $RUN_REF. Publish the GitHub release for the tag; that starts the run on the tag."
+            exit 1
+          fi
+
       - name: Build and sign the Windows installers (SignPath)
         id: signpath
-        if: matrix.platform == 'windows-latest' && steps.signcfg.outputs.signpath == 'true' && !inputs.dry_run
+        if: matrix.platform == 'windows-latest' && steps.signcfg.outputs.signpath == 'true' && !inputs.dry_run && startsWith(github.ref, 'refs/tags/v')
         uses: ./.github/actions/windows-signpath
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
