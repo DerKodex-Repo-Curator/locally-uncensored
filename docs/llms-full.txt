@@ -6,7 +6,7 @@ https://locallyuncensored.com/cloud-facts.json
 Uncensored AI chat online: 47 chat models, all of them in every plan and every pack, and no moderation layer from us on text. https://locallyuncensored.com/uncensored-ai-chat-online/
 Uncensored AI image generator online: uncensored models from 1,000 credits per image, only after the account switches its own content policy setting. https://locallyuncensored.com/uncensored-ai-image-generator-online/
 Uncensored AI video generator online: image-to-video only, clips are five seconds, the input image is not included. https://locallyuncensored.com/uncensored-ai-video-generator-online/
-Uncensored AI API: OpenAI-compatible Chat Completions at https://lu-labs.ai/api/inference/v1, keys start with lu_ and always spend credits. https://locallyuncensored.com/uncensored-ai-api/
+Uncensored AI API: the desktop app serves an OpenAI-compatible API for every local model at http://127.0.0.1:8129/v1 (token required, Settings, Voice & Remote, Local API); the hosted endpoint is https://lu-labs.ai/api/inference/v1, keys start with lu_ and always spend credits. https://locallyuncensored.com/uncensored-ai-api/
 Venice AI alternatives: Venice Pro is 18 USD per month with 100 credits (read 2026-09-22); our credit packs start at 15 EUR and need no subscription. https://locallyuncensored.com/vs/venice/
 https://lu-labs.ai/product-facts
 <!-- LU-CLOUD-FACTS:END -->
