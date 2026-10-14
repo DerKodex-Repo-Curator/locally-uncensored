@@ -329,6 +329,10 @@ jobs:
           export RELEASE_NOTES
           base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
           work="$(mktemp -d)"
+          # The Mac and Linux legs write their own entries. A merge here must
+          # never lose one whose update files already hang on the release
+          # (asked by the Mac lane, 14.10.2026).
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > "$work/assets.txt"
           for attempt in 1 2 3 4 5; do
             rm -f "$work/latest.json"
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir "$work" 2>/dev/null \
@@ -344,12 +348,16 @@ jobs:
               const kept = Object.keys(wanted).filter((k) => k.startsWith("windows-")).every((k) => now[k] && now[k].signature === wanted[k].signature)
               process.exit(kept ? 0 : 1)
             ' "$work/latest.json" "$work/wanted.json"; then
-              echo "latest.json on $TAG names the signed Windows installers"
-              exit 0
+              if node "$GITHUB_WORKSPACE/scripts/windows-signpath.mjs" check-other-platforms "$work/latest.json" "$work/assets.txt"; then
+                echo "latest.json on $TAG names the signed Windows installers"
+                exit 0
+              fi
+              echo "an entry of another platform went missing, merging again (attempt $attempt)"
+              continue
             fi
             echo "latest.json was rewritten by another job, merging again (attempt $attempt)"
           done
-          echo "::error::latest.json on $TAG does not keep the Windows entries of the signed installers"
+          echo "::error::latest.json on $TAG does not keep the Windows entries of the signed installers, or lost the entry of another platform whose files hang on the release"
           exit 1
 
       - name: Write the state of stage 3

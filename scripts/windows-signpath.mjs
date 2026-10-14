@@ -182,6 +182,24 @@ export function mergeLatestJson(existing, platforms, fallback) {
   return merged
 }
 
+/**
+ * The platforms of the other legs that latest.json must still name: every one
+ * whose signed update file already hangs on the release. A Windows merge that
+ * lost the Mac entry would go unnoticed otherwise (Mac lane, 14.10.2026).
+ */
+export const OTHER_PLATFORM_FILES = [
+  { platform: 'darwin-aarch64', file: /^LU_aarch64\.app\.tar\.gz$/ },
+  { platform: 'linux-x86_64', file: /\.AppImage(\.tar\.gz)?\.sig$/ },
+]
+
+export function missingOtherPlatforms(latest, assetNames) {
+  const named = latest?.platforms ?? {}
+  return OTHER_PLATFORM_FILES
+    .filter(({ file }) => assetNames.some((n) => file.test(n)))
+    .filter(({ platform }) => !named[platform])
+    .map(({ platform }) => platform)
+}
+
 // ── Command line ───────────────────────────────────────────────────────────
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -289,6 +307,14 @@ const commands = {
     output('dir', dist)
   },
 
+  'check-other-platforms'([latestJson, assetList]) {
+    if (!latestJson || !assetList) fail('usage: check-other-platforms <latest.json> <asset-names.txt>')
+    const latest = JSON.parse(readFileSync(latestJson, 'utf8'))
+    const assets = readFileSync(assetList, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean)
+    const missing = missingOtherPlatforms(latest, assets)
+    if (missing.length) fail(`latest.json lost ${missing.join(', ')} although its update files hang on the release`)
+    console.log('latest.json still names every platform whose update files hang on the release')
+  },
   'merge-latest-json'([distDir, latestJson, downloadBaseUrl]) {
     if (!distDir || !latestJson || !downloadBaseUrl) fail('usage: merge-latest-json <dist-dir> <latest.json> <download-base-url>')
     const dist = resolve(distDir)
