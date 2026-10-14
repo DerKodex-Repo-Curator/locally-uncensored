@@ -208,7 +208,7 @@ A correctness release. Most of it is things that looked like they worked and did
 - Everything else that goes online you start yourself: model and engine downloads, providers with your own API keys, web search in agent runs, and Remote Access
 - Remote Access over the internet: Cloudflare relays the traffic, encrypted to and from Cloudflare, not end to end
 - Cloud optional, two routes: bring your own key (your keys, your data), and the paid LU Labs Cloud service, where inference runs on our infrastructure partners
-- Data lives in %APPDATA%/Locally Uncensored on Windows (or the equivalent on Linux)
+- App data and logs live in %LOCALAPPDATA%\lu-labs on Windows and ~/.local/share/lu-labs on Linux; the LU Engine chat models in %APPDATA%\Locally Uncensored\models and ~/.local/share/Locally Uncensored/models. Details: https://locallyuncensored.com/guide/storage/
 
 ## Links
 - Homepage: https://locallyuncensored.com
