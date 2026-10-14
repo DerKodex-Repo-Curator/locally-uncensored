@@ -27,7 +27,7 @@
 {"@context":"https://schema.org","@type":"WebPage","name":"Qwen-Image 2.1 in Locally Uncensored","description":"Everything Locally Uncensored has written about Qwen-Image 2.1: a step by step tutorial, an explainer on the architecture and the license, and the handbook section on the two lanes it appears in.","url":"https://locallyuncensored.com/qwen-image-2-1/","inLanguage":"en","dateModified":"2026-09-22","isPartOf":{"@type":"WebSite","name":"Locally Uncensored","url":"https://locallyuncensored.com/"},"publisher":{"@type":"Organization","name":"Locally Uncensored","url":"https://locallyuncensored.com/"},"mainEntity":{"@type":"ItemList","itemListElement":[{"@type":"ListItem","position":1,"name":"How to Run Qwen-Image 2.1 Locally","url":"https://locallyuncensored.com/blog/how-to-run-qwen-image-2-1-locally.html"},{"@type":"ListItem","position":2,"name":"Qwen-Image 2.1 Explained","url":"https://locallyuncensored.com/blog/qwen-image-2-1-explained.html"},{"@type":"ListItem","position":3,"name":"Handbook, Create chapter, Qwen-Image 2.1","url":"https://locallyuncensored.com/guide/create/#qwen-image"}]}}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is Qwen-Image 2.1 uncensored?","acceptedAnswer":{"@type":"Answer","text":"The original weights draw what they were trained to draw. On your own machine nothing sits between your prompt and the model, and community builds labelled uncensored have been on Hugging Face since 20 September 2026. We list them as their authors describe them and have not tested them."}},{"@type":"Question","name":"Is there a GGUF of Qwen-Image 2.1?","acceptedAnswer":{"@type":"Answer","text":"Yes. unsloth/Qwen-Image-2.1-GGUF carries the original weights from 2.47 GB at Q2_K to 14.23 GB at F16, with Q4_K_M at 4.2 GB. The bundle in Locally Uncensored installs the original int8 files instead, three files and 16.1 GB."}},{"@type":"Question","name":"Are there LoRAs for Qwen-Image 2.1?","acceptedAnswer":{"@type":"Answer","text":"Yes, since late September 2026. Speed LoRAs with four to six steps and content LoRAs are on Hugging Face. The LoRA stack in Locally Uncensored lists every .safetensors file in ComfyUI's models/loras folder."}},{"@type":"Question","name":"Can I use Qwen-Image 2.1 commercially?","acceptedAnswer":{"@type":"Answer","text":"Not under the published terms. Qwen-Image 2.1 is under the Qwen Research License, which allows research and evaluation. Commercial use needs a separate license from Alibaba Qwen."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is Qwen-Image 2.1 uncensored?","acceptedAnswer":{"@type":"Answer","text":"The original weights draw what they were trained to draw. On your own machine nothing sits between your prompt and the model, and community builds labelled uncensored have been on Hugging Face since 20 September 2026. We list them as their authors describe them and have not tested them."}},{"@type":"Question","name":"Is there a GGUF of Qwen-Image 2.1?","acceptedAnswer":{"@type":"Answer","text":"Yes. unsloth/Qwen-Image-2.1-GGUF carries the original weights from 2.47 GB at Q2_K to 14.23 GB at F16, with Q4_K_M at 4.2 GB. The bundle in Locally Uncensored installs the original int8 files instead, three files and 16.1 GB."}},{"@type":"Question","name":"Are there LoRAs for Qwen-Image 2.1?","acceptedAnswer":{"@type":"Answer","text":"Yes, since late September 2026. Speed LoRAs with four to six steps and content LoRAs are on Hugging Face. The LoRA stack in Locally Uncensored lists every .safetensors file in ComfyUI's models/loras folder."}},{"@type":"Question","name":"Is there an uncensored Qwen-Image 2.1 in Locally Uncensored?","acceptedAnswer":{"@type":"Answer","text":"Two downloads in the Model Manager. Qwen-Image 2.1 (No Filter) swaps the text encoder for one with its refusal direction removed, about 9 GB on top of an existing install. Noct Q (Qwen-Image 2.1, Unfiltered) is a community finetune that changes the image model itself, about 7 GB on top. Both carry the Qwen Research License."}},{"@type":"Question","name":"Can I use Qwen-Image 2.1 commercially?","acceptedAnswer":{"@type":"Answer","text":"Not under the published terms. Qwen-Image 2.1 is under the Qwen Research License, which allows research and evaluation. Commercial use needs a separate license from Alibaba Qwen."}}]}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -105,6 +105,22 @@
 
     <p>The bundle in Locally Uncensored installs the original int8 files, three files and 16.1 GB. The files in the table go into ComfyUI by hand, and ComfyUI reads GGUF through a loader node that has to be installed first. For what abliteration and Heretic do to a model, see the <a href="/blog/abliterated-models-guide.html">abliterated models guide</a>.</p>
 
+    <h2>The uncensored builds inside the app</h2>
+
+    <p>Since 3.0.5 two of these come as downloads under Models, Image, Get new, so nothing has to go in by hand:</p>
+
+    <table>
+      <thead><tr><th>Download</th><th>What it changes</th><th>On top of an existing install</th></tr></thead>
+      <tbody>
+        <tr><td>Qwen-Image 2.1 (No Filter)</td><td>The text encoder. Same image model and VAE, with a community text encoder that has its refusal direction removed (Heretic)</td><td>About 9 GB, only the encoder</td></tr>
+        <tr><td>Noct Q (Qwen-Image 2.1, Unfiltered)</td><td>The image model. A community finetune by Noctaluna whose notice says the transformer weights were modified. It uses the official text encoder and VAE</td><td>About 7 GB, only the image model</td></tr>
+      </tbody>
+    </table>
+
+    <p>With both text encoders installed, the Expert settings in Create have a "Text encoder" row to pick which one reads your prompt, for new pictures, for edits and for pictures made in chat. The official one stays the default. The app treats Noct Q as Qwen-Image 2.1, so edits with reference images, the transparent background, the encoder choice and the prompt enhancer work with it. We have not run Noct Q on our own hardware yet. Both carry the Qwen Research License.</p>
+
+    <p>The prompt enhancer comes the same way, as two downloads, Official and No Filter. Both run on a 12 GB card and need ComfyUI 0.37.2 or newer.</p>
+
     <h2>LoRAs for Qwen-Image 2.1</h2>
 
     <p>When 3.0.1 shipped there was no LoRA for 2.1, and the older Lightning and Turbo LoRAs do not fit the new architecture. That has changed. On 10 October 2026 Hugging Face listed these, among others:</p>
@@ -124,11 +140,15 @@
     Qwen-Image 2.1 is published under the Qwen Research License, not Apache 2.0. It allows research and evaluation, and commercial use needs a separate license from Alibaba Qwen. The Model Manager names this in the bundle description before the download starts. If you need Apache 2.0 terms, Qwen-Image 2512 and Qwen-Image-Edit 2511 remain under Apache 2.0.
     </div>
 
-    <h2>What this release does and does not do</h2>
+    <h2>What the app does with it today</h2>
 
-    <p>It generates from a prompt with a negative prompt, at the defaults from the official template: 25 steps, CFG 1, euler, simple, 1024x1024, with the usual Advanced settings for Steps, CFG, Width, Height, Seed and Batch. It edits from one reference image plus a prompt, with no mask, and the output follows that reference image.</p>
+    <p>It generates from a prompt with a negative prompt, at the defaults from the official template: 25 steps, CFG 1, euler, simple, 1024x1024, with the usual Advanced settings for Steps, CFG, Width, Height, Seed and Batch. It edits from a reference image plus a prompt, with no mask. Small tiles under the source image take up to three more images, which you name in the prompt as image 2 and image 3, for example "put the jacket from image 2 on the person". A "Transparent background" switch saves a new picture as a PNG with an alpha channel, and "Improve my prompt" can use the Qwen-Image 2.1 prompt enhancer.</p>
 
-    <p>Not in this release: several reference images at once, RGBA output, masks with this model, a prompt enhancer and the KV cache node. The older Lightning and Turbo LoRAs do not fit the new architecture. Since 3.0.5 the app adds a transparent background and the prompt enhancer for this model.</p>
+    <p>Still not there: masks with this model and the KV cache node. The older Lightning and Turbo LoRAs do not fit the new architecture.</p>
+
+    <h3>On a Mac</h3>
+
+    <p>The Mac build for Apple Silicon (beta, since 3.0.6) runs Qwen-Image 2.1 without ComfyUI, as quantized packs. The 4-bit pack needs 16 GB, the 8-bit and Turbo packs ask for 24 GB. On an M5 Pro with 48 GB, the only Mac the build has run on, Qwen-Image 2.1 Turbo made an image in 38 seconds. Edit on the Mac works by prompt, without a mask. A LoRA that carries its own alpha is weighted alpha divided by rank, as in ComfyUI. The <a href="/mac/">Mac page</a> has the state of the build.</p>
 
     <h2>FAQ</h2>
 
@@ -141,16 +161,19 @@
     <h3>Are there LoRAs for Qwen-Image 2.1?</h3>
     <p>Yes, since late September 2026. Speed LoRAs with four to six steps and content LoRAs are on Hugging Face. The LoRA stack in Locally Uncensored lists every .safetensors file in ComfyUI's models/loras folder.</p>
 
+    <h3>Is there an uncensored Qwen-Image 2.1 in Locally Uncensored?</h3>
+    <p>Two downloads in the Model Manager. Qwen-Image 2.1 (No Filter) swaps the text encoder for one with its refusal direction removed, about 9 GB on top of an existing install. Noct Q (Qwen-Image 2.1, Unfiltered) is a community finetune that changes the image model itself, about 7 GB on top. Both carry the Qwen Research License.</p>
+
     <h3>Can I use Qwen-Image 2.1 commercially?</h3>
     <p>Not under the published terms. Qwen-Image 2.1 is under the Qwen Research License, which allows research and evaluation. Commercial use needs a separate license from Alibaba Qwen.</p>
 
     <hr>
 
-    <p>Locally Uncensored is free and AGPL-3.0, Windows and Linux. New here? The <a href="/guide/">handbook</a> takes you from installer to first image. The rest of the family is under <a href="/qwen/">all Qwen guides</a>.</p>
+    <p>Locally Uncensored is free and AGPL-3.0, for Windows, Linux and Macs with Apple Silicon (beta). New here? The <a href="/guide/">handbook</a> takes you from installer to first image. The rest of the family is under <a href="/qwen/">all Qwen guides</a>.</p>
   </article>
 
   <div class="post-footer">
-    <p>One local model that draws and edits, in Locally Uncensored 3.0.1</p>
+    <p>One local model that draws and edits, with uncensored builds one download away</p>
     <a href="https://github.com/PurpleDoubleD/locally-uncensored/releases/latest" class="cta-btn" target="_blank">
       Download the latest version
     </a>
