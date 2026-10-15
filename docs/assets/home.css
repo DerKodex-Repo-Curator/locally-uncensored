@@ -336,11 +336,16 @@ html.hm .hp-get.in .get-mark-p+.get-mark-p{transition-delay:.53s}
 .get-sub{font-size:clamp(1rem,1.5vw,1.2rem);color:var(--fg-50);margin-bottom:36px}
 .hp-get .dl-card{margin:0 auto}
 
-/* LU-CLOUD-FACTS block (generated, kept byte for byte) reads as fine print */
-.hp footer~section{padding:34px clamp(24px,5vw,72px) 48px;background:var(--bg-2);font-size:.78rem;line-height:1.6;color:var(--fg-30)}
-.hp footer~section h2{font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-50);margin-bottom:10px}
-.hp footer~section p{max-width:110ch;margin-bottom:8px}
-.hp footer~section a{color:var(--accent-soft)}
+/* LU-CLOUD-FACTS block (generated, kept byte for byte) reads as the fine
+   print of the cloud block it sits in. A generator that appends it before
+   </body> again lands it after the footer, where .hp footer~section still
+   keeps it readable. */
+.hp-facts{max-width:900px;margin:34px auto 0;padding:20px 22px 12px;border-radius:12px;border:1px solid var(--line-subtle);background:var(--panel);text-align:left}
+.hp footer~section{padding:34px clamp(24px,5vw,72px) 48px;background:var(--bg-2)}
+.hp-facts section,.hp footer~section{font-size:.78rem;line-height:1.6;color:var(--fg-30)}
+.hp-facts section h2,.hp footer~section h2{font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-50);margin:0 0 10px;max-width:none}
+.hp-facts section p,.hp footer~section p{max-width:110ch;margin-bottom:8px}
+.hp-facts section a,.hp footer~section a{color:var(--accent-soft)}
 
 
 /* ═══════════════════════════════════════════════════════════════════════
