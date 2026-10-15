@@ -6,7 +6,7 @@
    everything under .mv-stage is their fixed-size canvas, scaled to fit.
    ═══════════════════════════════════════════════════════════════════════ */
 
-.hp{--rx-bar:var(--fg);--signal:#4ade80}
+.hp{--signal:#4ade80}
 .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
 /* Static glow instead of the four animated blur blobs: nothing repaints
@@ -70,20 +70,19 @@ html[data-theme="light"] .hx-grid{background:linear-gradient(to right,rgba(0,0,0
 .hx-br{display:none}
 @media(min-width:760px){.hx-br{display:inline}}
 
-/* Redaction reveal: the word starts under a censor bar that collapses into
-   the violet underscore. Two background layers: the bar and the underline. */
+/* The violet underscore under the accent words. The words are readable from
+   the first frame; the effect only draws the underscore in from the left.
+   Until 15.10.2026 the words started under a white censor bar, and a slow
+   phone showed a white block where the headline should be. */
 .hx-rx,.rx{-webkit-box-decoration-break:clone;box-decoration-break:clone}
-html.js .hx-rx{text-shadow:none;background-image:linear-gradient(var(--rx-bar),var(--rx-bar)),linear-gradient(var(--accent),var(--accent));
-  background-repeat:no-repeat;background-position:0 100%,0 100%;background-size:100% 0%,100% .075em;
-  animation:hx-unredact 1.05s cubic-bezier(.75,0,.2,1) .35s both}
-@keyframes hx-unredact{
-  0%{background-size:100% 100%,100% .075em;color:var(--rx-bar)}
-  45%{background-size:100% 100%,100% .075em;color:var(--rx-bar)}
-  100%{background-size:100% 0%,100% .075em;color:var(--accent-soft)}}
-html.hm .rx{background-image:linear-gradient(var(--rx-bar),var(--rx-bar)),linear-gradient(var(--accent),var(--accent));
-  background-repeat:no-repeat;background-position:0 100%,0 100%;background-size:100% 100%,100% .07em;color:var(--rx-bar);
-  transition:background-size .8s cubic-bezier(.75,0,.2,1) .2s,color .35s ease .55s}
-html.hm .rx.in{background-size:100% 0%,100% .07em;color:var(--accent-soft)}
+html.js .hx-rx{text-shadow:none;color:var(--accent-soft);background-image:linear-gradient(var(--accent),var(--accent));
+  background-repeat:no-repeat;background-position:0 100%;background-size:100% .075em;
+  animation:hx-underline .9s cubic-bezier(.65,0,.35,1) .2s both}
+@keyframes hx-underline{0%{background-size:0% .075em}100%{background-size:100% .075em}}
+html.hm .rx{color:var(--accent-soft);background-image:linear-gradient(var(--accent),var(--accent));
+  background-repeat:no-repeat;background-position:0 100%;background-size:0% .07em;
+  transition:background-size .8s cubic-bezier(.65,0,.35,1) .1s}
+html.hm .rx.in{background-size:100% .07em}
 
 .hx-kicker{margin-top:20px}
 .hx-lede{margin:16px auto 0;max-width:60ch;text-align:center}
