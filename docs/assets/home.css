@@ -282,6 +282,16 @@ html[data-theme="light"] .mv-clip{box-shadow:0 0 0 1px rgba(0,0,0,.12),0 30px 70
 .cl-stat>span{font-size:.86rem;line-height:1.45;color:var(--fg-50)}
 .cl-stat em{font-style:normal;font-weight:700;color:var(--fg)}
 .cl-foot{font-size:.78rem;line-height:1.55;color:var(--fg-30);padding:4px 2px 0}
+/* why the cloud next to a GPU you already own */
+.hp-why{max-width:900px;margin:36px auto 0;text-align:center}
+.hp-why-lead{font-size:clamp(.98rem,1.4vw,1.1rem);line-height:1.6;color:var(--fg-50);max-width:68ch;margin:0 auto}
+.hp-why-lead b{color:var(--fg);font-weight:600}
+.hp-why-lead [data-model-id]{color:var(--fg);font-weight:600;white-space:nowrap}
+.hp-why-row{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:22px 0 0;padding:0;text-align:left}
+.hp-why-row li{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--line-subtle)}
+.hp-why-row b{font-family:var(--display);font-size:1.02rem;font-weight:600;color:var(--fg)}
+.hp-why-row span{font-size:.84rem;line-height:1.45;color:var(--fg-50)}
+@media(max-width:680px){.hp-why-row{grid-template-columns:1fr}}
 
 /* setup */
 .how-split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);align-items:center;margin:56px 0 30px;text-align:left}
