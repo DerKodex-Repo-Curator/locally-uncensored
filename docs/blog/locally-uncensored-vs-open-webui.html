@@ -6,15 +6,15 @@
 <title>Locally Uncensored vs Open WebUI: Which Is Better?</title>
 <meta name="description" content="Open WebUI does chat. Locally Uncensored generates text, images, and video. All local, all uncensored. Full comparison.">
 <meta name="keywords" content="open webui alternative, ollama frontend comparison, open webui vs, best ollama ui, local AI frontend">
-<meta property="og:title" content="Locally Uncensored vs Open WebUI — Which Local AI Frontend Is Better?">
-<meta property="og:description" content="Open WebUI does chat — Locally Uncensored generates anything: text, images, video. All local, all uncensored. Full comparison.">
+<meta property="og:title" content="Locally Uncensored vs Open WebUI: Which Local AI Frontend Is Better?">
+<meta property="og:description" content="Open WebUI does chat. Locally Uncensored generates anything: text, images, video. All local, all uncensored. Full comparison.">
 <meta property="og:url" content="https://locallyuncensored.com/blog/locally-uncensored-vs-open-webui.html">
 <meta property="og:type" content="article">
 <link rel="canonical" href="https://locallyuncensored.com/blog/locally-uncensored-vs-open-webui.html">
 <meta name="robots" content="index, follow">
 <!-- Privacy: No external fonts loaded. Using system fonts. -->
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article","headline":"Locally Uncensored vs Open WebUI — Which Local AI Frontend Is Better?","author":{"@type":"Person","name":"PurpleDoubleD"},"datePublished":"2026-03-29","dateModified":"2026-04-05","publisher":{"@type":"Organization","name":"Locally Uncensored"}}
+{"@context":"https://schema.org","@type":"Article","headline":"Locally Uncensored vs Open WebUI: Which Local AI Frontend Is Better?","author":{"@type":"Person","name":"PurpleDoubleD"},"datePublished":"2026-03-29","dateModified":"2026-10-16","publisher":{"@type":"Organization","name":"Locally Uncensored"}}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://locallyuncensored.com/"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://locallyuncensored.com/blog/"},{"@type":"ListItem","position":3,"name":"Locally Uncensored vs Open WebUI","item":"https://locallyuncensored.com/blog/locally-uncensored-vs-open-webui.html"}]}
@@ -51,34 +51,34 @@
 </nav>
 <article class="lu-doc">
 <h1>Locally Uncensored vs Open WebUI</h1>
-<div class="meta">Published March 29, 2026 · 5 min read</div>
+<div class="meta">Published March 29, 2026 · Updated October 16, 2026 · 5 min read</div>
 
-<p>Choosing between local AI frontends? <strong>Open WebUI</strong> and <strong>Locally Uncensored</strong> are both open source-licensed, open-source tools for running AI locally. But they solve different problems.</p>
-<p>Open WebUI is the most popular Ollama frontend with 129K+ GitHub stars. It's battle-tested, feature-rich, and has a massive community. Locally Uncensored is newer but takes a different approach: instead of being the best chat UI, it combines <strong>chat, image generation, and video creation</strong> in one app.</p>
-<p>Both need an engine underneath. LU Labs compares the two usual candidates in its <a href="https://lu-labs.ai/blog/ollama-vs-lm-studio-vs-lu-labs" target="_blank" rel="noopener">Ollama vs LM Studio comparison</a>.</p>
+<p>Choosing between local AI frontends? <strong>Open WebUI</strong> and <strong>Locally Uncensored</strong> are both open-source tools for running AI locally. But they solve different problems.</p>
+<p>Open WebUI is the most popular Ollama frontend with 129K+ GitHub stars. It's battle-tested, feature-rich, and has a massive community. Locally Uncensored is newer and takes a different approach: instead of being the best chat UI, it is a desktop app that combines <strong>chat, image generation, video creation and a coding agent</strong> in one window.</p>
+<p>Open WebUI needs an engine underneath, and Locally Uncensored works with one you already run or ships its own. LU Labs compares the two usual candidates in its <a href="https://lu-labs.ai/blog/ollama-vs-lm-studio-vs-lu-labs" target="_blank" rel="noopener">Ollama vs LM Studio comparison</a>.</p>
 <p>This comparison helps you decide which one fits your needs.</p>
 
 <h2>Feature Comparison</h2>
 <table>
 <thead><tr><th>Feature</th><th class="hl">Locally Uncensored</th><th>Open WebUI</th></tr></thead>
 <tbody>
-<tr><td>AI Chat</td><td class="check hl">Yes (Ollama)</td><td>Yes (Ollama)</td></tr>
-<tr><td>Image Generation</td><td class="check hl"><span class="check">Yes (ComfyUI)</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>Video Generation</td><td class="check hl"><span class="check">Yes (Wan 2.1)</span></td><td><span class="cross">No</span></td></tr>
+<tr><td>AI Chat</td><td class="check hl">Yes (bundled LU Engine, or Ollama, LM Studio and other engines)</td><td>Yes (Ollama)</td></tr>
+<tr><td>Image Generation</td><td class="check hl"><span class="check">Yes (ComfyUI; on a Mac without ComfyUI)</span></td><td><span class="cross">No</span></td></tr>
+<tr><td>Video Generation</td><td class="check hl"><span class="check">Yes (Wan, HunyuanVideo, LTX and more)</span></td><td><span class="cross">No</span></td></tr>
 <tr><td>Answers directly, abliterated models available</td><td class="check hl"><span class="check">Yes</span></td><td><span class="cross">No</span></td></tr>
 <tr><td>Docker Required</td><td class="check hl"><span class="check">No</span></td><td>Yes</td></tr>
-<tr><td>RAG / Document Chat</td><td class="check hl"><span class="cross">Planned</span></td><td><span class="check">Yes</span></td></tr>
-<tr><td>Multi-User Support</td><td class="check hl"><span class="cross">Planned</span></td><td><span class="check">Yes</span></td></tr>
-<tr><td>Built-in Personas</td><td class="check hl">25+</td><td>No</td></tr>
+<tr><td>RAG / Document Chat</td><td class="check hl"><span class="check">Yes (local index)</span></td><td><span class="check">Yes</span></td></tr>
+<tr><td>Multi-User Support</td><td class="check hl"><span class="cross">No</span></td><td><span class="check">Yes</span></td></tr>
+<tr><td>Built-in Personas</td><td class="check hl">25</td><td>No</td></tr>
 <tr><td>License</td><td class="check hl">AGPL-3.0</td><td>MIT</td></tr>
-<tr><td>GitHub Stars</td><td class="check hl">11</td><td>129K+</td></tr>
-<tr><td>One-Click Setup</td><td class="check hl"><span class="check">Yes</span></td><td>Docker Compose</td></tr>
+<tr><td>GitHub Stars</td><td class="check hl">2,000+</td><td>129K+</td></tr>
+<tr><td>One-Click Setup</td><td class="check hl"><span class="check">Yes (installer and first-run wizard)</span></td><td>Docker Compose</td></tr>
 <tr><td>Coding Agent</td><td class="check hl"><span class="check">Yes</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>MCP Tools</td><td class="check hl"><span class="check">13 built-in</span></td><td><span class="cross">No</span></td></tr>
+<tr><td>MCP Tools</td><td class="check hl"><span class="check">Built-in agent tools plus your own MCP servers</span></td><td><span class="cross">No</span></td></tr>
 <tr><td>File Upload + Vision</td><td class="check hl"><span class="check">Yes</span></td><td><span class="check">Yes</span></td></tr>
-<tr><td>Thinking Mode</td><td class="check hl"><span class="check">Yes</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>Granular Permissions</td><td class="check hl"><span class="check">7 categories</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>Multi-Provider</td><td class="check hl"><span class="check">Ollama + OpenAI + Anthropic</span></td><td><span class="check">Yes</span></td></tr>
+<tr><td>Thinking Mode</td><td class="check hl"><span class="check">Yes, with an effort control where the model has one</span></td><td><span class="cross">No</span></td></tr>
+<tr><td>Granular Permissions</td><td class="check hl"><span class="check">A permission gate on every tool call</span></td><td><span class="cross">No</span></td></tr>
+<tr><td>Multi-Provider</td><td class="check hl"><span class="check">Local engines + OpenAI, Anthropic, OpenRouter and any OpenAI compatible address</span></td><td><span class="check">Yes</span></td></tr>
 <tr><td>Model Load/Unload</td><td class="check hl"><span class="check">Yes (VRAM mgmt)</span></td><td><span class="cross">No</span></td></tr>
 
 </tbody>
@@ -86,37 +86,38 @@
 
 <h2>Where Locally Uncensored Wins</h2>
 <ul>
-<li><strong>Image + Video Generation</strong> — The biggest differentiator. Open WebUI doesn't generate images or video. Locally Uncensored wraps ComfyUI and supports Stable Diffusion XL, FLUX, Wan 2.1, and AnimateDiff.</li>
-<li><strong>No Docker</strong> — Clone, run setup script, done. No Docker Compose files, no container management.</li>
-<li><strong>Answers directly, abliterated models available</strong>: pick a model with the refusal behaviour removed from the weights, or a mainstream one, in the same picker. Nothing sits between you and the model on your own machine</li>
-<li><strong>Simpler setup</strong> — One command installs everything including Ollama and a recommended model.</li>
-<li><strong>Coding Agent</strong> — Built-in coding agent that can read your codebase, write files, and run commands. Open WebUI has no coding agent.</li>
-<li><strong>13 MCP Tools</strong> — Web search, file operations, shell access, screenshots, and more — all built in. No plugins or pipelines needed.</li>
-<li><strong>File Upload with Vision</strong> — Drag and drop images into chat; vision models describe them automatically.</li>
-<li><strong>Thinking Mode</strong> — Collapsible reasoning blocks that work with all providers, letting you see the model's chain of thought.</li>
-<li><strong>Granular Permissions</strong> — 7 permission categories with 3 access levels for fine-grained control over tool access.</li>
-<li><strong>Multi-Provider Support</strong> — Use Ollama, OpenAI, and Anthropic simultaneously in one interface.</li>
-<li><strong>Model Load/Unload</strong> — Manage VRAM directly from the UI by loading and unloading models on demand.</li>
+<li><strong>Image and video generation</strong>: the biggest difference. Open WebUI doesn't generate images or video. Locally Uncensored installs and runs ComfyUI for you on Windows and Linux, with image models such as FLUX, Juggernaut XL and Qwen-Image 2.1 and video models such as Wan, HunyuanVideo, LTX and AnimateDiff. On a Mac, Create runs on the Mac itself.</li>
+<li><strong>No Docker</strong>: run the installer and the app is ready. No Docker Compose files, no container management.</li>
+<li><strong>Answers directly, abliterated models available</strong>: pick a model with the refusal behaviour removed from the weights, or a mainstream one, in the same picker. Nothing sits between you and the model on your own machine.</li>
+<li><strong>Simpler setup</strong>: a first-run wizard finds an engine you already run, or installs one with a single click, and does the same for ComfyUI. The model manager marks which models fit your hardware.</li>
+<li><strong>Coding agent</strong>: it builds a map of the repo, edits only the lines you asked for, shows the diff before it applies anything, and runs your tests. Open WebUI has no coding agent.</li>
+<li><strong>Agent tools and MCP</strong>: web search and fetch, file operations, a shell, code execution, screenshots and image and video generation are built in, with no plugins or pipelines needed, and your own MCP servers add more.</li>
+<li><strong>File upload with vision</strong>: chat takes any file, and a model with image input describes the pictures you drop in.</li>
+<li><strong>Thinking mode</strong>: the model's reasoning is shown as it happens, with an effort control on the models that offer one.</li>
+<li><strong>Permissions</strong>: every tool call passes a permission gate you control, and a read only run stays read only.</li>
+<li><strong>Multi-provider support</strong>: local engines and cloud providers with your own keys in one interface.</li>
+<li><strong>Model load/unload</strong>: manage VRAM directly from the UI by loading and unloading models on demand.</li>
 </ul>
+<p>Version 3.0.6 also brings phone access over your LAN or a tunnel, side by side model compare and a local benchmark, a Local API that serves your local models on one OpenAI compatible address, and two beta features: Voice, a spoken conversation run on your own machine, and computer control, which is off until you switch it on.</p>
 
 <h2>Where Open WebUI Wins</h2>
 <ul>
-<li><strong>Massive community</strong> — 129K stars means more contributors, faster bug fixes, and better documentation.</li>
-<li><strong>RAG / Document Chat</strong> — Upload PDFs, web pages, and documents. Locally Uncensored doesn't have this yet.</li>
-<li><strong>Multi-user support</strong> — Share one instance with your team or household with role-based access.</li>
-<li><strong>Plugin ecosystem</strong> — Pipelines, tools, and functions extend Open WebUI's capabilities.</li>
-<li><strong>Cloud model support</strong> — Connect to OpenAI, Anthropic, etc. alongside local models (though Locally Uncensored v2.2.2 now supports multi-provider too).</li>
+<li><strong>Massive community</strong>: 129K stars means more contributors, faster bug fixes, and better documentation.</li>
+<li><strong>RAG / document chat</strong>: upload PDFs, web pages, and documents. Locally Uncensored has Document Chat with a local index too.</li>
+<li><strong>Multi-user support</strong>: share one instance with your team or household with role-based access. Locally Uncensored is a single-user desktop app; its phone access is for your own devices.</li>
+<li><strong>Plugin ecosystem</strong>: pipelines, tools, and functions extend Open WebUI's capabilities.</li>
+<li><strong>Cloud model support</strong>: connect to OpenAI, Anthropic, etc. alongside local models. Locally Uncensored does this as well.</li>
 </ul>
 
 <div class="verdict">
 <h3>The Verdict</h3>
 <p><strong>Choose Open WebUI</strong> if you need a mature, feature-rich chat interface with RAG, multi-user support, and a large community. It's the safe choice for teams and power users who only need text chat.</p>
-<p><strong>Choose Locally Uncensored</strong> if you want one app for chat, images, AND video — plus a built-in coding agent, 13 MCP tools, vision support, and multi-provider connectivity. v2.2.2 puts everything behind one UI with zero Docker overhead.</p>
+<p><strong>Choose Locally Uncensored</strong> if you want one desktop app for chat, images and video, plus a coding agent, agent tools with MCP, vision, document chat and the choice between local engines and cloud providers. Version 3.0.6 puts all of it behind one window with no Docker.</p>
 </div>
 
 <div class="cta">
 <h2>Try Locally Uncensored</h2>
-<p>Free, open source, AGPL-3.0 licensed. One command to get started.</p>
+<p>Free, open source, AGPL-3.0 licensed. One installer to get started.</p>
 <a href="https://github.com/PurpleDoubleD/locally-uncensored" class="btn">View on GitHub</a>
 <p style="margin-top:18px;margin-bottom:0;color:#888">No GPU? LU Cloud runs in a browser, paid from credit packs that start at 15 EUR and need no subscription. <a href="/pricing/">See what it costs</a>.</p>
 </div>
