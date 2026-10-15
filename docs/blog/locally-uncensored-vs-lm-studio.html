@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Locally Uncensored vs LM Studio: Full 2026 Comparison</title>
-<meta name="description" content="LM Studio does chat. Locally Uncensored generates text, images, and video. Open source, uncensored, one app. Full comparison.">
+<meta name="description" content="LM Studio runs local language models. Locally Uncensored also generates images and video. Open source, uncensored, one app. Full comparison.">
 <meta name="keywords" content="lm studio alternative open source, lm studio vs, local AI app comparison, lm studio open source alternative">
 <meta property="og:title" content="Locally Uncensored vs LM Studio: Open Source All-in-One vs Polished Chat Client">
-<meta property="og:description" content="LM Studio does chat. Locally Uncensored generates anything: text, images, video. Open source, uncensored, one app. Full comparison.">
+<meta property="og:description" content="LM Studio runs local language models. Locally Uncensored generates text, images and video. Open source, uncensored, one app. Full comparison.">
 <meta property="og:url" content="https://locallyuncensored.com/blog/locally-uncensored-vs-lm-studio.html">
 <meta property="og:type" content="article">
 <link rel="canonical" href="https://locallyuncensored.com/blog/locally-uncensored-vs-lm-studio.html">
@@ -61,22 +61,22 @@
 <table>
 <thead><tr><th>Feature</th><th class="hl">Locally Uncensored</th><th>LM Studio</th></tr></thead>
 <tbody>
-<tr><td>AI Chat</td><td class="check hl">Yes (bundled LU Engine, or Ollama, LM Studio and other engines)</td><td>Yes (built-in)</td></tr>
-<tr><td>Image Generation</td><td class="check hl"><span class="check">Yes (ComfyUI; on a Mac without ComfyUI)</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>Video Generation</td><td class="check hl"><span class="check">Yes (Wan, HunyuanVideo, LTX and more)</span></td><td><span class="cross">No</span></td></tr>
+<tr><td>AI Chat</td><td class="check hl">Yes (bundled LU Engine, or Ollama, LM Studio and other engines)</td><td>Yes (built-in llama.cpp and MLX runtimes)</td></tr>
+<tr><td>Image Generation</td><td class="check hl"><span class="check">Yes (ComfyUI; on a Mac without ComfyUI)</span></td><td><span class="cross">Not listed</span></td></tr>
+<tr><td>Video Generation</td><td class="check hl"><span class="check">Yes (Wan, HunyuanVideo, LTX and more)</span></td><td><span class="cross">Not listed</span></td></tr>
 <tr><td>Open Source</td><td class="check hl"><span class="check">AGPL-3.0</span></td><td><span class="cross">Proprietary</span></td></tr>
 <tr><td>Native Desktop App</td><td class="check hl">Tauri (lightweight)</td><td>Electron</td></tr>
-<tr><td>Built-in Model Download</td><td class="check hl">Yes (curated catalog, marks what fits your hardware, GGUF search)</td><td>Yes (built-in browser)</td></tr>
-<tr><td>Answers directly, abliterated models available</td><td class="check hl"><span class="check">Yes</span></td><td><span class="cross">No</span></td></tr>
+<tr><td>Built-in Model Download</td><td class="check hl">Yes (curated catalog, marks what fits your hardware, GGUF search)</td><td>Yes (built-in Hugging Face downloader)</td></tr>
+<tr><td>Answers directly, abliterated models available</td><td class="check hl"><span class="check">Yes</span></td><td>Depends on the model you load</td></tr>
 <tr><td>API Server Mode</td><td class="check hl">Yes (Local API, OpenAI compatible, port 8129 by default, token required)</td><td>Yes (OpenAI compatible)</td></tr>
-<tr><td>Built-in Personas</td><td class="check hl">25</td><td>No</td></tr>
-<tr><td>Price</td><td class="check hl">Free forever</td><td>Free (for now)</td></tr>
-<tr><td>Coding Agent</td><td class="check hl"><span class="check">Yes</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>MCP Tools</td><td class="check hl"><span class="check">Built-in agent tools plus your own MCP servers</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>File Upload + Vision</td><td class="check hl"><span class="check">Yes</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>Thinking Mode</td><td class="check hl"><span class="check">Yes, with an effort control where the model has one</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>Granular Permissions</td><td class="check hl"><span class="check">A permission gate on every tool call</span></td><td><span class="cross">No</span></td></tr>
-<tr><td>Multi-Provider</td><td class="check hl"><span class="check">Local engines + OpenAI, Anthropic, OpenRouter and any OpenAI compatible address</span></td><td><span class="cross">Local only</span></td></tr>
+<tr><td>Built-in Personas</td><td class="check hl">25</td><td>Presets for your own system prompts</td></tr>
+<tr><td>Price</td><td class="check hl">Free forever</td><td>Free plan for local models, paid plans for hosted models</td></tr>
+<tr><td>Coding Agent</td><td class="check hl"><span class="check">Yes</span></td><td>Not in LM Studio; the separate Bionic app has one</td></tr>
+<tr><td>MCP Tools</td><td class="check hl"><span class="check">Built-in agent tools plus your own MCP servers</span></td><td><span class="check">Yes (MCP servers)</span></td></tr>
+<tr><td>File Upload + Vision</td><td class="check hl"><span class="check">Yes</span></td><td><span class="check">Yes (documents, and images for vision models)</span></td></tr>
+<tr><td>Thinking Mode</td><td class="check hl"><span class="check">Yes, with an effort control where the model has one</span></td><td><span class="check">Yes (collapsible thinking block)</span></td></tr>
+<tr><td>Granular Permissions</td><td class="check hl"><span class="check">A permission gate on every tool call</span></td><td><span class="check">Confirmation dialog for tool calls</span></td></tr>
+<tr><td>Multi-Provider</td><td class="check hl"><span class="check">Local engines + OpenAI, Anthropic, OpenRouter and any OpenAI compatible address</span></td><td>Local models, plus models on your other machines through LM Link</td></tr>
 <tr><td>Model Load/Unload</td><td class="check hl"><span class="check">Yes (VRAM mgmt)</span></td><td><span class="check">Yes</span></td></tr>
 
 </tbody>
@@ -84,17 +84,14 @@
 
 <h2>Where Locally Uncensored Wins</h2>
 <ul>
-<li><strong>Open source (AGPL-3.0)</strong>: you can inspect, modify, and redistribute the code. LM Studio is closed source and could change licensing at any time.</li>
-<li><strong>Image and video generation</strong>: LM Studio is chat-only. Locally Uncensored generates images with models such as FLUX, Juggernaut XL and Qwen-Image 2.1 and video with Wan, HunyuanVideo and LTX, through a ComfyUI it installs for you on Windows and Linux. On a Mac, Create runs on the Mac itself.</li>
+<li><strong>Open source (AGPL-3.0)</strong>: you can inspect, modify, and redistribute the code. LM Studio is closed source.</li>
+<li><strong>Image and video generation</strong>: LM Studio lists no image or video generation. Locally Uncensored generates images with models such as FLUX, Juggernaut XL and Qwen-Image 2.1 and video with Wan, HunyuanVideo and LTX, through a ComfyUI it installs for you on Windows and Linux. On a Mac, Create runs on the Mac itself.</li>
 <li><strong>Answers directly, abliterated models available</strong>: pick a model with the refusal behaviour removed from the weights, or a mainstream one, in the same picker. Nothing sits between you and the model on your own machine.</li>
-<li><strong>25 personas</strong>: pre-built characters ready to go. LM Studio gives you a blank chat window.</li>
-<li><strong>Free forever</strong>: AGPL-3.0 licensed, will always be free. LM Studio's business model could change.</li>
-<li><strong>Coding agent</strong>: it builds a map of the repo, edits only the lines you asked for, shows the diff before it applies anything, and runs your tests. LM Studio has no coding agent.</li>
-<li><strong>Agent tools and MCP</strong>: web search and fetch, file operations, a shell, code execution, screenshots and image and video generation are built in, and your own MCP servers add more.</li>
-<li><strong>File upload with vision</strong>: chat takes any file, and a model with image input describes the pictures you drop in.</li>
-<li><strong>Thinking mode</strong>: the model's reasoning is shown as it happens, with an effort control on the models that offer one.</li>
-<li><strong>Permissions</strong>: every tool call passes a permission gate you control, and a read only run stays read only.</li>
-<li><strong>Multi-provider support</strong>: local engines next to OpenAI, Anthropic and other cloud providers with your own keys. LM Studio is local-only.</li>
+<li><strong>25 personas</strong>: pre-built characters ready to go. LM Studio has presets that save your own system prompts.</li>
+<li><strong>Free forever</strong>: AGPL-3.0 licensed, will always be free. LM Studio has a free plan for local models and paid plans for hosted ones.</li>
+<li><strong>Coding agent</strong>: it builds a map of the repo, edits only the lines you asked for, shows the diff before it applies anything, and runs your tests. LM Studio itself has none; its coding agent lives in Bionic, a separate app.</li>
+<li><strong>Agent tools and MCP</strong>: web search and fetch, file operations, a shell, code execution, screenshots and image and video generation are built in, and your own MCP servers add more. LM Studio connects MCP servers too.</li>
+<li><strong>Multi-provider support</strong>: local engines next to OpenAI, Anthropic and other cloud providers with your own keys. LM Studio runs local models and, through LM Link, models on your other machines.</li>
 <li><strong>Model load/unload</strong>: manage VRAM directly from the UI by loading and unloading models on demand. Loading a model in LM Studio can be cancelled from Locally Uncensored too.</li>
 </ul>
 <p>Version 3.0.6 also brings document chat with a local index, phone access over your LAN or a tunnel, side by side model compare and a local benchmark, and two beta features: Voice, a spoken conversation run on your own machine, and computer control, which is off until you switch it on.</p>
@@ -103,16 +100,18 @@
 <ul>
 <li><strong>Polish and UX</strong>: LM Studio is beautifully designed with a native feel. Model browsing and downloading is seamless, and its Hugging Face browser is broader for discovering unusual quantizations.</li>
 <li><strong>Longer track record on the Mac</strong>: LM Studio has run on macOS for a long time. Locally Uncensored has had a Mac build only since 3.0.6, for Apple Silicon and as a beta.</li>
-<li><strong>Performance</strong>: direct llama.cpp integration in one app, with no second layer between the interface and the engine.</li>
+<li><strong>Performance</strong>: llama.cpp and MLX runtimes built into the app, with no second layer between the interface and the engine.</li>
 <li><strong>Developer API</strong>: a mature OpenAI-compatible API server for integrating with other tools. Locally Uncensored has a Local API as well, which can also route to LM Studio's models.</li>
-<li><strong>Wider model format support</strong>: directly loads GGUF files without conversion.</li>
+<li><strong>Model formats</strong>: loads GGUF files directly, and MLX models on Apple Silicon.</li>
+<li><strong>Tool calls you can edit</strong>: LM Studio connects MCP servers and shows each tool call in a confirmation dialog, where you can change the arguments before it runs.</li>
 </ul>
 
 <div class="verdict">
 <h3>The Verdict</h3>
-<p><strong>Choose LM Studio</strong> if you want the most polished local chat experience with zero setup friction, and you only need text chat. It's the "just works" option.</p>
+<p><strong>Choose LM Studio</strong> if you want the most polished local chat experience with zero setup friction, and you do not need image or video generation. It's the "just works" option.</p>
 <p><strong>Choose Locally Uncensored</strong> if open source matters to you, if you want image and video generation alongside chat, or if you prefer uncensored models by default. Version 3.0.6 adds a coding agent, agent tools with MCP, vision, document chat, cloud providers next to local engines, and VRAM management. It does more, you own it, and it can keep using the LM Studio you already have.</p>
 </div>
+<p style="font-size:0.85em;color:#888">What this page says about LM Studio comes from its official website, documentation and release notes, and from the installed app, as of October 2026.</p>
 
 <div class="cta">
 <h2>Try Locally Uncensored</h2>
