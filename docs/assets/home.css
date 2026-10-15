@@ -212,6 +212,10 @@ html[data-device="phone"] .hp-get>.narrow>.dl-card--cloud{display:none}
     linear-gradient(var(--tk),var(--tk)) 100% 100%/13px 1.5px no-repeat,linear-gradient(var(--tk),var(--tk)) 100% 100%/1.5px 13px no-repeat}
 .mv-clip{position:absolute;inset:0;overflow:hidden;border-radius:14px;background:#0c0c0f;
   box-shadow:0 0 0 1px rgba(255,255,255,.10),0 30px 80px -30px rgba(0,0,0,.9),0 40px 120px -40px rgba(73,25,153,.55)}
+/* A still from the demo stands in the frame until the script has built the
+   stage, which then covers it. Only pictures the demo loads anyway. */
+.mv-clip{background-image:var(--mv-poster,none);background-size:cover;background-position:center}
+.mv-stage:empty{background:none}
 html[data-theme="light"] .mv-clip{box-shadow:0 0 0 1px rgba(0,0,0,.12),0 30px 70px -30px rgba(17,24,39,.45),0 40px 120px -40px rgba(73,25,153,.35)}
 
 .mv-ctl{display:flex;align-items:center;gap:12px;margin-top:12px}
