@@ -89,9 +89,26 @@ console.log('Cloud sales guard passed: model IDs/labels, Flash membership/limit 
 const pricingRaw = readFileSync(new URL('../docs/pricing/index.html', import.meta.url), 'utf8')
 const pricing = new JSDOM(pricingRaw).window.document
 const tiers = objects(source('apps/web/lib/pricing.ts'))
-const tierCredits = objects(source('apps/web/lib/billing/credits.ts'))
-  .find((row) => typeof row.hosted === 'number' && typeof row['hosted-max'] === 'number')
-assert.ok(tierCredits, 'TIER_CREDITS not found in credits.ts')
+// TIER_CREDITS beim Namen suchen: credits.ts traegt seit Oktober 2026 eine
+// zweite Tabelle mit denselben Plan-Schluesseln (TIER_TRAININGS), und die
+// Credits selbst stehen in tier-credits.ts. Die erste Tabelle mit "hosted"
+// waere die falsche.
+function namedObject(file, name) {
+  let found
+  function visit(node) {
+    if (ts.isVariableDeclaration(node) && node.name.getText(file) === name && node.initializer && ts.isObjectLiteralExpression(node.initializer)) {
+      found = objects(ts.createSourceFile('x.ts', node.initializer.getText(file), ts.ScriptTarget.Latest, true))[0]
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(file)
+  return found
+}
+const tierCredits = ['apps/web/lib/billing/tier-credits.ts', 'apps/web/lib/billing/credits.ts']
+  .filter((path) => existsSync(resolve(webRoot, path)))
+  .map((path) => namedObject(source(path), 'TIER_CREDITS'))
+  .find(Boolean)
+assert.ok(tierCredits, 'TIER_CREDITS not found in tier-credits.ts or credits.ts')
 
 // Seit dem Umbau der Seite auf Karten traegt die Karte selbst alle drei
 // Anker, und die Zahlen stehen in eigenen Elementen: der Preis als "€19" in
