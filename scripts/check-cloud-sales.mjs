@@ -329,7 +329,8 @@ console.log(`Pricing guard passed: ${tiers.filter((t) => typeof t.monthlyEUR ===
 // dem Katalog: cloud-models.ts liefert Id und Etikett, credits.ts den
 // Dollarsatz und den Credit-Kurs. Eine Tokenmenge je Geld steht nirgends.
 // Seit dem Web-Stand 3.0.6 ist ein Name mit Markenwort im Web-Repo einmal
-// geschrieben, als Vorlage um einen Platzhalter: `Wan 2.2 ${STATEMENT_MARK_LABEL}`.
+// geschrieben, als Vorlage um einen Platzhalter: `Wan 2.2 ${STATEMENT_MARK_LABEL}`,
+// seit Oktober 2026 `Wan 2.2 ${STATEMENT_NAME_WORD}`.
 // Die Zahlungsdomain fuellt ihn mit ihrem neutralen Wort, die Desktop-App und
 // diese Seiten mit dem Wort aus lib/render/desktop-names.ts (der Server gibt
 // es der App als native_label). Gelesen wird der Katalog hier deshalb in der
@@ -339,7 +340,7 @@ const desktopNamesPath = 'apps/web/lib/render/desktop-names.ts'
 const desktopWord = existsSync(resolve(webRoot, desktopNamesPath))
   ? /export const DESKTOP_MARK_LABEL = '([^']+)'/.exec(readWeb(desktopNamesPath))?.[1]
   : undefined
-const inDesktopNames = (text) => text.replace(/`([^`$]*)\$\{STATEMENT_MARK_LABEL\}([^`$]*)`/g, (whole, before, after) => {
+const inDesktopNames = (text) => text.replace(/`([^`$]*)\$\{(?:STATEMENT_MARK_LABEL|STATEMENT_NAME_WORD)\}([^`$]*)`/g, (whole, before, after) => {
   assert.ok(desktopWord, `${desktopNamesPath}: the catalogue names a model through the placeholder, but the desktop word is not readable`)
   return `'${before}${desktopWord}${after}'`
 })
@@ -356,7 +357,11 @@ assert.ok(classicAdultVideo.length > 0 && classicAdultVideo.every((row) => row.i
 // Werkzeuge, die einen vorhandenen Clip verlaengern.
 const studioPath = 'apps/web/lib/render/studio-models.json'
 const studioCatalogue = existsSync(resolve(webRoot, studioPath)) ? JSON.parse(readWeb(studioPath)) : {}
-const webWord = /export const STATEMENT_MARK_LABEL = '([^']+)'/.exec(readWeb('apps/web/lib/unfiltered-mark.ts'))?.[1]
+// Seit Oktober 2026 hat das Wort im Namen eine eigene Konstante
+// (STATEMENT_NAME_WORD), getrennt vom Wort der Marke; aeltere Web-Staende
+// kennen nur STATEMENT_MARK_LABEL.
+const markText = readWeb('apps/web/lib/unfiltered-mark.ts')
+const webWord = (/export const STATEMENT_NAME_WORD = '([^']+)'/.exec(markText) ?? /export const STATEMENT_MARK_LABEL = '([^']+)'/.exec(markText))?.[1]
 const studioLabel = (label) => (webWord && desktopWord ? label.replace(new RegExp(`\\b${webWord}\\b`, 'g'), desktopWord) : label)
 const studioOpen = (kind) => Object.entries(studioCatalogue)
   .filter(([id, row]) => row.adult === true && row.kind === kind && row.sourceModel === undefined && !/-extend$/.test(id))
