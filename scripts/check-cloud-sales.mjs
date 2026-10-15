@@ -97,7 +97,7 @@ function namedObject(file, name) {
   let found
   function visit(node) {
     if (ts.isVariableDeclaration(node) && node.name.getText(file) === name && node.initializer && ts.isObjectLiteralExpression(node.initializer)) {
-      found = objects(ts.createSourceFile('x.ts', node.initializer.getText(file), ts.ScriptTarget.Latest, true))[0]
+      found = objects(ts.createSourceFile('x.ts', `const x = ${node.initializer.getText(file)}`, ts.ScriptTarget.Latest, true))[0]
     }
     ts.forEachChild(node, visit)
   }
