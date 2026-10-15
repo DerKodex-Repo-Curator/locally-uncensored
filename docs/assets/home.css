@@ -145,6 +145,28 @@ html[data-os="linux"] .dl-os [data-dl-os="linux"]{color:var(--fg);background:rgb
 .dl-lu{width:32px;height:32px;border:0;background:none;border-radius:7px;overflow:hidden}
 .dl-lu svg{width:100%;height:100%;display:block}
 
+/* Phones and tablets (html[data-device="phone"], inline script in index.html):
+   LU Cloud in the browser comes first, the desktop download becomes a link
+   the visitor sends to a computer. Desktop and no-script visitors keep the
+   download card above unchanged. */
+.hx-phone{display:none}
+html[data-device="phone"] .hx-phone{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;max-width:494px;margin:0 auto}
+html[data-device="phone"] .hx-dl>.dl-pick,
+html[data-device="phone"] .hx-dl>.dl-card--cloud,
+html[data-device="phone"] .hp-get .dl-pick,
+html[data-device="phone"] .hp-get>.narrow>.dl-card--cloud{display:none}
+.hx-phone .dl-btn{width:100%;justify-content:center;font-size:1.02rem;font-weight:700;padding:16px 22px;gap:9px;border-radius:12px;
+  background:linear-gradient(180deg,#9d70fb,#7b4ae8);
+  box-shadow:0 12px 30px -8px rgba(139,92,246,.85),inset 0 1px 0 rgba(255,255,255,.28)}
+.hx-phone .dl-btn svg{width:17px;height:17px}
+.hx-phone-sub{font-size:.8rem;color:var(--fg-50);text-align:center;max-width:none;margin:0}
+.hx-phone-share{display:inline-flex;align-items:center;gap:9px;width:100%;padding:12px 14px;border-radius:11px;cursor:pointer;
+  font:600 .84rem/1.35 var(--sans);text-align:left;color:var(--fg);background:var(--panel);border:1px solid var(--line-strong)}
+.hx-phone-share svg{flex:none;color:var(--accent-soft)}
+.hx-phone-share:hover,.hx-phone-share:focus-visible{border-color:rgba(139,92,246,.7)}
+.hx-phone-done{font-size:.8rem;color:var(--accent-soft);text-align:center;max-width:none;margin:0;min-height:1em;overflow-wrap:anywhere}
+.hx-phone-done:empty{display:none}
+
 /* ═══════════════════════════════════════════════════════════════════════
    Hero reel
    ═══════════════════════════════════════════════════════════════════════ */
