@@ -89,9 +89,26 @@ console.log('Cloud sales guard passed: model IDs/labels, Flash membership/limit 
 const pricingRaw = readFileSync(new URL('../docs/pricing/index.html', import.meta.url), 'utf8')
 const pricing = new JSDOM(pricingRaw).window.document
 const tiers = objects(source('apps/web/lib/pricing.ts'))
-const tierCredits = objects(source('apps/web/lib/billing/credits.ts'))
-  .find((row) => typeof row.hosted === 'number' && typeof row['hosted-max'] === 'number')
-assert.ok(tierCredits, 'TIER_CREDITS not found in credits.ts')
+// TIER_CREDITS beim Namen suchen: credits.ts traegt seit Oktober 2026 eine
+// zweite Tabelle mit denselben Plan-Schluesseln (TIER_TRAININGS), und die
+// Credits selbst stehen in tier-credits.ts. Die erste Tabelle mit "hosted"
+// waere die falsche.
+function namedObject(file, name) {
+  let found
+  function visit(node) {
+    if (ts.isVariableDeclaration(node) && node.name.getText(file) === name && node.initializer && ts.isObjectLiteralExpression(node.initializer)) {
+      found = objects(ts.createSourceFile('x.ts', `const x = ${node.initializer.getText(file)}`, ts.ScriptTarget.Latest, true))[0]
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(file)
+  return found
+}
+const tierCredits = ['apps/web/lib/billing/tier-credits.ts', 'apps/web/lib/billing/credits.ts']
+  .filter((path) => existsSync(resolve(webRoot, path)))
+  .map((path) => namedObject(source(path), 'TIER_CREDITS'))
+  .find(Boolean)
+assert.ok(tierCredits, 'TIER_CREDITS not found in tier-credits.ts or credits.ts')
 
 // Seit dem Umbau der Seite auf Karten traegt die Karte selbst alle drei
 // Anker, und die Zahlen stehen in eigenen Elementen: der Preis als "€19" in
@@ -312,7 +329,8 @@ console.log(`Pricing guard passed: ${tiers.filter((t) => typeof t.monthlyEUR ===
 // dem Katalog: cloud-models.ts liefert Id und Etikett, credits.ts den
 // Dollarsatz und den Credit-Kurs. Eine Tokenmenge je Geld steht nirgends.
 // Seit dem Web-Stand 3.0.6 ist ein Name mit Markenwort im Web-Repo einmal
-// geschrieben, als Vorlage um einen Platzhalter: `Wan 2.2 ${STATEMENT_MARK_LABEL}`.
+// geschrieben, als Vorlage um einen Platzhalter: `Wan 2.2 ${STATEMENT_MARK_LABEL}`,
+// seit Oktober 2026 `Wan 2.2 ${STATEMENT_NAME_WORD}`.
 // Die Zahlungsdomain fuellt ihn mit ihrem neutralen Wort, die Desktop-App und
 // diese Seiten mit dem Wort aus lib/render/desktop-names.ts (der Server gibt
 // es der App als native_label). Gelesen wird der Katalog hier deshalb in der
@@ -322,7 +340,7 @@ const desktopNamesPath = 'apps/web/lib/render/desktop-names.ts'
 const desktopWord = existsSync(resolve(webRoot, desktopNamesPath))
   ? /export const DESKTOP_MARK_LABEL = '([^']+)'/.exec(readWeb(desktopNamesPath))?.[1]
   : undefined
-const inDesktopNames = (text) => text.replace(/`([^`$]*)\$\{STATEMENT_MARK_LABEL\}([^`$]*)`/g, (whole, before, after) => {
+const inDesktopNames = (text) => text.replace(/`([^`$]*)\$\{(?:STATEMENT_MARK_LABEL|STATEMENT_NAME_WORD)\}([^`$]*)`/g, (whole, before, after) => {
   assert.ok(desktopWord, `${desktopNamesPath}: the catalogue names a model through the placeholder, but the desktop word is not readable`)
   return `'${before}${desktopWord}${after}'`
 })
@@ -339,7 +357,11 @@ assert.ok(classicAdultVideo.length > 0 && classicAdultVideo.every((row) => row.i
 // Werkzeuge, die einen vorhandenen Clip verlaengern.
 const studioPath = 'apps/web/lib/render/studio-models.json'
 const studioCatalogue = existsSync(resolve(webRoot, studioPath)) ? JSON.parse(readWeb(studioPath)) : {}
-const webWord = /export const STATEMENT_MARK_LABEL = '([^']+)'/.exec(readWeb('apps/web/lib/unfiltered-mark.ts'))?.[1]
+// Seit Oktober 2026 hat das Wort im Namen eine eigene Konstante
+// (STATEMENT_NAME_WORD), getrennt vom Wort der Marke; aeltere Web-Staende
+// kennen nur STATEMENT_MARK_LABEL.
+const markText = readWeb('apps/web/lib/unfiltered-mark.ts')
+const webWord = (/export const STATEMENT_NAME_WORD = '([^']+)'/.exec(markText) ?? /export const STATEMENT_MARK_LABEL = '([^']+)'/.exec(markText))?.[1]
 const studioLabel = (label) => (webWord && desktopWord ? label.replace(new RegExp(`\\b${webWord}\\b`, 'g'), desktopWord) : label)
 const studioOpen = (kind) => Object.entries(studioCatalogue)
   .filter(([id, row]) => row.adult === true && row.kind === kind && row.sourceModel === undefined && !/-extend$/.test(id))
