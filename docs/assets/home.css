@@ -6,7 +6,7 @@
    everything under .mv-stage is their fixed-size canvas, scaled to fit.
    ═══════════════════════════════════════════════════════════════════════ */
 
-.hp{--rx-bar:var(--fg);--signal:#4ade80}
+.hp{--signal:#4ade80}
 .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
 /* Static glow instead of the four animated blur blobs: nothing repaints
@@ -70,20 +70,19 @@ html[data-theme="light"] .hx-grid{background:linear-gradient(to right,rgba(0,0,0
 .hx-br{display:none}
 @media(min-width:760px){.hx-br{display:inline}}
 
-/* Redaction reveal: the word starts under a censor bar that collapses into
-   the violet underscore. Two background layers: the bar and the underline. */
+/* The violet underscore under the accent words. The words are readable from
+   the first frame; the effect only draws the underscore in from the left.
+   Until 15.10.2026 the words started under a white censor bar, and a slow
+   phone showed a white block where the headline should be. */
 .hx-rx,.rx{-webkit-box-decoration-break:clone;box-decoration-break:clone}
-html.js .hx-rx{text-shadow:none;background-image:linear-gradient(var(--rx-bar),var(--rx-bar)),linear-gradient(var(--accent),var(--accent));
-  background-repeat:no-repeat;background-position:0 100%,0 100%;background-size:100% 0%,100% .075em;
-  animation:hx-unredact 1.05s cubic-bezier(.75,0,.2,1) .35s both}
-@keyframes hx-unredact{
-  0%{background-size:100% 100%,100% .075em;color:var(--rx-bar)}
-  45%{background-size:100% 100%,100% .075em;color:var(--rx-bar)}
-  100%{background-size:100% 0%,100% .075em;color:var(--accent-soft)}}
-html.hm .rx{background-image:linear-gradient(var(--rx-bar),var(--rx-bar)),linear-gradient(var(--accent),var(--accent));
-  background-repeat:no-repeat;background-position:0 100%,0 100%;background-size:100% 100%,100% .07em;color:var(--rx-bar);
-  transition:background-size .8s cubic-bezier(.75,0,.2,1) .2s,color .35s ease .55s}
-html.hm .rx.in{background-size:100% 0%,100% .07em;color:var(--accent-soft)}
+html.js .hx-rx{text-shadow:none;color:var(--accent-soft);background-image:linear-gradient(var(--accent),var(--accent));
+  background-repeat:no-repeat;background-position:0 100%;background-size:100% .075em;
+  animation:hx-underline .9s cubic-bezier(.65,0,.35,1) .2s both}
+@keyframes hx-underline{0%{background-size:0% .075em}100%{background-size:100% .075em}}
+html.hm .rx{color:var(--accent-soft);background-image:linear-gradient(var(--accent),var(--accent));
+  background-repeat:no-repeat;background-position:0 100%;background-size:0% .07em;
+  transition:background-size .8s cubic-bezier(.65,0,.35,1) .1s}
+html.hm .rx.in{background-size:100% .07em}
 
 .hx-kicker{margin-top:20px}
 .hx-lede{margin:16px auto 0;max-width:60ch;text-align:center}
@@ -145,6 +144,28 @@ html[data-os="linux"] .dl-os [data-dl-os="linux"]{color:var(--fg);background:rgb
 .dl-lu{width:32px;height:32px;border:0;background:none;border-radius:7px;overflow:hidden}
 .dl-lu svg{width:100%;height:100%;display:block}
 
+/* Phones and tablets (html[data-device="phone"], inline script in index.html):
+   LU Cloud in the browser comes first, the desktop download becomes a link
+   the visitor sends to a computer. Desktop and no-script visitors keep the
+   download card above unchanged. */
+.hx-phone{display:none}
+html[data-device="phone"] .hx-phone{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;max-width:494px;margin:0 auto}
+html[data-device="phone"] .hx-dl>.dl-pick,
+html[data-device="phone"] .hx-dl>.dl-card--cloud,
+html[data-device="phone"] .hp-get .dl-pick,
+html[data-device="phone"] .hp-get>.narrow>.dl-card--cloud{display:none}
+.hx-phone .dl-btn{width:100%;justify-content:center;font-size:1.02rem;font-weight:700;padding:16px 22px;gap:9px;border-radius:12px;
+  background:linear-gradient(180deg,#9d70fb,#7b4ae8);
+  box-shadow:0 12px 30px -8px rgba(139,92,246,.85),inset 0 1px 0 rgba(255,255,255,.28)}
+.hx-phone .dl-btn svg{width:17px;height:17px}
+.hx-phone-sub{font-size:.8rem;color:var(--fg-50);text-align:center;max-width:none;margin:0}
+.hx-phone-share{display:inline-flex;align-items:center;gap:9px;width:100%;padding:12px 14px;border-radius:11px;cursor:pointer;
+  font:600 .84rem/1.35 var(--sans);text-align:left;color:var(--fg);background:var(--panel);border:1px solid var(--line-strong)}
+.hx-phone-share svg{flex:none;color:var(--accent-soft)}
+.hx-phone-share:hover,.hx-phone-share:focus-visible{border-color:rgba(139,92,246,.7)}
+.hx-phone-done{font-size:.8rem;color:var(--accent-soft);text-align:center;max-width:none;margin:0;min-height:1em;overflow-wrap:anywhere}
+.hx-phone-done:empty{display:none}
+
 /* ═══════════════════════════════════════════════════════════════════════
    Hero reel
    ═══════════════════════════════════════════════════════════════════════ */
@@ -191,6 +212,10 @@ html[data-os="linux"] .dl-os [data-dl-os="linux"]{color:var(--fg);background:rgb
     linear-gradient(var(--tk),var(--tk)) 100% 100%/13px 1.5px no-repeat,linear-gradient(var(--tk),var(--tk)) 100% 100%/1.5px 13px no-repeat}
 .mv-clip{position:absolute;inset:0;overflow:hidden;border-radius:14px;background:#0c0c0f;
   box-shadow:0 0 0 1px rgba(255,255,255,.10),0 30px 80px -30px rgba(0,0,0,.9),0 40px 120px -40px rgba(73,25,153,.55)}
+/* A still from the demo stands in the frame until the script has built the
+   stage, which then covers it. Only pictures the demo loads anyway. */
+.mv-clip{background-image:var(--mv-poster,none);background-size:cover;background-position:center}
+.mv-stage:empty{background:none}
 html[data-theme="light"] .mv-clip{box-shadow:0 0 0 1px rgba(0,0,0,.12),0 30px 70px -30px rgba(17,24,39,.45),0 40px 120px -40px rgba(73,25,153,.35)}
 
 .mv-ctl{display:flex;align-items:center;gap:12px;margin-top:12px}
@@ -260,6 +285,16 @@ html[data-theme="light"] .mv-clip{box-shadow:0 0 0 1px rgba(0,0,0,.12),0 30px 70
 .cl-stat>span{font-size:.86rem;line-height:1.45;color:var(--fg-50)}
 .cl-stat em{font-style:normal;font-weight:700;color:var(--fg)}
 .cl-foot{font-size:.78rem;line-height:1.55;color:var(--fg-30);padding:4px 2px 0}
+/* why the cloud next to a GPU you already own */
+.hp-why{max-width:900px;margin:36px auto 0;text-align:center}
+.hp-why-lead{font-size:clamp(.98rem,1.4vw,1.1rem);line-height:1.6;color:var(--fg-50);max-width:68ch;margin:0 auto}
+.hp-why-lead b{color:var(--fg);font-weight:600}
+.hp-why-lead [data-model-id]{color:var(--fg);font-weight:600;white-space:nowrap}
+.hp-why-row{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:22px 0 0;padding:0;text-align:left}
+.hp-why-row li{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--line-subtle)}
+.hp-why-row b{font-family:var(--display);font-size:1.02rem;font-weight:600;color:var(--fg)}
+.hp-why-row span{font-size:.84rem;line-height:1.45;color:var(--fg-50)}
+@media(max-width:680px){.hp-why-row{grid-template-columns:1fr}}
 
 /* setup */
 .how-split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);align-items:center;margin:56px 0 30px;text-align:left}
@@ -304,11 +339,16 @@ html.hm .hp-get.in .get-mark-p+.get-mark-p{transition-delay:.53s}
 .get-sub{font-size:clamp(1rem,1.5vw,1.2rem);color:var(--fg-50);margin-bottom:36px}
 .hp-get .dl-card{margin:0 auto}
 
-/* LU-CLOUD-FACTS block (generated, kept byte for byte) reads as fine print */
-.hp footer~section{padding:34px clamp(24px,5vw,72px) 48px;background:var(--bg-2);font-size:.78rem;line-height:1.6;color:var(--fg-30)}
-.hp footer~section h2{font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-50);margin-bottom:10px}
-.hp footer~section p{max-width:110ch;margin-bottom:8px}
-.hp footer~section a{color:var(--accent-soft)}
+/* LU-CLOUD-FACTS block (generated, kept byte for byte) reads as the fine
+   print of the cloud block it sits in. A generator that appends it before
+   </body> again lands it after the footer, where .hp footer~section still
+   keeps it readable. */
+.hp-facts{max-width:900px;margin:34px auto 0;padding:20px 22px 12px;border-radius:12px;border:1px solid var(--line-subtle);background:var(--panel);text-align:left}
+.hp footer~section{padding:34px clamp(24px,5vw,72px) 48px;background:var(--bg-2)}
+.hp-facts section,.hp footer~section{font-size:.78rem;line-height:1.6;color:var(--fg-30)}
+.hp-facts section h2,.hp footer~section h2{font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-50);margin:0 0 10px;max-width:none}
+.hp-facts section p,.hp footer~section p{max-width:110ch;margin-bottom:8px}
+.hp-facts section a,.hp footer~section a{color:var(--accent-soft)}
 
 
 /* ═══════════════════════════════════════════════════════════════════════
